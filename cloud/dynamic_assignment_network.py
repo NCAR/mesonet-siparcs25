@@ -102,7 +102,7 @@ def make_request_with_token_refresh(url, headers, method='GET', json_data=None, 
         return None
 def get_dashboard_by_name(dashboard_name, token):
     """Retrieves a dashboard by its name."""
-    url = f"{config['thingsboard']['api_url']}/api/tenant/dashboards?page=0&pageSize=1&textSearch={dashboard_name}&sortProperty=name&sortOrder=asc"
+    url = f"{config['thingsboard']['api_url']}/api/tenant/dashboards?page=0&pageSize=1&textSearch={dashboard_name}"
     headers = {'X-Authorization': f'Bearer {token}'}
     response = make_request_with_token_refresh(url, headers, method='GET')
     if response:
@@ -131,18 +131,7 @@ def create_dashboard_if_not_exists(token):
         "title": dashboard_name,
         "configuration": {
             "description": f"Dashboard for {dashboard_name}",
-            "widgets": {},
-            "states": {},
-            "entityAliases": {},
-            "timewindow": {
-                "displayValue": "",
-                "selectedTab": 0,
-                "realtime": {
-                    "realtimeType": 1,
-                    "interval": 10000,  # Update every 10 seconds instead of 1 second
-                    "timewindowMs": 300000  # 5-minute window to show recent data
-                }
-            }
+            
         }
     }
     
@@ -172,15 +161,14 @@ def get_device_by_name(device_name, token):
     return None
 
 def create_device_if_not_exists(station_id, device_type=None):
-    """Creates a device in ThingsBoard if it doesn't already exist."""
-    device_name = station_id  # Using station_id as device name in ThingsBoard
+    """Creates a device in ThingsBoard if it doesn't already exist and returns its access token."""
+    device_name = station_id
     token = get_jwt_token()
     if not token:
         print("[error]: No JWT token available to create device.")
         return None
 
     existing_device = get_device_by_name(device_name, token)
-
     if existing_device:
         return existing_device['id']['id']
 
@@ -196,53 +184,120 @@ def create_device_if_not_exists(station_id, device_type=None):
         'Content-Type': 'application/json'
     }
     create_device_url = f"{config['thingsboard']['api_url']}/api/device"
-    response = make_request_with_token_refresh(create_device_url, headers)
+    
+    response = make_request_with_token_refresh(
+        create_device_url, 
+        headers, 
+        method='POST', 
+        json_data=device_data
+    )
+    
     if response:
         new_device = response.json()
-        print(f"[info]: Successfully created device '{device_name}' with ID: {new_device['id']['id']}")
-        return new_device['id']['id']
+        device_id = new_device['id']['id']
+        print(f"[info]: Successfully created device '{device_name}' with ID: {device_id}")
+        
+        # Generate and set access token for the device
+        credentials_url = f"{config['thingsboard']['api_url']}/api/device/{device_id}/credentials"
+        credentials_data = {
+            "credentialsType": "ACCESS_TOKEN",
+            "credentialsId": f"station_{station_id}_token"  # Or generate a random one
+        }
+        
+        credentials_response = make_request_with_token_refresh(
+            credentials_url,
+            headers,
+            method='POST',
+            json_data=credentials_data
+        )
+        
+        if credentials_response:
+            print(f"[info]: Successfully set access token for device '{device_name}'")
+            return device_id
+    
     return None
 
 def set_telemetry(station_id, telemetry_data, token):
-    """Set telemetry for a device."""
+    """Set telemetry for a device using the device's access token."""
+    # Get the device's access token (different from the JWT token)
     headers = {'X-Authorization': f'Bearer {token}'}
     existing_device = get_device_by_name(station_id, token)
-
-    if existing_device:
-        device_id = existing_device['id']['id']    
-        telemetry_url = f'{config["thingsboard"]["api_url"]}/api/plugins/telemetry/DEVICE/{device_id}/SHARED_SCOPE'
+    
+    if not existing_device:
+        print(f"[error]: Device not found for Station_{station_id}. Telemetry not sent.")
+        return False
+    
+    # Get the device's credentials to find its access token
+    device_id = existing_device['id']['id']
+    credentials_url = f"{config['thingsboard']['api_url']}/api/device/{device_id}/credentials"
+    credentials_response = make_request_with_token_refresh(credentials_url, headers, method='GET')
+    
+    if not credentials_response:
+        print(f"[error]: Failed to get credentials for device {station_id}")
+        return False
+    
+    device_credentials = credentials_response.json()
+    access_token = device_credentials.get('credentialsId')  # This is the device's access token
+    
+    if not access_token:
+        print(f"[error]: No access token found for device {station_id}")
+        return False
+    
+    # Now send telemetry using the device's access token
+    telemetry_url = f"{config['thingsboard']['api_url']}/api/v1/{access_token}/telemetry"
+    
+    try:
+        # Structure telemetry data properly
+        payload = {
+            "ts": int(time.time() * 1000),  # Current timestamp in milliseconds
+            "values": telemetry_data
+        }
+        
         response = requests.post(
             telemetry_url,
-            headers=headers,
-            json=telemetry_data
+            headers={'Content-Type': 'application/json'},
+            data=json.dumps(payload)
         )
         
         if response.status_code == 200:
-            print(f"[info]: Successfully set telemetry for Station_{station_id}: {telemetry_data}")
+            print(f"[info]: Successfully sent telemetry for Station_{station_id}")
+            return True
         else:
-            print(f"[error]: Failed to set telemetry for Station_{station_id}: {response.text}")
-    else:
-        print(f"[error]: Device not found for Station_{station_id}. Telemetry not sent.")
-
+            print(f"[error]: Failed to send telemetry for Station_{station_id}: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        print(f"[error]: Exception while sending telemetry for Station_{station_id}: {str(e)}")
+        return False
 # Function to send station data to ThingsBoard (update telemetry)
 def send_station_data_to_thingsboard(station_id):
     """Send the station's latitude, longitude, and measurements to ThingsBoard as telemetry."""
     station = stations.get(station_id)
-    if station:
-        telemetry_data = {
-            "latitude": station["latitude"],
-            "longitude": station["longitude"],
-            "gps_fixed": station["gps_fixed"],
-            "measurements": station["measurements"]
-        }
-
-        token = get_jwt_token()
-        if token:
-            set_telemetry(station_id, telemetry_data, token)
-        else:
-            print(f"[error]: Unable to get a valid token to set telemetry for Station_{station_id}.")
-    else:
+    if not station:
         print(f"[warn]: Station {station_id} not found for telemetry.")
+        return
+    
+    # Prepare telemetry data
+    telemetry_data = {
+        "latitude": station["latitude"],
+        "longitude": station["longitude"],
+        "gps_fixed": station["gps_fixed"]
+    }
+    
+    # Add measurements as individual telemetry values
+    for measurement_name, measurement_value in station["measurements"].items():
+        telemetry_data[measurement_name] = measurement_value
+    
+    token = get_jwt_token()
+    if not token:
+        print(f"[error]: Unable to get a valid token to set telemetry for Station_{station_id}.")
+        return
+
+    # Send the telemetry - THIS WAS MISSING IN YOUR CODE
+    success = set_telemetry(station_id, telemetry_data, token)
+    if success:
+        print(f"[info]: Telemetry successfully sent for station {station_id}")
+    else:
+        print(f"[error]: Failed to send telemetry for station {station_id}")
 
 # MQTT client setup
 def on_connect(client, userdata, flags, rc):
@@ -309,167 +364,127 @@ def start_mqtt_client():
     print("[info]: MQTT Client started")
 def add_dynamic_map_widget(dashboard_id, token):
     """
-    Adds or updates a dynamic map widget to a ThingsBoard dashboard.
-    This map will display all devices of a specific type (e.g., 'GPS_Station').
+    Adds or updates a dynamic map widget to display devices with GPS coordinates.
+    Returns the updated dashboard if successful, None otherwise.
     """
     headers = {
         "X-Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
 
-    # 1. Get the current dashboard details to obtain its layout
-    get_dashboard_url = f"{config['thingsboard']['api_url']}/api/dashboard/{dashboard_id}"
+    # 1. Fetch existing dashboard
     try:
-        response = requests.get(get_dashboard_url, headers=headers)
+        response = requests.get(
+            f"{config['thingsboard']['api_url']}/api/dashboard/{dashboard_id}", 
+            headers=headers
+        )
         response.raise_for_status()
         dashboard = response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[error]: Error getting dashboard details for ID {dashboard_id} during widget setup: {e}")
-        return None  # Return None if dashboard fetch fails
+        dashboard_config = dashboard.setdefault("configuration", {})
+    except Exception as e:
+        print(f"[error] Failed to get dashboard: {str(e)}")
+        return None
 
-    dashboard_configuration = dashboard.get("configuration")  # Get configuration, it might be None if not set
-    if dashboard_configuration is None:
-        print(f"[warn]: Dashboard {dashboard_id} has no 'configuration' block. Initializing an empty one.")
-        dashboard_configuration = {}
-        dashboard["configuration"] = dashboard_configuration  # Ensure it's added back to the dashboard object
-
-    layouts = dashboard_configuration.get("layouts", {})
-    if not layouts:
-        print("[info]: No existing layouts found, initializing 'main' layout.")
-        layouts = {
-            "main": {
-                "widgets": {},
-                "gridLayout": {
-                    "columns": 24,  # Default ThingsBoard grid columns
-                    "margin": 10,
-                    "outerMargin": True
-                },
-                "rows": 0  # Will be dynamically adjusted
-            }
+    # 2. Initialize required dashboard structures
+    dashboard_config.setdefault("widgets", {})
+    dashboard_config.setdefault("entityAliases", {})
+    dashboard_config.setdefault("timewindow", {
+        "displayValue": "",
+        "selectedTab": 0,
+        "realtime": {
+            "realtimeType": 1,
+            "interval": 10000,
+            "timewindowMs": 300000
         }
-        dashboard_configuration["layouts"] = layouts
+    })
 
-    map_widget_id = str(uuid.uuid4())  # Generate a unique widget ID
-    map_widget_name = "Dynamic GPS Stations Map"
-
-    # 2. Find if a widget with the same name already exists
-    existing_map_widget_id = None
-    widgets_in_config = dashboard_configuration.get("widgets", {})
-    for widget_uid, widget_conf in widgets_in_config.items():
-        if widget_conf.get("name") == map_widget_name:
-            existing_map_widget_id = widget_uid
-            map_widget_id = existing_map_widget_id  # Use the existing widget ID
-            print(f"[info]: Found existing map widget '{map_widget_name}' with ID: {existing_map_widget_id}. Updating it.")
-            break
-
-    # 3. Define the Entity Alias for the Group of Devices
-    group_alias_id = str(uuid.uuid4())  # Unique ID for the alias
-    group_alias_name = "All GPS Stations"  # Name visible in ThingsBoard UI
-
-    entity_aliases = dashboard_configuration.get("entityAliases", {})
-    for alias_uid, alias_conf in entity_aliases.items():
-        if alias_conf.get("alias") == group_alias_name and \
-           alias_conf.get("filter", {}).get("type") == "deviceType" and \
-           alias_conf.get("filter", {}).get("deviceType") == config['thingsboard']['default_device_type']:
-            group_alias_id = alias_uid
-            print(f"[info]: Found existing entity alias '{group_alias_name}' with ID: {group_alias_id}. Reusing.")
-            break
-    else:
-        print(f"[info]: Creating new entity alias '{group_alias_name}' with ID: {group_alias_id}.")
-
-    entity_aliases[group_alias_id] = {
-        "id": group_alias_id,
-        "alias": group_alias_name,
-        "type": "entityType",
-        "filter": {
-            "type": "entityType",
-            "resolveMultiple": True,  # Crucial for dynamic groups
-            "entityType": "DEVICE",
-            "deviceType": config['thingsboard']['default_device_type']
-        }
-    }
-    dashboard_configuration["entityAliases"] = entity_aliases
-
-    # 4. Define the map widget configuration
-    map_widget_config = {
-        "name": map_widget_name,
-        "sizeX": 8,  # Width
-        "sizeY": 6,  # Height
-        "row": 0,    # Position
-        "col": 0,
-        "config": {
-            "title": "Active GPS Stations",
-            "showTitle": True,
-            "backgroundColor": "#fff",
-            "color": "rgba(0, 0, 0, 0.87)",
-            "padding": "8px",
-            "autoscale": True,
-            "showLegend": False,
-            "mapProvider": "OPENSTREETMAP",
-            "mapUrl": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            "mapZoom": 8,
-            "defaultZoomLevel": 8,
-            "mapCenterLatitude": 39.7392,  # Example: Denver, CO latitude
-            "mapCenterLongitude": -104.9903,  # Example: Denver, CO longitude
-            "showAttribution": True,
-            "showPoints": True,
-            "pointColor": "#2196f3",
-            "pointShape": "marker",
-            "pointIcon": "mdi-map-marker",
-            "pointIconSize": 24,
-            "showLabel": True,
-            "labelColor": "rgba(0,0,0,.87)"
-        },
-        "type": "latest",  # For latest telemetry
-        "bundleAlias": "maps",
-        "widgetTypeAlias": "openStreetMap",
-        "rpcAlias": False,
-        "useDashboardTimewindow": True,
-        "showTitle": True,
-        "dropShadow": True,
-        "borderRadius": "8px"
-    }
-
-    if "widgets" not in dashboard_configuration:
-        dashboard_configuration["widgets"] = {}
-    dashboard_configuration["widgets"][map_widget_id] = map_widget_config
-
-    # 5. Update the dashboard layout to include the new widget (or update existing)
-    # Ensure the 'main' layout exists or initialize it
-    if "main" not in layouts:
-        layouts["main"] = {
+    # 3. Configure main layout if missing
+    layouts = dashboard_config.setdefault("layouts", {
+        "main": {
             "widgets": {},
             "gridLayout": {
-                "columns": 24,  # Default ThingsBoard grid columns
+                "columns": 24,
                 "margin": 10,
                 "outerMargin": True
             },
             "rows": 0
         }
+    })
 
-    # Ensure widgets dictionary within the specific layout exists
-    if "widgets" not in layouts["main"]:
-        layouts["main"]["widgets"] = {}
-
-    layouts["main"]["widgets"][map_widget_id] = {
-        "sizeX": map_widget_config["sizeX"],
-        "sizeY": map_widget_config["sizeY"],
-        "row": map_widget_config["row"],
-        "col": map_widget_config["col"]
-    }
-    dashboard_configuration["layouts"] = layouts  # Assign updated layouts back
-
-    # 6. Update the dashboard on ThingsBoard
-    update_dashboard_url = f"{config['thingsboard']['api_url']}/api/dashboard"
-    try:
-        response = requests.post(update_dashboard_url, headers=headers, data=json.dumps(dashboard))
-        response.raise_for_status()
-        print(f"[info]: Map widget '{map_widget_config['name']}' {'updated' if existing_map_widget_id else 'added'} successfully to dashboard {dashboard_id}!")
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[error]: Error updating dashboard {dashboard_id}: {e}")
-        return None
+    # 4. Find or create device group alias
+    alias_name = "GPS_Device_Group"
+    device_type = config['thingsboard']['default_device_type']
     
+    # Check for existing alias
+    alias_id = next(
+        (alias_id for alias_id, alias in dashboard_config["entityAliases"].items()
+         if alias.get("alias") == alias_name and
+         alias.get("filter", {}).get("deviceType") == device_type),
+        None
+    )
+
+    # Create new alias if needed
+    if not alias_id:
+        alias_id = str(uuid.uuid4())
+        dashboard_config["entityAliases"][alias_id] = {
+            "id": alias_id,
+            "alias": alias_name,
+            "filter": {
+                "type": "deviceType",
+                "deviceType": device_type,
+                "resolveMultiple": True
+            }
+        }
+
+    # 5. Configure map widget
+    widget_id = str(uuid.uuid4())
+    widget_config = {
+        "type": "latest",
+        "sizeX": 12,
+        "sizeY": 8,
+        "row": 0,
+        "col": 0,
+        "config": {
+            "title": "GPS Stations",
+            "showTitle": True,
+            "entityAliasId": alias_id,
+            "latitudeKeyName": "latitude",
+            "longitudeKeyName": "longitude",
+            "showLabel": True,
+            "labelKeyName": "name",
+            "mapProvider": "OPENSTREETMAP",
+            "defaultZoomLevel": 8,
+            "pointColor": "#2196f3",
+            "showPoints": True,
+            "showTooltip": True,
+            "tooltipPattern": "Station ${entityName}\nLat: ${latitude}\nLon: ${longitude}"
+        },
+        "bundleAlias": "maps",
+        "widgetTypeAlias": "openStreetMap"
+    }
+
+    # 6. Update dashboard configuration
+    dashboard_config["widgets"][widget_id] = widget_config
+    layouts["main"]["widgets"][widget_id] = {
+        "sizeX": widget_config["sizeX"],
+        "sizeY": widget_config["sizeY"],
+        "row": widget_config["row"],
+        "col": widget_config["col"]
+    }
+
+    # 7. Save updated dashboard
+    try:
+        response = requests.post(
+            f"{config['thingsboard']['api_url']}/api/dashboard",
+            headers=headers,
+            json=dashboard
+        )
+        response.raise_for_status()
+        print("[success] Dashboard updated with map widget")
+        return response.json()
+    except Exception as e:
+        print(f"[error] Failed to update dashboard: {str(e)}")
+        return None
 # Main function to orchestrate everything
 def main():
     print("[info]: Starting ThingsBoard MQTT Gateway...")
