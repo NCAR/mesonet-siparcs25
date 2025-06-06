@@ -1,0 +1,120 @@
+services:
+  postgres:
+    restart: always
+    image: "postgres:16"
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    profiles: ["default"]
+  thingsboard-ce:
+    restart: "no"
+    image: "thingsboard/tb-node:4.0.1.1"
+    container_name: thingsboard-ce
+    hostname: thingsboard-ce
+    ports:
+      - "8080:8080"
+      - "7070"
+      - "1883"
+      - "5683-5688:5683-5688/udp"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    environment:
+      TB_SERVICE_ID: ${TB_SERVICE_ID}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+    depends_on:
+      - postgres
+    profiles: ["default"]
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    hostname: pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "8888:80"
+    expose:
+      - 8888
+    restart: always
+    depends_on:
+      - postgres
+    profiles: ["default"]
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    hostname: metabase
+    restart: always
+    volumes:
+      - /dev/urandom:/dev/random:ro
+    ports:
+      - 3000:3000
+    environment:
+      MB_DB_TYPE: ${MB_DB_TYPE}
+      MB_DB_DBNAME: ${MB_DB_DBNAME}
+      MB_DB_PORT: ${MB_DB_PORT}
+      MB_DB_USER: ${MB_DB_USER}
+      MB_DB_PASS: ${MB_DB_PASS}
+      MB_DB_HOST: ${MB_DB_HOST}
+    profiles: ["default"]
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+  orchestrate_db:
+    build:
+      context: ./services/database
+    restart: "no"
+    container_name: orch_db
+    hostname: orchestrate_db
+    depends_on:
+      - postgres
+    environment:
+      DB_USER: ${ORCH_DB_USER}
+      DB_PASS: ${ORCH_DB_PASS}
+      DB_NAME: ${ORCH_DB_NAME}
+      DB_HOST: ${ORCH_DB_HOST}
+    profiles: ["default"]
+    volumes:
+      - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
+
+  orchestrate_metabase:
+    build:
+      context: ./services/metabase
+    restart: "no"
+    container_name: orch_mb
+    hostname:  orchestrate_metabase
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_started
+      metabase:
+        condition: service_healthy
+    environment:
+      DB_USER: ${ORCH_DB_USER}
+      DB_PASS: ${ORCH_DB_PASS}
+      DB_NAME: ${ORCH_DB_NAME}
+      DB_HOST: ${ORCH_DB_HOST}
+    profiles: ["default"]
+    volumes:
+      - ./configs/metabase.yaml:/app/configs/metabase.yaml
+ 
+volumes:
+  postgres-data:
+    name: tb-ce-postgres-data
+    driver: local
+
+networks:
+  default:
+    name: mesonet_default

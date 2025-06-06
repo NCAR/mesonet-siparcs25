@@ -1,0 +1,4 @@
+.venv
+.env
+app/configs/mqtt.yaml
+app/configs/metabase.yaml
