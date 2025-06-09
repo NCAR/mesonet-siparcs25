@@ -1,9 +1,23 @@
-FROM python:3.9-slim
+FROM python:3.9
+
 WORKDIR /app
+
+# Copy requirements.txt and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy main application and config
 COPY dynamic_assignment_network.py .
-COPY config.yml /app/config.yml
-EXPOSE 1883
-ENV CONFIG_PATH=/app/config/config.yml
-CMD ["python", "dynamic_assignment_network.py"]
+COPY config.yml .
+
+# Create templates/ directory
+RUN mkdir -p /app/templates
+
+# Create a placeholder map.html in templates/
+RUN echo '<!DOCTYPE html><html><head><title>Dynamic Assignment Network</title><style>@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } } .tb-loading-spinner { display: flex; justify-content: center; align-items: center; } .tb-bounce1, .tb-bounce2, .tb-bounce3 { width: 16px; height: 16px; background-color: #333; border-radius: 100%; display: inline-block; animation: bounce 1.4s infinite ease-in-out both; } .tb-bounce1 { animation-delay: -0.32s; } .tb-bounce2 { animation-delay: -0.16s; }</style></head><body><div id="tb-loading-spinner" class="tb-loading-spinner"><div class="tb-bounce1"></div><div class="tb-bounce2"></div><div class="tb-bounce3"></div></div></body></html>' > /app/templates/map.html
+
+# Copy templates/ from the build context if it exists
+COPY templates /app/templates/ 
+
+# Run Gunicorn with Eventlet in the foreground
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:5000", "dynamic_assignment_network:app"]

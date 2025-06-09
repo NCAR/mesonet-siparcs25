@@ -1,66 +1,11 @@
-
+version: '3.8'
 services:
-  thingsboard:
-    image: thingsboard/tb-postgres:3.8.0
-    ports:
-      - "8080:9090"
-      - "1883:1883"
-    environment:
-      - TB_GW_HOST=thingsboard
-      - TB_GW_PORT=1883
-      - TB_POSTGRES_ENABLED=true
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=none  # Rely on install.sh
-      - SECURITY_OAUTH2_ENABLED=false
-      - DATABASE_TYPE=sql
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=thingsboard
-    volumes:
-      - ./data/tb:/data
-      - ./logs/tb:/var/log/thingsboard
-    
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: '4G'
-    networks:
-      - iot_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://10.219.130.204:8080/api/v1/status"]
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      timeout: 10s
-  mosquitto:
-    restart: always
-    image: eclipse-mosquitto
-    ports:
-      - "1884:1883"
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-    networks:
-      - iot_network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "10.219.130.204", "1884"]
-      interval: 10s
-      retries: 5
-      start_period: 20s
-      timeout: 5s
   dynamic_assignment_network:
     build: .
+    ports:
+      - "5000:5000"
     volumes:
-      - ./config.yml:/app/config/config.yml
+      - ./config.yml:/app/config.yml
     environment:
-      - CONFIG_PATH=/app/config/config.yml
-    depends_on:
-      mosquitto:
-        condition: service_healthy  # Wait for MQTT broker to be healthy
-      thingsboard:
-        condition: service_healthy  # Wait for ThingsBoard to be healthy
-    networks:
-      - iot_network
-networks:
-  iot_network:
-    driver: bridge
+      - CONFIG_FILE_PATH=/app/config.yml
+      - FLASK_ENV=production
