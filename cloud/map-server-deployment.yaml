@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.36.0 (HEAD)
+  labels:
+    io.kompose.service: map-server
+  name: map-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: map-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.36.0 (HEAD)
+      labels:
+        io.kompose.service: map-server
+    spec:
+      containers:
+        - env:
+            - name: APP_MODULE
+              value: map_app:app
+            - name: APP_PORT
+              value: "5001"
+            - name: GUNICORN_TIMEOUT
+              value: "30"
+            - name: GUNICORN_WORKERS
+              value: "5"
+            - name: GUNICORN_WORKER_CLASS
+              value: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+          image: map-server
+          name: map-server
+          ports:
+            - containerPort: 5001
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /app
+              name: map-server-cm0
+      restartPolicy: Always
+      volumes:
+        - configMap:
+            name: map-server-cm0
+          name: map-server-cm0

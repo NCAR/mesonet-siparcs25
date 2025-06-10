@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.36.0 (HEAD)
+  labels:
+    io.kompose.service: dynamic-assignment-network
+  name: dynamic-assignment-network
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: dynamic-assignment-network
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.36.0 (HEAD)
+      labels:
+        io.kompose.service: dynamic-assignment-network
+    spec:
+      containers:
+        - env:
+            - name: APP_MODULE
+              value: app:app
+            - name: APP_PORT
+              value: "5000"
+            - name: GUNICORN_TIMEOUT
+              value: "12000"
+            - name: GUNICORN_WORKERS
+              value: "2"
+            - name: GUNICORN_WORKER_CLASS
+              value: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+          image: dynamic-assignment-network
+          name: dynamic-assignment-network
+          ports:
+            - containerPort: 5000
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /app
+              name: dynamic-assignment-network-cm0
+      restartPolicy: Always
+      volumes:
+        - configMap:
+            name: dynamic-assignment-network-cm0
+          name: dynamic-assignment-network-cm0
