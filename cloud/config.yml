@@ -1,8 +1,16 @@
 mqtt:
-  broker_ip: iotwx.ucar.edu
+  broker_ip: "iotwx.ucar.edu"
   broker_port: 1883
-  msg_topic: "lora_messages"
+  msg_topic: sensors/#
   assignment_timeout: 60
 web:
-  host: "10.219.130.204"
+  host:  10.2.2.153
   port: 5000
+map_web:
+  host:  10.2.2.153
+  port: 5001
+assignment:
+  hysteresis: 0.1
+  rssi_min: -120
+  rssi_max: -30
+  rebalance_interval: 600  # Reduced load

@@ -48,7 +48,6 @@ app.config['SECRET_KEY'] = os.urandom(24)
 allowed_origins = [
     "*",
     "http://localhost:5000",
-    "http://10.219.130.204:5000"
 ] + os.getenv("ALLOWED_ORIGINS", "").split(",")
 allowed_origins = [origin for origin in allowed_origins if origin]
 logger.info(f"Allowed CORS origins: {allowed_origins}")

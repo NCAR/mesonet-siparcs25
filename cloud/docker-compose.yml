@@ -1,11 +1,41 @@
 version: '3.8'
 services:
   dynamic_assignment_network:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      - ./config.yml:/app/config.yml
     environment:
-      - CONFIG_FILE_PATH=/app/config.yml
-      - FLASK_ENV=production
+      - APP_MODULE=app:app  # Defined here for dynamic_assignment_network
+      - APP_PORT=5000
+      - GUNICORN_WORKERS=2
+      - GUNICORN_TIMEOUT=12000
+      - GUNICORN_WORKER_CLASS=geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+    volumes:
+      - .:/app
+    networks:
+      - app-network
+
+  map_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - APP_MODULE=map_app:app  # Defined here for map_server
+      - APP_PORT=5001 
+      - GUNICORN_WORKERS=5
+      - GUNICORN_TIMEOUT=30
+      - GUNICORN_WORKER_CLASS=geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+    volumes:
+      - .:/app
+    depends_on:
+      - dynamic_assignment_network
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
