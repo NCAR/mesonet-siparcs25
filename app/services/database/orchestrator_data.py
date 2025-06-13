@@ -1,6 +1,7 @@
 import paho.mqtt.client as mqtt
 from logger import CustomLogger
 import psycopg2
+import random
 
 console = CustomLogger()
 
@@ -19,6 +20,7 @@ class OrchestrateData:
         self.cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS {self.table_name} (
                 id SERIAL PRIMARY KEY,
+                station_id VARCHAR(100),
                 device VARCHAR(255),
                 sensor VARCHAR(255),
                 temperature VARCHAR(255),
@@ -31,19 +33,19 @@ class OrchestrateData:
 
     def __insert_reading(self, data):
         self.cursor.execute(
-            f"INSERT INTO {self.table_name} (device, sensor, temperature, humidity, air_quality) VALUES (%s, %s, %s, %s, %s)",
-            (data["device"], data.get("sensor"), data.get("t"), data.get("m"), data.get("rssi"))
+            f"INSERT INTO {self.table_name} (station_id, device, sensor, temperature, humidity, air_quality) VALUES (%s, %s, %s, %s, %s, %s)",
+            (data.get("station_id"), data.get("device"), data.get("sensor"), data.get("t"), data.get("m"), data.get("rssi"))
         )
         self.conn.commit()
 
     def _on_connect(self, client, _, __, rc):
-        print("Connected with result code " + str(rc))
+        console.log("Connected with result code " + str(rc))
 
         for topic in self.topics:
             client.subscribe(topic)
 
     def _on_message(self, _, __, msg):
-        print(f"Message received: {msg.payload}")
+        console.log(f"Message received: {msg.payload}")
 
         decoded = msg.payload.decode()
         lines = decoded.strip().split('\n')
@@ -51,6 +53,12 @@ class OrchestrateData:
         for line in lines:
             key, value = line.split(':', 1)
             readings[key.strip()] = value.strip()
+        
+        # add random station ids
+        station_ids = [f"station{i}" for i in range(1, 6)]
+        rand_staion_id = random.choice(station_ids)
+        readings["station_id"] = rand_staion_id
+        # console.debug(readings)
 
         self.__create_table()
         self.__insert_reading(readings)

@@ -4,6 +4,7 @@ CREATE DATABASE iotwx_db;
 
 CREATE TABLE IF NOT EXISTS readings (
     id SERIAL PRIMARY KEY,
+    station_id VARCHAR(100),
     device VARCHAR(255),
     sensor VARCHAR(255),
     temperature VARCHAR(255)
@@ -18,5 +19,8 @@ CREATE TABLE IF NOT EXISTS stations (
     status VARCHAR(255),
     longitude DOUBLE PRECISION,
     latitude DOUBLE PRECISION,
+    firstname CHAR(50),
+    lastname CHAR(50),
+    email VARCHAR(20),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )

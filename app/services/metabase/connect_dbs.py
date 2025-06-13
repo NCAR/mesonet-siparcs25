@@ -14,28 +14,28 @@ class ConnectDB:
             return True
         return False
 
-    def __check_for_db_existence(self):
-        db_exist = False
+    def validate_db(self):
+        db_id = None
         res = self.session.get("database")
 
         if res is not None and res.status_code == 200:
             existing_dbs = res.json().get("data")
             for db in existing_dbs:
                 if db.get("name") == self.db_name:
-                    db_exist = True
+                    db_id = db.get("id")
                     console.log(f"Database '{self.db_name}' already exists in metabase (id={db.get('id')})")
                     break
     
-        return db_exist
+        return db_id
 
     def connect(self, username, password, db_payload):
         healthy_con = self.__can_connect()
 
         if healthy_con:
             self.session.create_session(username, password)
-            db_exist = self.__check_for_db_existence()
+            db_id = self.validate_db()
 
-            if not db_exist:
+            if db_id is None:
                 res = self.session.post("database", body=db_payload)
 
                 if res.status_code == 200:

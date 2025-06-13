@@ -12,9 +12,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    profiles: ["default"]
   thingsboard-ce:
-    restart: "no"
     image: "thingsboard/tb-node:4.0.1.1"
     container_name: thingsboard-ce
     hostname: thingsboard-ce
@@ -33,7 +31,6 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
     depends_on:
       - postgres
-    profiles: ["default"]
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin4
@@ -48,7 +45,6 @@ services:
     restart: always
     depends_on:
       - postgres
-    profiles: ["default"]
   metabase:
     image: metabase/metabase:latest
     container_name: metabase
@@ -65,7 +61,6 @@ services:
       MB_DB_USER: ${MB_DB_USER}
       MB_DB_PASS: ${MB_DB_PASS}
       MB_DB_HOST: ${MB_DB_HOST}
-    profiles: ["default"]
     healthcheck:
       test: curl --fail -I http://localhost:3000/api/health || exit 1
       interval: 15s
@@ -74,7 +69,7 @@ services:
   orchestrate_db:
     build:
       context: ./services/database
-    restart: "no"
+    restart: always
     container_name: orch_db
     hostname: orchestrate_db
     depends_on:
@@ -84,14 +79,12 @@ services:
       DB_PASS: ${ORCH_DB_PASS}
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
-    profiles: ["default"]
     volumes:
       - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
 
   orchestrate_metabase:
     build:
       context: ./services/metabase
-    restart: "no"
     container_name: orch_mb
     hostname:  orchestrate_metabase
     env_file:
@@ -106,7 +99,6 @@ services:
       DB_PASS: ${ORCH_DB_PASS}
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
-    profiles: ["default"]
     volumes:
       - ./configs/metabase.yaml:/app/configs/metabase.yaml
  

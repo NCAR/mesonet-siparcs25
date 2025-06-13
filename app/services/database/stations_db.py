@@ -25,6 +25,9 @@ class StationsDB:
                 status VARCHAR(255),
                 longitude DOUBLE PRECISION,
                 latitude DOUBLE PRECISION,
+                firstname CHAR(50),
+                lastname CHAR(50),
+                email VARCHAR(20),
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -35,7 +38,7 @@ class StationsDB:
         data = self.__load_dummy_data(file_name)
         for record in data:
             self.cursor.execute(
-                f"INSERT INTO {self.__table_name} (station_id, status, latitude, longitude) VALUES (%s, %s, %s, %s) ON CONFLICT (station_id) DO NOTHING",
-                (record["station_id"], record.get("status"), record.get("latitude"), record.get("longitude"))
+                f"INSERT INTO {self.__table_name} (station_id, status, latitude, longitude, firstname, lastname, email) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (station_id) DO NOTHING",
+                (record["station_id"], record.get("status"), record.get("latitude"), record.get("longitude"), record.get("firstname"), record.get("lastname"), record.get("email"))
             )
         self.conn.commit()
