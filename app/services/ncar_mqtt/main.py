@@ -1,7 +1,9 @@
+from orchestrator_data import OrchestrateData
 from stations_db import StationsDB
 import os
+import yaml
 import requests
-from logger import CustomLogger
+from app.services.logger import CustomLogger
 
 console = CustomLogger()
 
@@ -13,18 +15,28 @@ db_port = os.getenv("POSTGRES_PORT", 5432)
 
 con_string = f"dbname={db_name} user={db_user} password={db_pass} host={db_host} port={db_port}"
 
-class Application:
-    def __init__(self, con_string):
-        self.con_string = con_string
+with open('/app/configs/mqtt.yaml', 'r') as f:
+    mqtt_config = yaml.safe_load(f)
 
-        table_name = "stations"
-        stations = StationsDB(self.con_string, table_name)
+class Application:
+    def __init__(self, con_string, ip, topics, port):
+        self.con_string = con_string
+        self.ip = ip
+        self.topics = topics
+        self.port = port
+
+        stations = StationsDB(self.con_string, "stations")
         stations.create_table()
         stations.insert_station()
+        OrchestrateData(self.con_string, "readings", self.topics, self.ip, self.port)
 
 if __name__ == "__main__":
     try:
-        Application(con_string)
+        host = mqtt_config["mqtt"]["host"]
+        topics = mqtt_config["mqtt"]["topics"]
+        port = mqtt_config["mqtt"]["port"]
+
+        Application(con_string, host, topics, port)
     except requests.exceptions.Timeout:
         console.log("The request timed out")
     except requests.exceptions.ConnectionError:

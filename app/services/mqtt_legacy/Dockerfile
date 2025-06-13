@@ -1,10 +1,10 @@
-# Use official Python image
+# Use the base image image
 FROM iotwx-base:latest
 
 # Copy the necessary files
-COPY . ./services/metabase/
+COPY . ./services/mqtt_legacy/
 
-WORKDIR /app/services/metabase
+WORKDIR /app/services/mqtt_legacy
 
 # Run the scripts
 CMD ["python3", "main.py"]

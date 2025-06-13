@@ -2,9 +2,9 @@
 FROM iotwx-base:latest
 
 # Copy the necessary files
-COPY . ./database/
+COPY . ./services/database/
 
-WORKDIR /app/database
+WORKDIR /app/services/database
 
 # Run the scripts
 CMD ["python3", "main.py"]

@@ -66,12 +66,21 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-  orchestrate_db:
+  mqtt_legacy_orch:
+    build:
+      context: ./services/mqtt_legacy
+    restart: always
+    container_name: mqtt_legacy_orch
+    hostname: mqtt_legacy
+    volumes:
+      - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
+      - ./services/logger.py:/app/services/mqtt_legacy/logger.py
+
+  database_server:
     build:
       context: ./services/database
-    restart: always
-    container_name: orch_db
-    hostname: orchestrate_db
+    container_name: database
+    hostname: database
     depends_on:
       - postgres
     environment:
@@ -80,9 +89,9 @@ services:
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
-      - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
+      - ./services/logger.py:/app/services/database/logger.py
 
-  orchestrate_metabase:
+  metabase_orch:
     build:
       context: ./services/metabase
     container_name: orch_mb
@@ -101,6 +110,7 @@ services:
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
       - ./configs/metabase.yaml:/app/configs/metabase.yaml
+      - ./services/logger.py:/app/services/metabase/logger.py
  
 volumes:
   postgres-data:

@@ -42,3 +42,4 @@ class StationsDB:
                 (record["station_id"], record.get("status"), record.get("latitude"), record.get("longitude"), record.get("firstname"), record.get("lastname"), record.get("email"))
             )
         self.conn.commit()
+        console.log(f"Database: Added data to {self.__table_name} table")

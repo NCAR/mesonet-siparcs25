@@ -1,5 +1,5 @@
 import paho.mqtt.client as mqtt
-from logger import CustomLogger
+from app.services.logger import CustomLogger
 import psycopg2
 import random
 
