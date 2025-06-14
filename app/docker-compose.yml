@@ -66,15 +66,6 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-  mqtt_legacy_orch:
-    build:
-      context: ./services/mqtt_legacy
-    restart: always
-    container_name: mqtt_legacy_orch
-    hostname: mqtt_legacy
-    volumes:
-      - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
-      - ./services/logger.py:/app/services/mqtt_legacy/logger.py
 
   database_api:
     build:
@@ -91,6 +82,24 @@ services:
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
       - ./services/logger.py:/app/services/api/logger.py
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'"]
+      interval: 10s
+      retries: 3
+      start_period: 5s
+      timeout: 5s
+
+  mqtt_legacy_orch:
+    build:
+      context: ./services/mqtt_legacy
+    container_name: mqtt_legacy_orch
+    hostname: mqtt_legacy
+    depends_on:
+      database_api:
+        condition: service_healthy
+    volumes:
+      - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
+      - ./services/logger.py:/app/services/mqtt_legacy/logger.py
 
   metabase_orch:
     build:

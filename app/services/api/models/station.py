@@ -1,10 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, TIMESTAMP
-from database import Database
+from database.connection import Base
 
-db = Database()
-Base = db.base
-
-class Station(Base):
+class StationModel(Base):
     __tablename__ = "stations"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -12,4 +9,7 @@ class Station(Base):
     status = Column(String)
     longitude = Column(Float)
     latitude = Column(Float)
+    firstname = Column(String)
+    lastname = Column(String)
+    email = Column(String)
     timestamp = Column(TIMESTAMP)
