@@ -76,11 +76,12 @@ services:
       - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
       - ./services/logger.py:/app/services/mqtt_legacy/logger.py
 
-  database_server:
+  database_api:
     build:
-      context: ./services/database
-    container_name: database
-    hostname: database
+      context: ./services/api
+    container_name: database_api
+    ports:
+      - 8000:8000
     depends_on:
       - postgres
     environment:
@@ -89,7 +90,7 @@ services:
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
-      - ./services/logger.py:/app/services/database/logger.py
+      - ./services/logger.py:/app/services/api/logger.py
 
   metabase_orch:
     build:
