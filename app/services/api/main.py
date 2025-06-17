@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.connection import Base, engine
-from routes import station
+from routes import station, reading
 from logger import CustomLogger
 
 app = FastAPI(title="IoTwx APIs")
@@ -16,9 +16,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(station.router)
-
 @app.get("/health")
 def health():
     console.log("Health check pinged.")
     return {"status": "ok"}
+
+app.include_router(station.router)
+app.include_router(reading.router)

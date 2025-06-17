@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS readings (
     id SERIAL PRIMARY KEY,
     station_id VARCHAR(100),
     device VARCHAR(255),
-    sensor VARCHAR(255),
-    temperature VARCHAR(255)
-    humidity VARCHAR(255)
-    air_quality VARCHAR(255)
+    measurement VARCHAR(255),
+    reading_value DOUBLE PRECISION NOT NULL
+    sensor_protocol VARCHAR(255),
+    sensor_model VARCHAR(255),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
