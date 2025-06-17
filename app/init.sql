@@ -7,10 +7,11 @@ CREATE TABLE IF NOT EXISTS readings (
     station_id VARCHAR(100),
     device VARCHAR(255),
     measurement VARCHAR(255),
-    reading_value DOUBLE PRECISION NOT NULL
+    reading_value DOUBLE PRECISION NOT NULL,
     sensor_protocol VARCHAR(255),
     sensor_model VARCHAR(255),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (station_id) REFERENCES stations(station_id)
 );
 
 CREATE TABLE IF NOT EXISTS stations (
