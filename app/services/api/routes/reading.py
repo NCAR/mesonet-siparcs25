@@ -5,7 +5,7 @@ from crud.reading import ReadingService
 from schema.reading import ReadingCreate, ReadingResponse
 from typing import List
 
-router = APIRouter(prefix="/readings", tags=["Readings"])
+router = APIRouter(prefix="/api/readings", tags=["Readings"])
 
 # DB generator
 def get_db():

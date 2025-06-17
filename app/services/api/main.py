@@ -4,7 +4,12 @@ from database.connection import Base, engine
 from routes import station, reading
 from logger import CustomLogger
 
-app = FastAPI(title="IoTwx APIs")
+app = FastAPI(
+    title="IoTwx",
+    description="APIs for accessing IoTwx databases",
+    version="0.0.1",
+    docs_url="/api/docs"
+)
 console = CustomLogger() 
 Base.metadata.create_all(bind=engine)
 

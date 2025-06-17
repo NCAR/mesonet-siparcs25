@@ -5,7 +5,7 @@ from crud.station import StationService
 from schema.station import StationCreate, StationResponse
 from typing import List
 
-router = APIRouter(prefix="/stations", tags=["Stations"])
+router = APIRouter(prefix="/api/stations", tags=["Stations"])
 
 def get_db():
     db = SessionLocal()
