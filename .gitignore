@@ -1,0 +1,6 @@
+.DS_Store
+.venv
+.env
+.vscode
+app/configs/mqtt.yaml
+app/configs/metabase.yaml
