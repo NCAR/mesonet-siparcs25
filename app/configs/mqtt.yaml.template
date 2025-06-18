@@ -1,6 +1,0 @@
-mqtt:
-  host: mqtt.broker_ip.io
-  port: 1883
-  topics:
-    - "topic1"
-    - "topic2"
