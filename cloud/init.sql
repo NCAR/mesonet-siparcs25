@@ -1,0 +1,22 @@
+CREATE DATABASE metabase;
+
+CREATE DATABASE iotwx_db;
+
+CREATE TABLE IF NOT EXISTS readings (
+    id SERIAL PRIMARY KEY,
+    device VARCHAR(255),
+    sensor VARCHAR(255),
+    temperature VARCHAR(255)
+    humidity VARCHAR(255)
+    air_quality VARCHAR(255)
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stations (
+    id SERIAL PRIMARY KEY,
+    station_id VARCHAR(255) NOT NULL UNIQUE,
+    status VARCHAR(255),
+    longitude DOUBLE PRECISION,
+    latitude DOUBLE PRECISION,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)

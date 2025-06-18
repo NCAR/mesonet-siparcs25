@@ -1,0 +1,37 @@
+mqtt:
+  host: mqtt.broker_ip.io
+  port: 1883
+  msg_topic: topic_for_the_new_broker
+  topics:
+    - "topic1"
+    - "topic2"
+database_api:
+  base_url: link_to_the_database_host
+web:
+  host:  web_application_host
+  port: web_application_port
+map_web:
+  host:  map_web_host
+  port: map_web_port
+metabase:
+  admin_data:
+  first_name: admin_first_name
+  last_name: admin_last_name
+  email: admin@admin.edu
+  password: admin_password
+  config:
+    site_name: name_of_the_metabase_site # Give it a name
+  database:
+    name: database_name # How do you want to call the database in metabase
+    engine: postgres
+    details:
+      host: ${MB_DB_HOST}
+      port: ${MB_DB_PORT}
+      dbname: ${ORCH_DB_NAME}
+      user: ${MB_DB_USER}
+      password: ${MB_DB_PASS}
+      ssl: false
+    is_full_sync: true
+    is_on_demand: false
+    cache_ttl: null
+  base_url: http://host_name_or_localhost:3000/api # This should correspond to the service name

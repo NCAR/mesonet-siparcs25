@@ -1,66 +1,169 @@
-
 services:
-  thingsboard:
-    image: thingsboard/tb-postgres:3.8.0
+  redis:
+    image: redis:8-alpine
+    container_name: my-redis-instance
     ports:
-      - "8080:9090"
-      - "1883:1883"
-    environment:
-      - TB_GW_HOST=thingsboard
-      - TB_GW_PORT=1883
-      - TB_POSTGRES_ENABLED=true
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=none  # Rely on install.sh
-      - SECURITY_OAUTH2_ENABLED=false
-      - DATABASE_TYPE=sql
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=thingsboard
+      - "6379:6379"
     volumes:
-      - ./data/tb:/data
-      - ./logs/tb:/var/log/thingsboard
-    
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: '4G'
-    networks:
-      - iot_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://10.219.130.204:8080/api/v1/status"]
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      timeout: 10s
-  mosquitto:
+      - redis_data:/data
     restart: always
-    image: eclipse-mosquitto
+  postgres:
+    restart: always
+    image: "postgres:16"
+    container_name: postgres
+    hostname: postgres
     ports:
-      - "1884:1883"
-    volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-    networks:
-      - iot_network
-    healthcheck:
-      test: ["CMD", "nc", "-z", "10.219.130.204", "1884"]
-      interval: 10s
-      retries: 5
-      start_period: 20s
-      timeout: 5s
-  dynamic_assignment_network:
-    build: .
-    volumes:
-      - ./config.yml:/app/config/config.yml
+      - "5432"
     environment:
-      - CONFIG_PATH=/app/config/config.yml
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  thingsboard-ce:
+    image: "thingsboard/tb-node:4.0.1.1"
+    container_name: thingsboard-ce
+    hostname: thingsboard-ce
+    ports:
+      - "8080:8080"
+      - "7070"
+      - "1883"
+      - "5683-5688:5683-5688/udp"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    environment:
+      TB_SERVICE_ID: ${TB_SERVICE_ID}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
     depends_on:
-      mosquitto:
-        condition: service_healthy  # Wait for MQTT broker to be healthy
-      thingsboard:
-        condition: service_healthy  # Wait for ThingsBoard to be healthy
-    networks:
-      - iot_network
+      - postgres
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4
+    hostname: pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "8888:80"
+    expose:
+      - 8888
+    restart: always
+    depends_on:
+      - postgres
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    hostname: metabase
+    restart: always
+    volumes:
+      - /dev/urandom:/dev/random:ro
+    ports:
+      - 3000:3000
+    environment:
+      MB_DB_TYPE: ${MB_DB_TYPE}
+      MB_DB_DBNAME: ${MB_DB_DBNAME}
+      MB_DB_PORT: ${MB_DB_PORT}
+      MB_DB_USER: ${MB_DB_USER}
+      MB_DB_PASS: ${MB_DB_PASS}
+      MB_DB_HOST: ${MB_DB_HOST}
+    healthcheck:
+      test: curl --fail -I http://localhost:3000/api/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  database_api:
+    build:
+      context: ./services/database_api
+    container_name: database_api
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgres
+    environment:
+      DB_USER: ${ORCH_DB_USER}
+      DB_PASS: ${ORCH_DB_PASS}
+      DB_NAME: ${ORCH_DB_NAME}
+      DB_HOST: ${ORCH_DB_HOST}
+    volumes:
+      - ./services/logger.py:/cloud/services/database_api/logger.py
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'"]
+      interval: 10s
+      retries: 3
+      start_period: 5s
+      timeout: 5s
+
+  mqtt_legacy_orch:
+    build:
+      context: ./services/mqtt_legacy
+    container_name: mqtt_legacy_orch
+    hostname: mqtt_legacy
+    depends_on:
+      database_api:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./config.yaml:/cloud/config.yaml
+      - ./services/logger.py:/cloud/services/mqtt_legacy/logger.py
+
+  metabase_orch:
+    build:
+      context: ./services/metabase
+    container_name: orch_mb
+    hostname:  orchestrate_metabase
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_started
+      metabase:
+        condition: service_healthy
+    environment:
+      DB_USER: ${ORCH_DB_USER}
+      DB_PASS: ${ORCH_DB_PASS}
+      DB_NAME: ${ORCH_DB_NAME}
+      DB_HOST: ${ORCH_DB_HOST}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ./config.yaml:/cloud/config.yaml
+      - ./services/logger.py:/cloud/services/metabase/logger.py
+
+  map_server:
+    build:
+      context: ./services/map_server
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - APP_MODULE=map_app:app  # Defined here for map_server
+      - APP_PORT=5001 
+      - GUNICORN_WORKERS=5
+      - GUNICORN_TIMEOUT=30
+      - GUNICORN_WORKER_CLASS=geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - .:/app
+      - ./config.yaml:/cloud/config.yaml
+      - ./services/logger.py:/cloud/services/map_server/logger.py
+    depends_on:
+      - database_api
+      - redis
+ 
+volumes:
+  postgres-data:
+    name: tb-ce-postgres-data
+    driver: local
+  redis_data:
+    name: redis_data
+    driver: local
+
 networks:
-  iot_network:
-    driver: bridge
+  default:
+    name: mesonet_default
