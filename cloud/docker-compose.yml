@@ -1,4 +1,12 @@
 services:
+  redis:
+    image: redis:8-alpine
+    container_name: my-redis-instance
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
   postgres:
     restart: always
     image: "postgres:16"
@@ -97,6 +105,8 @@ services:
     depends_on:
       database_api:
         condition: service_healthy
+      redis:
+        condition: service_started
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/mqtt_legacy/logger.py
@@ -118,6 +128,8 @@ services:
       DB_PASS: ${ORCH_DB_PASS}
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/metabase/logger.py
@@ -134,16 +146,22 @@ services:
       - GUNICORN_WORKERS=5
       - GUNICORN_TIMEOUT=30
       - GUNICORN_WORKER_CLASS=geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       - .:/app
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/map_server/logger.py
     depends_on:
       - database_api
+      - redis
  
 volumes:
   postgres-data:
     name: tb-ce-postgres-data
+    driver: local
+  redis_data:
+    name: redis_data
     driver: local
 
 networks:

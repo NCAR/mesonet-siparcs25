@@ -4,6 +4,7 @@ import requests
 import random
 import json
 import os
+import redis
 
 console = CustomLogger()
 
