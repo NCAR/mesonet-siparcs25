@@ -1,6 +1,6 @@
 [
   {
-    "station_id": "station1",
+    "station_id": "D65417536",
     "status": "active",
     "latitude": 40.01499,
     "longitude": -105.27055,
@@ -9,7 +9,7 @@
     "email": "admin@admin.edu"
   },
   {
-    "station_id": "station2",
+    "station_id": "puebloccsw_test",
     "status": "active",
     "latitude": 40.03420,
     "longitude": -105.28000,
@@ -18,7 +18,7 @@
     "email": "admin@admin.edu"
   },
   {
-    "station_id": "station3",
+    "station_id": "wyofw003",
     "status": "active",
     "latitude": 40.00600,
     "longitude": -105.26300,
@@ -27,7 +27,7 @@
     "email": "admin@admin.edu"
   },
   {
-    "station_id": "station4",
+    "station_id": "neon000",
     "status": "active",
     "latitude": 40.02600,
     "longitude": -105.26800,
@@ -36,7 +36,7 @@
     "email": "admin@admin2.edu"
   },
   {
-    "station_id": "station5",
+    "station_id": "broomfield_test",
     "status": "active",
     "latitude": 40.04600,
     "longitude": -105.27300,

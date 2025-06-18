@@ -2,28 +2,25 @@ from orchestrator import OrchestrateData
 from logger import CustomLogger
 import yaml
 import requests
+import json
 
 console = CustomLogger()
 
 with open('/cloud/config.yaml', 'r') as f:
-    mqtt_config = yaml.safe_load(f)["mqtt"]
+    mqtt_config = yaml.safe_load(f)
 
 class Application:
-    def __init__(self, ip, topics, port):
-        self.ip = ip
-        self.topics = topics
-        self.port = port
-
-        table_to_write_to = "readings"
-        OrchestrateData(table_to_write_to, self.topics, self.ip, self.port)
+    def __init__(self, ip, topics, port, db_base_url):
+        OrchestrateData(db_uri=db_base_url, topics=topics, ip=ip, port=port)
 
 if __name__ == "__main__":
     try:
-        host = mqtt_config["host"]
-        topics = mqtt_config["topics"]
-        port = mqtt_config["port"]
+        host = mqtt_config["mqtt"]["host"]
+        topics = mqtt_config["mqtt"]["topics"]
+        port = mqtt_config["mqtt"]["port"]
+        db_base_url = mqtt_config["database_api"]["base_url"]
 
-        Application(host, topics, port)
+        Application(host, topics, port, db_base_url)
 
     except requests.exceptions.Timeout:
         console.exception("The request timed out")
