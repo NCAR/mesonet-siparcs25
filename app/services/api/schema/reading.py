@@ -4,12 +4,12 @@ from datetime import datetime
 
 class ReadingCreate(BaseModel):
     station_id: str
-    device: str
+    device: Optional[str]
     measurement: str
     reading_value: float
-    sensor_protocol: str
+    sensor_protocol: Optional[str]
     sensor_model: str
-    signal_strength: float
+    signal_strength: Optional[float]
 
 class ReadingResponse(ReadingCreate):
     id: int

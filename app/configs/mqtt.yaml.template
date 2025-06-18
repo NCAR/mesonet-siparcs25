@@ -4,3 +4,5 @@ mqtt:
   topics:
     - "topic1"
     - "topic2"
+database_api:
+  base_url: link_to_the_database_host

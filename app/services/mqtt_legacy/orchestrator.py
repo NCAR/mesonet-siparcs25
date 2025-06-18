@@ -9,11 +9,11 @@ import os
 console = CustomLogger()
 
 class OrchestrateData:
-    def __init__(self, table_name, topics, ip, port=1883):
+    def __init__(self, db_uri, topics, ip, port=1883):
         self.topics = topics
         self.ip = ip
         self.port = port
-        self.table_name = table_name
+        self.db_uri = db_uri
 
         self.__listen_and_store_readings()
 
@@ -33,11 +33,9 @@ class OrchestrateData:
 
             match key.strip():
                 case "m":
-                    readings["reading_value"] = value.strip()
-                case "t":
-                    readings["timestamp"] = utils_ftn.parse_unix_time(value.strip())
+                    readings["reading_value"] = float(value.strip())
                 case "rssi":
-                    readings["signal_strength"] = value.strip()
+                    readings["signal_strength"] = float(value.strip())
                 case "device":
                     device, station_id = utils_ftn.parse_device(value.strip())
                     readings["device"] = device
@@ -48,10 +46,17 @@ class OrchestrateData:
                     readings["sensor_model"] = model
                     readings["measurement"] = measurement
                 case _:
-                    return
+                    break
+                
+        console.debug(json.dumps(readings, indent=4))
+        res = requests.post(f"{self.db_uri}/api/readings", data=readings)
 
-        console.log(readings)
-        
+        try:
+            res.raise_for_status()
+            console.log(res.json())
+        except:
+            raise requests.exceptions.HTTPError(res.json())
+
         # add random station ids
         station_ids = [f"station{i}" for i in range(1, 6)]
         rand_staion_id = random.choice(station_ids)
