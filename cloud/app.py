@@ -7,7 +7,7 @@ import time
 import os
 import yaml
 from network import DynamicAssignmentNetwork
-from mqtt_client import MQTTClient
+from cloud.services.mqtt_listener.mqtt_client import MQTTClient
 
 # Configure logging
 logging.basicConfig(

@@ -1,0 +1,47 @@
+[
+  {
+    "station_id": "station1",
+    "status": "active",
+    "latitude": 40.01499,
+    "longitude": -105.27055,
+    "firstname": "Admin 1",
+    "lastname": "Sur",
+    "email": "admin@admin.edu"
+  },
+  {
+    "station_id": "station2",
+    "status": "active",
+    "latitude": 40.03420,
+    "longitude": -105.28000,
+    "firstname": "Admin 1",
+    "lastname": "Sur",
+    "email": "admin@admin.edu"
+  },
+  {
+    "station_id": "station3",
+    "status": "active",
+    "latitude": 40.00600,
+    "longitude": -105.26300,
+    "firstname": "Admin 1",
+    "lastname": "Sur",
+    "email": "admin@admin.edu"
+  },
+  {
+    "station_id": "station4",
+    "status": "active",
+    "latitude": 40.02600,
+    "longitude": -105.26800,
+    "firstname": "Admin 2",
+    "lastname": "Mon",
+    "email": "admin@admin2.edu"
+  },
+  {
+    "station_id": "station5",
+    "status": "active",
+    "latitude": 40.04600,
+    "longitude": -105.27300,
+    "firstname": "Admin 2",
+    "lastname": "Mon",
+    "email": "xadmin@admin2.edu"
+  }
+]

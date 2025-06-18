@@ -1,0 +1,10 @@
+paho-mqtt
+requests
+pyyaml
+paho-mqtt
+psycopg2-binary
+dotenv
+fastapi
+uvicorn[standard]
+pydantic
+SQLAlchemy

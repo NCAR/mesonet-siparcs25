@@ -1,16 +1,10 @@
 # tag: iotwx-base:latest
 
 # Use official Python image
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 # Set working directory
-WORKDIR /cloud
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libffi-dev \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
 # Copy requirements and install
 COPY requirements.txt .

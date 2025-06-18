@@ -69,7 +69,7 @@ services:
 
   database_api:
     build:
-      context: ./services/database_api
+      context: ./services/api
     container_name: database_api
     ports:
       - 8000:8000
@@ -81,7 +81,7 @@ services:
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
-      - ./services/logger.py:/cloud/services/database_api/logger.py
+      - ./services/logger.py:/app/services/api/logger.py
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'"]
       interval: 10s
@@ -98,8 +98,8 @@ services:
       database_api:
         condition: service_healthy
     volumes:
-      - ./config.yaml:/cloud/config.yaml
-      - ./services/logger.py:/cloud/services/mqtt_legacy/logger.py
+      - ./configs/mqtt.yaml:/app/configs/mqtt.yaml
+      - ./services/logger.py:/app/services/mqtt_legacy/logger.py
 
   metabase_orch:
     build:
@@ -119,27 +119,8 @@ services:
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
-      - ./config.yaml:/cloud/config.yaml
-      - ./services/logger.py:/cloud/services/metabase/logger.py
-
-  map_server:
-    build:
-      context: ./services/map_server
-      dockerfile: Dockerfile
-    ports:
-      - "5001:5001"
-    environment:
-      - APP_MODULE=map_app:app  # Defined here for map_server
-      - APP_PORT=5001 
-      - GUNICORN_WORKERS=5
-      - GUNICORN_TIMEOUT=30
-      - GUNICORN_WORKER_CLASS=geventwebsocket.gunicorn.workers.GeventWebSocketWorker
-    volumes:
-      - .:/app
-      - ./config.yaml:/cloud/config.yaml
-      - ./services/logger.py:/cloud/services/map_server/logger.py
-    depends_on:
-      - database_api
+      - ./configs/metabase.yaml:/app/configs/metabase.yaml
+      - ./services/logger.py:/app/services/metabase/logger.py
  
 volumes:
   postgres-data:
