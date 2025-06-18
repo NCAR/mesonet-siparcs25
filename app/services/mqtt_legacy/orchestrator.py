@@ -1,5 +1,6 @@
 import paho.mqtt.client as mqtt
 from logger import CustomLogger
+from utils import utils_ftn
 import requests
 import random
 import json
@@ -23,29 +24,50 @@ class OrchestrateData:
             client.subscribe(topic)
 
     def _on_message(self, _, __, msg):
-        # console.log(f"Message received: {msg.payload}")
-
-        decoded = msg.payload.decode()
-        lines = decoded.strip().split('\n')
         readings = {}
-        for line in lines:
-            key, value = line.split(':', 1)
-            readings[key.strip()] = value.strip()
+        decoded = msg.payload.decode()
+        decoded = decoded.strip().split('\n')
+        
+        for data in decoded:
+            key, value = data.split(':', 1)
+
+            match key.strip():
+                case "m":
+                    readings["reading_value"] = value.strip()
+                case "t":
+                    readings["timestamp"] = utils_ftn.parse_unix_time(value.strip())
+                case "rssi":
+                    readings["signal_strength"] = value.strip()
+                case "device":
+                    device, station_id = utils_ftn.parse_device(value.strip())
+                    readings["device"] = device
+                    readings["station_id"] = station_id
+                case "sensor":
+                    protocol, model, measurement = utils_ftn.pass_sensor(value.strip())
+                    readings["sensor_protocol"] = protocol
+                    readings["sensor_model"] = model
+                    readings["measurement"] = measurement
+                case _:
+                    return
+
+        console.log(readings)
         
         # add random station ids
         station_ids = [f"station{i}" for i in range(1, 6)]
         rand_staion_id = random.choice(station_ids)
         readings["station_id"] = rand_staion_id
-        # console.debug(readings)
+        # console.debug(f"Readings: {json.dumps(readings, indent=4)}")
 
         # TODO: request to store readings using the table_name
-        # console.log(f"Readings: {json.dumps(readings, indent=4)}")
+        # res = requests.get("http://database_api:8000/api/readings/")
+        # res.raise_for_status()
+        # console.log(res.json())
 
         file_name = "dummy_station_data.json"
         stations = self.__load_dummy_data(file_name)
-        # TODO: request to store stations using the table_name
-        # console.log(f"Readings: {json.dumps(readings, indent=4)}")
-        # console.debug(stations)
+        # console.debug(f"Stations: {json.dumps(stations, indent=4)}")
+
+        # TODO: request to store stations using the table_name        
         # res = requests.get("http://database_api:8000/stations")
         # console.log(res.json())
 

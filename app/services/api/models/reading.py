@@ -11,6 +11,7 @@ class ReadingModel(Base):
     measurement = Column(String(255))
     reading_value = Column(Float, nullable=False)
     sensor_protocol = Column(String(255))
+    signal_strength = Column(Float)
     sensor_model = Column(String(255))
     timestamp = Column(TIMESTAMP, server_default=func.now())
 

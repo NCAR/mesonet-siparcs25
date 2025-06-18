@@ -9,6 +9,7 @@ class ReadingCreate(BaseModel):
     reading_value: float
     sensor_protocol: str
     sensor_model: str
+    signal_strength: float
 
 class ReadingResponse(ReadingCreate):
     id: int
