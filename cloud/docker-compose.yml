@@ -149,7 +149,6 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - .:/app
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/map_server/logger.py
     depends_on:

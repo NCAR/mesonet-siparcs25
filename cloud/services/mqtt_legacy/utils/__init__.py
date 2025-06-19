@@ -1,5 +1,5 @@
 from datetime import datetime
-
+import requests
 
 sensor_measurements_map = {
     "rg15": "Acc Rain",
@@ -50,5 +50,15 @@ class Utils:
             return datetime.fromtimestamp(int(unix_time), tz=datetime.timezone.utc)
         else:
             return datetime.fromtimestamp(int(unix_time))
+        
+    @staticmethod
+    def insert(path, data):
+        res = requests.post(
+            path,
+            json=data,
+            headers={"Content-Type": "application/json"}
+        )
+        res.raise_for_status()
+        return res.json()
         
 utils_ftn = Utils

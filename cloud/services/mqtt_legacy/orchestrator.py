@@ -1,10 +1,6 @@
 import paho.mqtt.client as mqtt
 from logger import CustomLogger
 from utils import utils_ftn
-import requests
-import random
-import json
-import os
 
 console = CustomLogger()
 
@@ -17,20 +13,12 @@ class OrchestrateData:
 
         self.__listen_and_store_readings()
 
-    def _on_connect(self, client, _, __, rc):
-        console.log("Connected with result code " + str(rc))
-
-        for topic in self.topics:
-            client.subscribe(topic)
-
-    def _on_message(self, _, __, msg):
+    # TODO: Move to the ReadingService class
+    def __parse_readings(self, decoded_data):
         readings = {}
-        decoded = msg.payload.decode()
-        decoded = decoded.strip().split('\n')
-        
-        for data in decoded:
+        for data in decoded_data:
             key, value = data.split(':', 1)
-
+        
             match key.strip():
                 case "m":
                     readings["reading_value"] = float(value.strip())
@@ -46,41 +34,30 @@ class OrchestrateData:
                     readings["sensor_model"] = model
                     readings["measurement"] = measurement
                 case _:
-                    break
-                
-        console.debug(json.dumps(readings, indent=4))
-        res = requests.post(f"{self.db_uri}/api/readings", data=readings)
+                    continue
+        return readings
 
-        try:
-            res.raise_for_status()
-            console.log(res.json())
-        except:
-            raise requests.exceptions.HTTPError(res.json())
+    def _on_connect(self, client, _, __, rc):
+        console.log("Connected with result code " + str(rc))
 
-        # add random station ids
-        station_ids = [f"station{i}" for i in range(1, 6)]
-        rand_staion_id = random.choice(station_ids)
-        readings["station_id"] = rand_staion_id
-        # console.debug(f"Readings: {json.dumps(readings, indent=4)}")
+        for topic in self.topics:
+            client.subscribe(topic)
 
-        # TODO: request to store readings using the table_name
-        # res = requests.get("http://database_api:8000/api/readings/")
-        # res.raise_for_status()
-        # console.log(res.json())
+    def _on_message(self, _, __, msg):
+        decoded = msg.payload.decode()
+        decoded = decoded.strip().split('\n')
 
-        file_name = "dummy_station_data.json"
-        stations = self.__load_dummy_data(file_name)
-        # console.debug(f"Stations: {json.dumps(stations, indent=4)}")
+        # TODO: add ReadingService to handle reading crud operations
 
-        # TODO: request to store stations using the table_name        
-        # res = requests.get("http://database_api:8000/stations")
-        # console.log(res.json())
+        # TODO: when it recieves a new station_id, add it to the stations table first
 
-    def __load_dummy_data(self, file_name):
-        base_dir = os.path.dirname(__file__)
-        file_path = os.path.join(base_dir, file_name)
-        with open(file_path, "r") as f:
-            return json.load(f)
+        # TODO: Add latitude and longitude to the readings from the station table
+        
+        readings = self.__parse_readings(decoded)
+        # console.debug(json.dumps(readings, indent=4))
+        path = f"{self.db_uri}/api/readings"
+        posted_readings = utils_ftn.insert(path, readings)
+        console.debug(f"Reading posted: id={posted_readings.get('station_id')}")
     
     def __listen_and_store_readings(self):
         client = mqtt.Client()

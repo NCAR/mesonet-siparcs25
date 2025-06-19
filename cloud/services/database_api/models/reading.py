@@ -11,10 +11,10 @@ class ReadingModel(Base):
     measurement = Column(String(255), nullable=False)
     reading_value = Column(Float, nullable=False)
     sensor_protocol = Column(String(255))
-    signal_strength = Column(Float)
+    signal_strength = Column(Float, nullable=True)
     sensor_model = Column(String(255), nullable=False)
     timestamp = Column(TIMESTAMP, server_default=func.now())
-    longitude = Column(Float)
-    latitude = Column(Float)
+    longitude = Column(Float, nullable=True)
+    latitude = Column(Float, nullable=True)
 
     station = relationship("StationModel", back_populates="readings")

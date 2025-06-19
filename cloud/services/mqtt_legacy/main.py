@@ -1,8 +1,8 @@
-from orchestrator import OrchestrateData
-from logger import CustomLogger
 import yaml
 import requests
-import json
+from orchestrator import OrchestrateData
+from logger import CustomLogger
+from stations import StationService
 
 console = CustomLogger()
 
@@ -11,6 +11,8 @@ with open('/cloud/config.yaml', 'r') as f:
 
 class Application:
     def __init__(self, ip, topics, port, db_base_url):
+        station_mdl = StationService(db_uri=db_base_url)
+        station_mdl.add_stations()
         OrchestrateData(db_uri=db_base_url, topics=topics, ip=ip, port=port)
 
 if __name__ == "__main__":

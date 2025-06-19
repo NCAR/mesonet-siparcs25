@@ -5,9 +5,7 @@ from database.connection import Base
 class StationModel(Base):
     __tablename__ = "stations"
 
-    id = Column(Integer, primary_key=True, index=True)
-    station_id = Column(String(255), unique=True, nullable=False)
-    status = Column(String(255))
+    station_id = Column(Integer, primary_key=True, index=True)
     longitude = Column(Float)
     latitude = Column(Float)
     firstname = Column(String(50))

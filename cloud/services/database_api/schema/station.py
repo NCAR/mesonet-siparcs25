@@ -4,7 +4,6 @@ from datetime import datetime
 
 class StationCreate(BaseModel):
     station_id: str
-    status: str
     longitude: float
     latitude: float
     firstname: str
@@ -12,7 +11,6 @@ class StationCreate(BaseModel):
     email: str
 
 class StationResponse(StationCreate):
-    id: int
     timestamp: Optional[datetime]
 
     class Config:

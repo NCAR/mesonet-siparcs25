@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from models.station import StationModel
 from schema.station import StationCreate, StationResponse
 from typing import List
@@ -18,12 +19,21 @@ class StationService:
         return self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
 
     def create_station(self, station_data: StationCreate) -> StationResponse:
-        db_station = StationModel(**station_data.dict(), timestamp=datetime.utcnow())
-        self.db.add(db_station)
-        self.db.commit()
-        self.db.refresh(db_station)
-        return db_station
-
+        try:
+            existing_station = self.get_station(station_data.station_id)
+            if existing_station:
+                return existing_station
+            
+            db_station = StationModel(**station_data.dict(), timestamp=datetime.utcnow())
+            self.db.add(db_station)
+            self.db.commit()
+            self.db.refresh(db_station)
+            return db_station
+        
+        except IntegrityError as e:
+                self.db.rollback()
+                raise ValueError(f"Station with ID {station_data.station_id} already exists.") from e
+        
     def update_station(self, station_id: str, update_data: StationCreate) -> StationResponse:
         station = self.get_station(station_id)
         if station:

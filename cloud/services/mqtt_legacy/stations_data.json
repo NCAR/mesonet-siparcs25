@@ -1,7 +1,6 @@
 [
   {
     "station_id": "D65417536",
-    "status": "active",
     "latitude": 40.01499,
     "longitude": -105.27055,
     "firstname": "Admin 1",
@@ -10,7 +9,6 @@
   },
   {
     "station_id": "puebloccsw_test",
-    "status": "active",
     "latitude": 40.03420,
     "longitude": -105.28000,
     "firstname": "Admin 1",
@@ -19,7 +17,6 @@
   },
   {
     "station_id": "wyofw003",
-    "status": "active",
     "latitude": 40.00600,
     "longitude": -105.26300,
     "firstname": "Admin 1",
@@ -28,7 +25,6 @@
   },
   {
     "station_id": "neon000",
-    "status": "active",
     "latitude": 40.02600,
     "longitude": -105.26800,
     "firstname": "Admin 2",
@@ -37,7 +33,6 @@
   },
   {
     "station_id": "broomfield_test",
-    "status": "active",
     "latitude": 40.04600,
     "longitude": -105.27300,
     "firstname": "Admin 2",
