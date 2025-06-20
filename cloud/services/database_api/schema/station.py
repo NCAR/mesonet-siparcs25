@@ -4,7 +4,6 @@ from datetime import datetime
 
 class StationCreate(BaseModel):
     station_id: str
-    status: str
     longitude: float
     latitude: float
     firstname: str

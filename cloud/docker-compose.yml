@@ -96,6 +96,18 @@ services:
       retries: 3
       start_period: 5s
       timeout: 5s
+  mqtt_listener:
+    build:
+      context: ./services/mqtt_listener
+    container_name: mqtt_listener
+    hostname: mqtt_listener
+    depends_on:
+      database_api:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./config.yaml:/cloud/config.yaml
 
   mqtt_legacy_orch:
     build:
