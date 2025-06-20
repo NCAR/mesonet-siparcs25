@@ -3,12 +3,12 @@ import yaml
 import requests
 from dotenv import load_dotenv
 from string import Template
-from connect_dbs import ConnectDB
-from session import Session
-from user import User
+from connect.dbs import ConnectDB
+from utils.session import Session
+from users.user import User
 from logger import CustomLogger
-from dashboard import Dashboard
-from card import Card
+from dashboards.dashboard import Dashboard
+from cards.card import Card
 
 console = CustomLogger()
 load_dotenv()

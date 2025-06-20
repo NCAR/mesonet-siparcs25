@@ -1,4 +1,4 @@
-from req import Req
+from .req import Req
 
 class Session(Req):
     def __init__(self, base_url):

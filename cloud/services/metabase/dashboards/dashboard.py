@@ -1,6 +1,5 @@
 from logger import CustomLogger
-from util import Util
-import json
+from utils.odm import Util
 
 console = CustomLogger()
 
