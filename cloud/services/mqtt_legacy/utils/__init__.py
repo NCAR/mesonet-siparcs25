@@ -56,7 +56,6 @@ class Utils:
         
     @staticmethod
     def insert(path, data):
-        console.log(f"Station Data: {data}")
         res = requests.post(
             path,
             json=data,

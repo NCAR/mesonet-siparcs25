@@ -39,7 +39,6 @@ class OrchestrateData:
             console.error("No stations found. Cannot process readings.")
             return
                 
-        # Check if the station_id from the reading exists in the stations table
         station_id = self.reading_service.get_station_id(decoded)
         if not any(station.get("station_id") == station_id for station in stations):
             console.debug(f"Station ID {station_id} not found in the stations table. Adding it now.")
@@ -47,7 +46,7 @@ class OrchestrateData:
         else:
             console.debug(f"Station ID {station_id} found in the stations table. Proceeding with reading.")
 
-        # TODO: Add latitude and longitude to the readings from the station table
+        self.reading_service.add_location_to_reading(station_id, stations)
         
         self.reading_service.parse_reading(decoded)
         posted_reading = self.reading_service.create_reading()

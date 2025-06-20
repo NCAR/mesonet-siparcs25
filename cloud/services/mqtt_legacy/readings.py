@@ -44,3 +44,14 @@ class ReadingService:
         path = f"{self.db_uri}/api/readings"
         posted_readings = utils_ftn.insert(path, self.reading)
         return posted_readings
+    
+    def add_location_to_reading(self, station_id, stations):
+        """
+        Adds latitude and longitude to the reading from the station table.
+        """
+        for station in stations:
+            if station.get("station_id") == station_id:
+                self.reading["latitude"] = station.get("latitude")
+                self.reading["longitude"] = station.get("longitude")
+                break
+        return self.reading
