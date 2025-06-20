@@ -1,5 +1,8 @@
 from datetime import datetime
 import requests
+from logger import CustomLogger
+
+console = CustomLogger()
 
 sensor_measurements_map = {
     "rg15": "Acc Rain",
@@ -53,11 +56,18 @@ class Utils:
         
     @staticmethod
     def insert(path, data):
+        console.log(f"Station Data: {data}")
         res = requests.post(
             path,
             json=data,
             headers={"Content-Type": "application/json"}
         )
+        res.raise_for_status()
+        return res.json()
+    
+    @staticmethod
+    def get_all(path):
+        res = requests.get(path)
         res.raise_for_status()
         return res.json()
         

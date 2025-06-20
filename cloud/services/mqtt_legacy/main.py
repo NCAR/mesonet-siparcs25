@@ -2,27 +2,25 @@ import yaml
 import requests
 from orchestrator import OrchestrateData
 from logger import CustomLogger
-from stations import StationService
 
 console = CustomLogger()
 
 with open('/cloud/config.yaml', 'r') as f:
-    mqtt_config = yaml.safe_load(f)
+    config = yaml.safe_load(f)
 
 class Application:
-    def __init__(self, ip, topics, port, db_base_url):
-        station_mdl = StationService(db_uri=db_base_url)
-        station_mdl.add_stations()
-        OrchestrateData(db_uri=db_base_url, topics=topics, ip=ip, port=port)
+    def __init__(self, ip, topics, port, db_base_url, admin_data=None):
+        OrchestrateData(db_uri=db_base_url, topics=topics, ip=ip, port=port, admin_data=admin_data)
 
 if __name__ == "__main__":
     try:
-        host = mqtt_config["mqtt"]["host"]
-        topics = mqtt_config["mqtt"]["topics"]
-        port = mqtt_config["mqtt"]["port"]
-        db_base_url = mqtt_config["database_api"]["base_url"]
+        host = config["mqtt"]["host"]
+        topics = config["mqtt"]["topics"]
+        port = config["mqtt"]["port"]
+        db_base_url = config["database_api"]["base_url"]
+        admin_data = config["metabase"]["admin_data"]
 
-        Application(host, topics, port, db_base_url)
+        Application(host, topics, port, db_base_url, admin_data)
 
     except requests.exceptions.Timeout:
         console.exception("The request timed out")

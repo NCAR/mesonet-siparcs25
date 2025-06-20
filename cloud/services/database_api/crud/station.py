@@ -23,7 +23,7 @@ class StationService:
             existing_station = self.get_station(station_data.station_id)
             if existing_station:
                 return existing_station
-            
+                        
             db_station = StationModel(**station_data.dict(), timestamp=datetime.utcnow())
             self.db.add(db_station)
             self.db.commit()

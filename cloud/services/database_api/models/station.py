@@ -5,12 +5,12 @@ from database.connection import Base
 class StationModel(Base):
     __tablename__ = "stations"
 
-    station_id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(String(255), primary_key=True, index=True)
     longitude = Column(Float)
     latitude = Column(Float)
-    firstname = Column(String(50))
-    lastname = Column(String(50))
-    email = Column(String(20))
+    firstname = Column(String(255))
+    lastname = Column(String(255))
+    email = Column(String(50))
     timestamp = Column(TIMESTAMP)
 
     readings = relationship("ReadingModel", back_populates="station")

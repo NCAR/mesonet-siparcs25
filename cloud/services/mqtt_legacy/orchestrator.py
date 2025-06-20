@@ -1,44 +1,31 @@
 import paho.mqtt.client as mqtt
 from logger import CustomLogger
-from utils import utils_ftn
+from readings import ReadingService
+from stations import StationService
 
 console = CustomLogger()
 
 class OrchestrateData:
-    def __init__(self, db_uri, topics, ip, port=1883):
+    def __init__(self, db_uri, topics, ip, port=1883, admin_data=None):
         self.topics = topics
         self.ip = ip
         self.port = port
-        self.db_uri = db_uri
-
-        self.__listen_and_store_readings()
-
-    # TODO: Move to the ReadingService class
-    def __parse_readings(self, decoded_data):
-        readings = {}
-        for data in decoded_data:
-            key, value = data.split(':', 1)
+        self.admin_data = admin_data
+        self.reading_service = ReadingService(db_uri)
+        console.debug(f"ReadingService initialized with db_uri: {db_uri}")
+        self.station_service = StationService(db_uri)
+        console.debug(f"StationService initialized with db_uri: {db_uri}")
+        self.station_service.add_default_stations()
+        console.debug("Stations added successfully.")
         
-            match key.strip():
-                case "m":
-                    readings["reading_value"] = float(value.strip())
-                case "rssi":
-                    readings["signal_strength"] = float(value.strip())
-                case "device":
-                    device, station_id = utils_ftn.parse_device(value.strip())
-                    readings["device"] = device
-                    readings["station_id"] = station_id
-                case "sensor":
-                    protocol, model, measurement = utils_ftn.pass_sensor(value.strip())
-                    readings["sensor_protocol"] = protocol
-                    readings["sensor_model"] = model
-                    readings["measurement"] = measurement
-                case _:
-                    continue
-        return readings
+        # Start listening for readings
+        self.listen_and_store_readings()
 
     def _on_connect(self, client, _, __, rc):
         console.log("Connected with result code " + str(rc))
+        console.debug(f"Topics to subscribe: {self.topics}")
+        console.debug(f"MQTT broker IP: {self.ip}, Port: {self.port}")
+        console.debug("Starting to listen for readings...")
 
         for topic in self.topics:
             client.subscribe(topic)
@@ -47,19 +34,26 @@ class OrchestrateData:
         decoded = msg.payload.decode()
         decoded = decoded.strip().split('\n')
 
-        # TODO: add ReadingService to handle reading crud operations
-
-        # TODO: when it recieves a new station_id, add it to the stations table first
+        stations = self.station_service.get_stations()
+        if not stations:
+            console.error("No stations found. Cannot process readings.")
+            return
+                
+        # Check if the station_id from the reading exists in the stations table
+        station_id = self.reading_service.get_station_id(decoded)
+        if not any(station.get("station_id") == station_id for station in stations):
+            console.debug(f"Station ID {station_id} not found in the stations table. Adding it now.")
+            self.station_service.add_new_station(station_id, self.admin_data)
+        else:
+            console.debug(f"Station ID {station_id} found in the stations table. Proceeding with reading.")
 
         # TODO: Add latitude and longitude to the readings from the station table
         
-        readings = self.__parse_readings(decoded)
-        # console.debug(json.dumps(readings, indent=4))
-        path = f"{self.db_uri}/api/readings"
-        posted_readings = utils_ftn.insert(path, readings)
-        console.debug(f"Reading posted: id={posted_readings.get('station_id')}")
+        self.reading_service.parse_reading(decoded)
+        posted_reading = self.reading_service.create_reading()
+        console.debug(f"Reading posted: id={posted_reading.get('station_id')}")
     
-    def __listen_and_store_readings(self):
+    def listen_and_store_readings(self):
         client = mqtt.Client()
         client.on_connect = self._on_connect
         client.on_message = self._on_message

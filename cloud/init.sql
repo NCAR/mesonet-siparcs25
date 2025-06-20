@@ -17,8 +17,7 @@ CREATE TABLE IF NOT EXISTS readings (
 );
 
 CREATE TABLE IF NOT EXISTS stations (
-    id SERIAL PRIMARY KEY,
-    station_id VARCHAR(255) NOT NULL UNIQUE,
+    station_id VARCHAR(255) SERIAL PRIMARY KEY,
     longitude DOUBLE PRECISION,
     latitude DOUBLE PRECISION,
     firstname CHAR(50),
