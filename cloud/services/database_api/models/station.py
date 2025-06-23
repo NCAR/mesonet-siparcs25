@@ -7,6 +7,7 @@ class StationModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     station_id = Column(String(255), unique=True, nullable=False)
+    device = Column(String(50), nullable=True)
     longitude = Column(Float)
     latitude = Column(Float)
     firstname = Column(String(50))

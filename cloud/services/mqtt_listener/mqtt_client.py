@@ -103,10 +103,10 @@ class MQTTDatabaseUpdater:
         try:
             lat = self.redis_client.hget(redis_key, 'latitude')
             lon = self.redis_client.hget(redis_key, 'longitude')
-            return (float(lat) if lat else 0.0, float(lon) if lon else 0.0)
+            return (float(lat) if lat else 39.97840783130492, float(lon) if lon else -105.274898978223431)
         except redis.RedisError as e:
             print(f"[error]: Failed to get coordinates from Redis for {station_id}: {e}")
-            return (0.0, 0.0)
+            return (39.97840783130492, -105.274898978223431)
 
     def on_message(self, client, userdata, message):
         try:
@@ -129,7 +129,7 @@ class MQTTDatabaseUpdater:
             data['timestamp'] = timestamp
 
             # Handle station_info messages
-            if data.get('measurement') == 'station_info':
+            if data.get('type') == 'station_info':
                 self.handle_station_info(station_id, data, timestamp)
             # Handle sensor readings (including latitude/longitude)
             else:
@@ -167,11 +167,9 @@ class MQTTDatabaseUpdater:
 
         result = {}
 
-        if data.get('measurement') == 'station_info':
+        if data.get('type') == 'station_info':
             # Handle station_info: include all fields from data
-            station_data = data.get('data', {})
-            for field, value in station_data.items():
-                key = f"{field}({str(value)[:5].lower()})"
+            for field, value in data.items():
                 result[key] = value
         else:
             # Handle readings
@@ -179,7 +177,7 @@ class MQTTDatabaseUpdater:
             sensor = data.get('sensor', 'unknown')
             sensor_prefix = sensor[:5].lower()
             key = f"{measurement}({sensor_prefix})"
-            value = data.get('data')
+            value = data.get('reading_value')
             if value is not None:
                 result[key] = value
 
@@ -236,10 +234,11 @@ class MQTTDatabaseUpdater:
 
     def handle_reading(self, station_id: str, data: Dict[str, Any], timestamp: str):
         # Prepare reading data
-        reading_value = data.get('data', '')
+        reading_value = data.get('reading_value', '')
         measurement = data.get('measurement', '')
         sensor = data.get('sensor', 'unknown')
-        edge_id = data.get('to_edge_id', data.get('edge_id', 'pi'))
+        edge_id = data.get('target_id', '')
+        rssi = data.get('rssi', 0)
 
         # Format measurement for Postgres
         sensor_prefix = sensor[:5].lower()
@@ -250,6 +249,9 @@ class MQTTDatabaseUpdater:
         latitude = reading_value if measurement == 'latitude' else latitude
         longitude = reading_value if measurement == 'longitude' else longitude
 
+
+
+
         # Prepare reading payload using incoming data
         reading_payload = {
             "station_id": station_id,
@@ -259,7 +261,8 @@ class MQTTDatabaseUpdater:
             "sensor_model": sensor,
             "latitude": latitude,
             "longitude": longitude,
-            "timestamp": timestamp
+            "timestamp": timestamp,
+            "rssi": rssi
         }
 
         # Update Postgres readings
@@ -284,20 +287,17 @@ class MQTTDatabaseUpdater:
             redis_station_data = {
                 redis_measurement_key: str(reading_value),
                 'edge_id': edge_id,
-                'last_active': timestamp
+                'last_active': timestamp,
+                'latitude': latitude,
+                'longitude': longitude,
+                'timestamp': timestamp,
+                'rssi': rssi
             }
             self.redis_client.hset(redis_key, mapping=redis_station_data)
             self.redis_client.expire(redis_key, self.active_station_timeout)
             print(f"[info]: Updated measurement {redis_measurement_key} for station {station_id} in Redis")
 
-            # Update station coordinates in both databases for GPS readings
-            if measurement in ['latitude', 'longitude']:
-                self.update_station_coordinates(
-                    station_id,
-                    latitude=reading_value if measurement == 'latitude' else None,
-                    longitude=reading_value if measurement == 'longitude' else None
-                )
-
+        
         except redis.RedisError as e:
             print(f"[error]: Failed to update measurement {redis_measurement_key} for {station_id} in Redis: {e}")
 

@@ -93,12 +93,14 @@
         }
 
         function createPopupContent(stationId, stationData) {
-            const timestamp = new Date(stationData.last_update * 1000).toLocaleString(locale);
+            const timestamp = stationData.timestamp
+                ? new Date(stationData.timestamp).toLocaleString(locale)
+                : stationData.last_update
+                ? new Date(stationData.last_update * 1000).toLocaleString(locale)
+                : 'Unknown';
             let html = `<div class="station-popup"><h3>Station ${stationId}</h3><table>`;
             for (const [key, value] of Object.entries(stationData)) {
-                if (key !== 'last_update') {
-                    html += `<tr><td>${key}</td><td>${value}</td></tr>`;
-                }
+                html += `<tr><td>${key}</td><td>${value ?? 'N/A'}</td></tr>`;
             }
             html += `</table><div class="timestamp">Last updated: ${timestamp}</div></div>`;
             return html;
@@ -109,14 +111,6 @@
             errorMessage.style.display = 'block';
             setTimeout(() => { errorMessage.style.display = 'none'; }, 5000);
         }
-
-        // function debounce(func, wait) {
-        //     let timeout;
-        //     return function (...args) {
-        //         clearTimeout(timeout);
-        //         timeout = setTimeout(() => func.apply(this, args), wait);
-        //     };
-        // }
 
         function setupSocketHandlers(socket) {
             socket.on('initial_data', data => {
@@ -200,7 +194,7 @@
 
         initializeSocketIO().then(socket => {
             console.log('Socket.IO initialized');
-            const refreshInterval = 3000;
+            const refreshInterval = 10000; // Changed to 10 seconds
             setInterval(() => {
                 fetch('/api/stations')
                     .then(response => {

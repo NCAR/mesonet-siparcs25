@@ -7,7 +7,7 @@ class ReadingModel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     station_id = Column(String(255), ForeignKey("stations.station_id"), nullable=False)
-    device = Column(String(255))
+    edge_id = Column(String(255), nullable=True)
     measurement = Column(String(255), nullable=False)
     reading_value = Column(Float, nullable=False)
     sensor_protocol = Column(String(255))
