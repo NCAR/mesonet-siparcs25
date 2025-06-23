@@ -18,7 +18,7 @@ class StationService:
         return self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
 
     def create_station(self, station_data: StationCreate) -> StationResponse:
-        db_station = StationModel(**station_data.dict(), timestamp=datetime.utcnow())
+        db_station = StationModel(**station_data.dict(), timestamp=datetime.now(datetime.timezone.utc))
         self.db.add(db_station)
         self.db.commit()
         self.db.refresh(db_station)

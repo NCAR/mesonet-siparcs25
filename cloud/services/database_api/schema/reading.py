@@ -9,7 +9,7 @@ class ReadingCreate(BaseModel):
     reading_value: float
     sensor_protocol: Optional[str] = None
     sensor_model: str
-    signal_strength: Optional[float] = None
+    rssi: Optional[int] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 

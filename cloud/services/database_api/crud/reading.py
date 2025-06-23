@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 from models.reading import ReadingModel
+from models.station import StationModel
 from schema.reading import ReadingCreate, ReadingResponse
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from logger import CustomLogger
 
 console = CustomLogger()
@@ -18,7 +19,22 @@ class ReadingService:
         return self.db.query(ReadingModel).filter(ReadingModel.station_id == station_id).all()
 
     def create_reading(self, reading_data: ReadingCreate) -> ReadingResponse:
-        db_reading = ReadingModel(**reading_data.dict(), timestamp=datetime.utcnow())
+        
+        # Check if station exists, create if not
+        station = self.db.query(StationModel).filter(StationModel.station_id == reading_data.station_id).first()
+        if not station:
+            station = StationModel(
+                station_id=reading_data.station_id,
+                latitude=reading_data.latitude,
+                longitude=reading_data.longitude,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                # firstname, lastname, email left as None
+            )
+            self.db.add(station)
+            self.db.commit()
+            self.db.refresh(station)
+        
+        db_reading = ReadingModel(**reading_data.dict(), timestamp=datetime.now(timezone.utc).isoformat())
         self.db.add(db_reading)
         self.db.commit()
         self.db.refresh(db_reading)

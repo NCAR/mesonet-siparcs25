@@ -10,7 +10,7 @@ from typing import Dict, Any
 from threading import Lock
 
 # Configuration
-CONFIG_FILE = "config.yml"
+CONFIG_FILE = "/cloud/config.yaml"
 
 # Load and validate configuration
 try:
@@ -22,7 +22,7 @@ except Exception as e:
 
 # Validate required fields
 required_fields = {
-    'mqtt': ['broker_ip', 'broker_port', 'topic'],
+    'mqtt': ['host', 'port', 'msg_topic'],
     'database_api': ['base_url'],
     'redis': ['host', 'port'],
     'station': ['active_station_timeout']
@@ -37,9 +37,9 @@ for section, fields in required_fields.items():
             exit(1)
 
 # Configuration parameters
-MQTT_BROKER = config['mqtt']['broker_ip']
-MQTT_PORT = config['mqtt']['broker_port']
-MQTT_TOPIC = config['mqtt']['topic']
+MQTT_BROKER = config['mqtt']['host']
+MQTT_PORT = config['mqtt']['port']
+MQTT_TOPIC = config['mqtt']['msg_topic']
 API_BASE_URL = config['database_api']['base_url']
 REDIS_HOST = config['redis']['host']
 REDIS_PORT = config['redis']['port']
@@ -50,8 +50,7 @@ READING_ENDPOINT = f"{API_BASE_URL}/api/readings"
 
 # Current timestamp for MDT (UTC-6)
 def get_current_timestamp():
-    mdt_offset = timedelta(hours=-6)
-    return datetime.now(timezone(mdt_offset)).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 class MQTTDatabaseUpdater:
     def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int):
@@ -215,7 +214,7 @@ class MQTTDatabaseUpdater:
                 else:
                     print(f"[error]: Failed to update station {station_id} in Postgres: {response.text}")
             elif response.status_code == 404:
-                response = requests.post(STATION_ENDPOINT, json=station_payload)
+                response = requests.post(STATION_ENDPOINT, json=station_payload,headers={"Content-Type": "application/json"})
                 if response.status_code == 200:
                     print(f"[info]: Created station {station_id} in Postgres")
                 else:
@@ -265,9 +264,9 @@ class MQTTDatabaseUpdater:
 
         # Update Postgres readings
         try:
-            response = requests.post(READING_ENDPOINT, json=reading_payload)
+            response = requests.post(READING_ENDPOINT, json=reading_payload,headers={"Content-Type": "application/json"})
             if response.status_code == 200:
-                print(f"[info]: Created reading for station {station_id}, measurement {formatted_measurement} in Postgres")
+                print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
             else:
                 print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.text}")
         except requests.RequestException as e:

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS readings (
     reading_value DOUBLE PRECISION NOT NULL,
     sensor_protocol VARCHAR(255),
     sensor_model VARCHAR(255),
+    rssi INTEGER,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     longitude DOUBLE PRECISION,
     latitude DOUBLE PRECISION,
