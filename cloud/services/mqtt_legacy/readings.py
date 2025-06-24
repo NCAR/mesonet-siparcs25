@@ -1,4 +1,5 @@
 from utils import utils_ftn
+import json
 
 class ReadingService:
     def __init__(self, bd_uri):
@@ -17,6 +18,8 @@ class ReadingService:
                 _, station_id = utils_ftn.parse_device(value.strip())
                 station_id = station_id
                 break
+        if not station_id:
+            raise ValueError(f"Station ID not found in the reading data {decoded_data}.")
         return station_id
 
     def parse_reading(self, decoded_data):
@@ -55,3 +58,13 @@ class ReadingService:
                 self.reading["longitude"] = station.get("longitude")
                 break
         return self.reading
+    
+    def is_mesonet_station(self, decoded_reading):
+        """
+        Checks if the station the reading belongs to is a mesonet station.
+        """
+        try:
+            reading = json.loads(decoded_reading[0])
+            return reading.get("type") == "sensor_data" or reading.get("type") == "station_info"
+        except (ValueError, TypeError):
+            return False

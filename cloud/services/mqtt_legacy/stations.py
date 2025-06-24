@@ -21,7 +21,7 @@ class StationService:
         for station in data:
             res = utils_ftn.insert(path, station)
             # console.debug(f"Station posted. ID: {posted_station}")
-            console.debug(f"Station added with ID: {res.get('station_id')}")
+            console.log(f"Station added with ID: {res.get('station_id')}")
 
     def add_default_stations(self):
         self.__add_station(self.stations_data)

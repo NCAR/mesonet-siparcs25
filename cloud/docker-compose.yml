@@ -90,6 +90,7 @@ services:
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
       - ./services/logger.py:/cloud/services/database_api/logger.py
+      - ./logs:/cloud/logs
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'"]
       interval: 10s
@@ -110,6 +111,7 @@ services:
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/mqtt_legacy/logger.py
+      - ./logs:/cloud/logs
 
   metabase_orch:
     build:
@@ -123,6 +125,8 @@ services:
         condition: service_started
       metabase:
         condition: service_healthy
+      database_api:
+        condition: service_healthy
     environment:
       DB_USER: ${ORCH_DB_USER}
       DB_PASS: ${ORCH_DB_PASS}
@@ -133,6 +137,7 @@ services:
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/metabase/logger.py
+      - ./logs:/cloud/logs
 
   map_server:
     build:

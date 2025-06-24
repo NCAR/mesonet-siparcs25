@@ -6,11 +6,11 @@ console = CustomLogger()
 
 sensor_measurements_map = {
     "rg15": "Acc Rain",
-    "si7021": "Relative Humidity",
+    "si7021": "Humidity",
     "tmp1117": "Temperature",
     "ltr390": "UV Light",
     "pmsa003i": "Air Quality",
-    "bme680": "Temperature"
+    "bme680": "Temperature",
 }
 
 class Utils:
@@ -45,7 +45,7 @@ class Utils:
             # if not part of the map, use the provided key
             measurement = measurement_key
 
-        return sensor_protocol, sensor_model, measurement
+        return sensor_protocol, sensor_model, measurement.lower()
     
     @staticmethod
     def parse_unix_time(unix_time, time_zone="local"):

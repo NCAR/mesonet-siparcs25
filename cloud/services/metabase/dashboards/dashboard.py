@@ -1,10 +1,11 @@
 from logger import CustomLogger
-from utils.odm import Util
+from utils.odm import ODM
+from utils.session import Session
 
 console = CustomLogger()
 
-class Dashboard(Util):
-    def __init__(self, session, name):
+class Dashboard(ODM):
+    def __init__(self, session: Session, name: str):
         super().__init__(session)
         self.name = name
         self.path = "dashboard"
@@ -24,9 +25,9 @@ class Dashboard(Util):
         if dash_id:
             console.log(f"Dashboard: {dash_id}/{self.name} is added successfully")
             return dash_id
-
-    def create(self):
-        payload = {"name": self.name}
+        
+    def create(self, collection_id="root"):
+        payload = {"name": self.name, "collection_id": collection_id}
         dashboards = self.get_all(self.path)
         dash_id = self._exists(dashboards, self.name)
         if dash_id is None:

@@ -1,10 +1,11 @@
-from logger import CustomLogger
 import requests
+from logger import CustomLogger
+from utils.session import Session
 
 console = CustomLogger()
 
 class ConnectDB:
-    def __init__(self, db_name, session):
+    def __init__(self, db_name: str, session: Session):
         self.session = session
         self.db_name = db_name
 

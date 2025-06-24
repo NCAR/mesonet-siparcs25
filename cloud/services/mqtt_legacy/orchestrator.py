@@ -16,7 +16,7 @@ class OrchestrateData:
         self.station_service = StationService(db_uri)
         console.debug(f"StationService initialized with db_uri: {db_uri}")
         self.station_service.add_default_stations()
-        console.debug("Stations added successfully.")
+        console.log("Stations added successfully.")
         
         # Start listening for readings
         self.listen_and_store_readings()
@@ -25,7 +25,7 @@ class OrchestrateData:
         console.log("Connected with result code " + str(rc))
         console.debug(f"Topics to subscribe: {self.topics}")
         console.debug(f"MQTT broker IP: {self.ip}, Port: {self.port}")
-        console.debug("Starting to listen for readings...")
+        console.log("Starting to listen for readings...")
 
         for topic in self.topics:
             client.subscribe(topic)
@@ -33,6 +33,9 @@ class OrchestrateData:
     def _on_message(self, _, __, msg):
         decoded = msg.payload.decode()
         decoded = decoded.strip().split('\n')
+ 
+        if self.reading_service.is_mesonet_station(decoded):
+            return
 
         stations = self.station_service.get_stations()
         if not stations:
@@ -41,16 +44,16 @@ class OrchestrateData:
                 
         station_id = self.reading_service.get_station_id(decoded)
         if not any(station.get("station_id") == station_id for station in stations):
-            console.debug(f"Station ID {station_id} not found in the stations table. Adding it now.")
+            console.warning(f"Station ID {station_id} not found in the stations table. Adding it now.")
             self.station_service.add_new_station(station_id, self.admin_data)
         else:
-            console.debug(f"Station ID {station_id} found in the stations table. Proceeding with reading.")
+            console.log(f"Station ID {station_id} found in the stations table. Proceeding with reading.")
 
         self.reading_service.add_location_to_reading(station_id, stations)
         
         self.reading_service.parse_reading(decoded)
         posted_reading = self.reading_service.create_reading()
-        console.debug(f"Reading posted: id={posted_reading.get('station_id')}")
+        console.log(f"Reading posted: id={posted_reading.get('station_id')}")
     
     def listen_and_store_readings(self):
         client = mqtt.Client()
