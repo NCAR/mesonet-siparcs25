@@ -1,10 +1,11 @@
 from logger import CustomLogger
-
-console = CustomLogger()
+from utils.session import Session
 
 class User:
-    def __init__(self, session):
+    def __init__(self, session: Session, logger: CustomLogger):
         self.session = session
+        self.console = logger
+        self.console.debug("Initializing User management")
 
     def get_setup_token(self):
         return self.session.get_setup_token()
@@ -19,4 +20,4 @@ class User:
         res = self.session.post(path, body)
 
         if res.status_code == 200:
-            console.log(f"Admin created and login sucessfully")   
+            self.console.log(f"Admin created and login sucessfully")   

@@ -2,11 +2,11 @@ from logger import CustomLogger
 from utils.odm import ODM
 from utils.session import Session
 
-console = CustomLogger()
-
 class Dashboard(ODM):
-    def __init__(self, session: Session, name: str):
+    def __init__(self, session: Session, logger: CustomLogger, name: str):
         super().__init__(session)
+        self.console = logger
+        self.console.debug(f"Initializing Dashboard with name: {name}")
         self.name = name
         self.path = "dashboard"
     
@@ -17,13 +17,13 @@ class Dashboard(ODM):
         dash = self.update_one(self.path, id, payload)
         dash_id = dash.get("id")
         if dash_id:
-            console.log(f"Dasboard: {dash_id}/{self.name} is updated successfully")
+            self.console.log(f"Dasboard: {dash_id}/{self.name} is updated successfully")
 
     def __add_dashboard(self, payload):
         dash = self.add_one(self.path, payload)
         dash_id = dash.get("id")
         if dash_id:
-            console.log(f"Dashboard: {dash_id}/{self.name} is added successfully")
+            self.console.log(f"Dashboard: {dash_id}/{self.name} is added successfully")
             return dash_id
         
     def create(self, collection_id="root"):

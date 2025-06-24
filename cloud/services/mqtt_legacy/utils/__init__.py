@@ -2,8 +2,6 @@ from datetime import datetime
 import requests
 from logger import CustomLogger
 
-console = CustomLogger()
-
 sensor_measurements_map = {
     "rg15": "Acc Rain",
     "si7021": "Humidity",

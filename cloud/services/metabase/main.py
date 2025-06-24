@@ -40,15 +40,15 @@ class Application:
     def __initialize(self) -> InitComponents:
         collection_name = "IoTwx Collection"
         collection_description = "Collection for IoTwx related dashboards and cards"
-        collection = Collection(self.session, collection_name, collection_description)
         dash_name = "IoTwx Dashboard"
-        dashboard = Dashboard(self.session, dash_name)
         card_name = "Stations"
-        card = Card(self.session, card_name)
-        user = User(self.session)
+        collection = Collection(self.session, console, collection_name, collection_description)
+        dashboard = Dashboard(self.session, console, dash_name)
+        card = Card(self.session, console, card_name)
+        user = User(self.session, console)
+        mb_db = ConnectDB(self.session, console, self.db_name)
+        model = Model(self.session, console)
         db_service = DatabaseService(self.db_service_url)
-        mb_db = ConnectDB(self.db_name, self.session)
-        model = Model(self.session)
 
         return {
             "collection": collection,
@@ -154,6 +154,9 @@ if __name__ == "__main__":
         # Read and expand environment variables before YAML parsing
         with open("/cloud/config.yaml", "r") as f:
             content = Template(f.read()).substitute(os.environ)
+
+        if not content.strip():
+            raise ValueError("Configuration file is empty or not properly formatted.")
 
         configs = yaml.safe_load(content)
         metabase_config = configs["metabase"]

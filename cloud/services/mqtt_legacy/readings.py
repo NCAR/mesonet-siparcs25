@@ -1,8 +1,11 @@
 from utils import utils_ftn
+from logger import CustomLogger
 import json
 
 class ReadingService:
-    def __init__(self, bd_uri):
+    def __init__(self, logger: CustomLogger, bd_uri: str):
+        self.console = logger
+        self.console.debug(f"Initializing ReadingService with database URI: {bd_uri}")
         self.db_uri = bd_uri
         self.reading = {}
 

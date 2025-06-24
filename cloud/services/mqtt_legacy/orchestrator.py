@@ -3,29 +3,29 @@ from logger import CustomLogger
 from readings import ReadingService
 from stations import StationService
 
-console = CustomLogger()
-
 class OrchestrateData:
-    def __init__(self, db_uri, topics, ip, port=1883, admin_data=None):
+    def __init__(self, logger: CustomLogger, db_uri: str, topics: list[str], ip: str, port=1883, admin_data=None):
+        self.console = logger
+        self.console.debug("Initializing OrchestrateData with MQTT and Reading Services")
         self.topics = topics
         self.ip = ip
         self.port = port
         self.admin_data = admin_data
-        self.reading_service = ReadingService(db_uri)
-        console.debug(f"ReadingService initialized with db_uri: {db_uri}")
-        self.station_service = StationService(db_uri)
-        console.debug(f"StationService initialized with db_uri: {db_uri}")
+        self.reading_service = ReadingService(logger, db_uri)
+        self.console.debug(f"ReadingService initialized with db_uri: {db_uri}")
+        self.station_service = StationService(logger, db_uri)
+        self.console.debug(f"StationService initialized with db_uri: {db_uri}")
         self.station_service.add_default_stations()
-        console.log("Stations added successfully.")
+        self.console.log("Stations added successfully.")
         
         # Start listening for readings
         self.listen_and_store_readings()
 
     def _on_connect(self, client, _, __, rc):
-        console.log("Connected with result code " + str(rc))
-        console.debug(f"Topics to subscribe: {self.topics}")
-        console.debug(f"MQTT broker IP: {self.ip}, Port: {self.port}")
-        console.log("Starting to listen for readings...")
+        self.console.log("Connected with result code " + str(rc))
+        self.console.debug(f"Topics to subscribe: {self.topics}")
+        self.console.debug(f"MQTT broker IP: {self.ip}, Port: {self.port}")
+        self.console.log("Starting to listen for readings...")
 
         for topic in self.topics:
             client.subscribe(topic)
@@ -39,21 +39,21 @@ class OrchestrateData:
 
         stations = self.station_service.get_stations()
         if not stations:
-            console.error("No stations found. Cannot process readings.")
+            self.console.error("No stations found. Cannot process readings.")
             return
                 
         station_id = self.reading_service.get_station_id(decoded)
         if not any(station.get("station_id") == station_id for station in stations):
-            console.warning(f"Station ID {station_id} not found in the stations table. Adding it now.")
+            self.console.warning(f"Station ID {station_id} not found in the stations table. Adding it now.")
             self.station_service.add_new_station(station_id, self.admin_data)
         else:
-            console.log(f"Station ID {station_id} found in the stations table. Proceeding with reading.")
+            self.console.log(f"Station ID {station_id} found in the stations table. Proceeding with reading.")
 
         self.reading_service.add_location_to_reading(station_id, stations)
         
         self.reading_service.parse_reading(decoded)
         posted_reading = self.reading_service.create_reading()
-        console.log(f"Reading posted: id={posted_reading.get('station_id')}")
+        self.console.log(f"Reading posted: id={posted_reading.get('station_id')}")
     
     def listen_and_store_readings(self):
         client = mqtt.Client()

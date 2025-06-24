@@ -2,11 +2,11 @@ from utils.session import Session
 from logger import CustomLogger
 from utils.odm import ODM
 
-console = CustomLogger()
-
 class Model(ODM):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, logger: CustomLogger):
         super().__init__(session)
+        self.console = logger
+        self.console.debug("Initializing Model for dynamic SQL queries")
         self.path = "dataset"
 
     def get_measurements(self, query: str, db_id: int, collection_id="root"):

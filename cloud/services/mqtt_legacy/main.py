@@ -3,17 +3,20 @@ import requests
 from orchestrator import OrchestrateData
 from logger import CustomLogger
 
-console = CustomLogger()
-
-with open('/cloud/config.yaml', 'r') as f:
-    config = yaml.safe_load(f)
+console = CustomLogger(name="mqtt_logs", log_dir="/cloud/logs")
 
 class Application:
     def __init__(self, ip, topics, port, db_base_url, admin_data=None):
-        OrchestrateData(db_uri=db_base_url, topics=topics, ip=ip, port=port, admin_data=admin_data)
+        OrchestrateData(console, db_uri=db_base_url, topics=topics, ip=ip, port=port, admin_data=admin_data)
 
 if __name__ == "__main__":
     try:
+        with open('/cloud/config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
+
+        if not config:
+            raise ValueError("Configuration file is empty or not properly formatted.")
+        
         host = config["mqtt"]["host"]
         topics = config["mqtt"]["topics"]
         port = config["mqtt"]["port"]

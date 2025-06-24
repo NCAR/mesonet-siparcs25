@@ -3,10 +3,10 @@ import json
 from utils import utils_ftn
 from logger import CustomLogger
 
-console = CustomLogger()
-
 class StationService:
-    def __init__(self, db_uri):
+    def __init__(self, logger: CustomLogger, db_uri: str):
+        self.console = logger
+        self.console.debug(f"Initializing StationService with database URI: {db_uri}")
         self.stations_data = self.__load_stations_data("stations_data.json")
         self.db_uri = db_uri
 
@@ -21,7 +21,7 @@ class StationService:
         for station in data:
             res = utils_ftn.insert(path, station)
             # console.debug(f"Station posted. ID: {posted_station}")
-            console.log(f"Station added with ID: {res.get('station_id')}")
+            self.console.log(f"Station added with ID: {res.get('station_id')}")
 
     def add_default_stations(self):
         self.__add_station(self.stations_data)

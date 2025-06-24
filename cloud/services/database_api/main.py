@@ -10,7 +10,7 @@ app = FastAPI(
     version="0.0.1",
     docs_url="/api/docs"
 )
-console = CustomLogger() 
+console = CustomLogger(name="database_logs", log_dir="/cloud/logs")
 Base.metadata.create_all(bind=engine)
 
 app.add_middleware(

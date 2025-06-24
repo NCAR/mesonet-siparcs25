@@ -2,19 +2,19 @@ from logger import CustomLogger
 from utils.odm import ODM
 from utils.session import Session
 
-console = CustomLogger()
-
 class Card(ODM):
-    def __init__(self, session: Session, name: str):
+    def __init__(self, session: Session, logger: CustomLogger, name: str):
         super().__init__(session)
         self.__name = name
         self.__path = "card"
+        self.console = logger
+        self.console.debug(f"Card initialized with name: {self.__name}")
 
     def __add_card(self, payload):
         card = self.add_one(self.__path, payload)
         card_id = card.get("id")
         if card_id:
-            console.log(f"New Card: {self.__name} is added successfully")
+            self.console.log(f"New Card: {self.__name} is added successfully")
             return card_id
         
     @property
@@ -24,7 +24,7 @@ class Card(ODM):
     @name.setter
     def name(self, value: str):
         self.__name = value
-        console.log(f"Card name updated to: {self.__name}")
+        self.console.log(f"Card name updated to: {self.__name}")
 
     def create(self, question: object, display="table", vis_settings={}, collection_id="root"):
         payload = {

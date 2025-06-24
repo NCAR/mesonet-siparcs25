@@ -3,11 +3,11 @@ from utils.session import Session
 from utils.odm import ODM
 from logger import CustomLogger
 
-console = CustomLogger()
-
 class Collection(ODM):
-    def __init__(self, session: Session, name: str, description: str = None):
+    def __init__(self, session: Session, logger: CustomLogger, name: str, description: str = None):
         super().__init__(session)
+        self.console = logger
+        self.console.debug(f"Initializing Collection with name: {name}")
         self.name = name
         self.description = description
         self.path = "collection"
@@ -23,11 +23,11 @@ class Collection(ODM):
             collection = self.add_one(self.path, payload)
             collection_id = collection.get("id")
             if collection_id:
-                console.log(f"Collection: {self.name} is added successfully with ID: {collection_id}")
+                self.console.log(f"Collection: {self.name} is added successfully with ID: {collection_id}")
                 return collection_id
             else:
-                console.error(f"Failed to create collection: {self.name}")
+                self.console.error(f"Failed to create collection: {self.name}")
                 return "root"  # Default to root if creation fails
         else:
-            console.log(f"Collection: {self.name} already exists with ID: {collection_id}")
+            self.console.log(f"Collection: {self.name} already exists with ID: {collection_id}")
             return collection_id

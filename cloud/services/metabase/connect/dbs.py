@@ -2,12 +2,12 @@ import requests
 from logger import CustomLogger
 from utils.session import Session
 
-console = CustomLogger()
-
 class ConnectDB:
-    def __init__(self, db_name: str, session: Session):
+    def __init__(self, session: Session, logger: CustomLogger, db_name: str):
         self.session = session
         self.db_name = db_name
+        self.console = logger
+        self.console.debug(f"Initializing metabase connection with name: {db_name}")
 
     def __can_connect(self):
         res = self.session.get("health").json()
@@ -24,7 +24,7 @@ class ConnectDB:
             for db in existing_dbs:
                 if db.get("name") == self.db_name:
                     db_id = db.get("id")
-                    console.log(f"Database '{self.db_name}' already exists in metabase (id={db.get('id')})")
+                    self.console.log(f"Database '{self.db_name}' already exists in metabase (id={db.get('id')})")
                     break
     
         return db_id
@@ -40,8 +40,8 @@ class ConnectDB:
                 res = self.session.post("database", body=db_payload)
 
                 if res.status_code == 200:
-                    console.log("Database added to Metabase!")
+                    self.console.log("Database added to Metabase!")
                 else:
-                    console.log(f"Failed: {res.text} to authenticate user")
+                    self.console.log(f"Failed: {res.text} to authenticate user")
         else:
             raise requests.exceptions.ConnectionError("Metabase is not ready yet!")
