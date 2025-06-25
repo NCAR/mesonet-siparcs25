@@ -40,9 +40,9 @@ class Collection(ODM):
 
     def create(self, parent_id = None) -> str:
         payload = Payload() \
-            .name(self.__name) \
-            .description(self.__description) \
-            .parent_id(parent_id) \
+            .set_attr("name", self.__name) \
+            .set_attr("description", self.__description) \
+            .set_attr("parent_id", parent_id) \
             .build()
         
         collections = self.get_all(self.__path)

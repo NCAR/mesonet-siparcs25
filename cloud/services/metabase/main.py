@@ -92,7 +92,6 @@ if __name__ == "__main__":
         console.debug(f"Created collections with IDs: {collection_ids}")
 
         for station_id, collection_id in collection_ids.items():
-            console.debug(f"Creating model and dashcard for collection ID: {collection_id}")
             app.create_model(station_id, collection_id)
             app.create_dashcard(station_id, collection_id)
     

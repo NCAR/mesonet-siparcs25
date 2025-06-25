@@ -1,6 +1,7 @@
 from logger import CustomLogger
 from utils.odm import ODM
 from utils.session import Session
+from utils.payload import Payload
 
 class Card(ODM):
     def __init__(self, session: Session, logger: CustomLogger, name: str = None):
@@ -27,6 +28,13 @@ class Card(ODM):
         self.console.log(f"Card name updated to: {self.__name}")
 
     def create(self, question: object, display="table", vis_settings={}, collection_id="root"):
+        payload = Payload() \
+            .set_attr("name", self.__name) \
+            .set_attr("dataset_query", question) \
+            .set_attr("display", display) \
+            .set_attr("visualization_settings", vis_settings) \
+            .set_attr("collection_id", collection_id) \
+            .set_attr("is_model", True)
         payload = {
             "name": self.__name,
             "dataset_query": question,

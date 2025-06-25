@@ -2,31 +2,15 @@ class Payload:
     def __init__(self):
         self.payload = {}
 
-    def name(self, name: str):
+    def set_attr(self, key, value):
         """
-        Builds the name payload for Metabase components.
-        :param name: The name of the component.
+            Builds an attribute in the payload for Metabase components.
+            :param key: The key of the attribute.
+            :param value: The value of the attribute.
+            :returns class object
         """
-        if name:
-            self.payload["name"] = name
-        return self
-    
-    def description(self, description: str):
-        """
-        Builds the description payload for Metabase components.
-        :param description: The description of the component.
-        """
-        if description:
-            self.payload["description"] = description
-        return self
-    
-    def parent_id(self, parent_id: str):
-        """
-        Builds the parent_id payload for Metabase components.
-        :param parent_id: The ID of the parent component.
-        """
-        if parent_id:
-            self.payload["parent_id"] = parent_id
+        if key:
+            self.payload[key] = value
         return self
     
     def build(self):
