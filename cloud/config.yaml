@@ -6,11 +6,8 @@ mqtt:
     - "#"
 database_api:
   base_url: http://database_api:8000
-web:
-  host:  10.2.2.153
-  port: 5000
 map:
-  host:  10.2.2.153
+  host:  localhost
   port: 5001
 redis:
   host: redis

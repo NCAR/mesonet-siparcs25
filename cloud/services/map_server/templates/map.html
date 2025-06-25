@@ -59,12 +59,39 @@
             display: none;
             z-index: 1000;
         }
+        #loading-message {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+        #loading-message::before {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
     <link rel="icon" href="/static/favicon.ico">
 </head>
 <body>
-    <div id="map"></div>
+    <div id="map" aria-label="Interactive sensor network map"></div>
     <div id="error-message"></div>
+    <div id="loading-message">Loading...</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
@@ -81,40 +108,116 @@
         const stations = {};
         const markers = {};
         const errorMessage = document.getElementById('error-message');
+        const loadingMessage = document.getElementById('loading-message');
+
+        function handleError(message, error) {
+            console.error(message, error);
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => { errorMessage.style.display = 'none'; }, 10000);
+        }
+
+        function showLoading(show) {
+            loadingMessage.style.display = show ? 'block' : 'none';
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str ?? 'N/A';
+            return div.innerHTML;
+        }
 
         function createMarkerIcon(stationId) {
             return L.divIcon({
                 className: 'station-marker',
-                html: stationId,
-                iconSize: [48, 48],
+                html: escapeHTML(stationId),
+                iconSize: [24, 24],
                 iconAnchor: [12, 12],
                 popupAnchor: [0, -12]
             });
         }
 
         function createPopupContent(stationId, stationData) {
-            const timestamp = stationData.timestamp
-                ? new Date(stationData.timestamp).toLocaleString(locale)
-                : stationData.last_update
-                ? new Date(stationData.last_update * 1000).toLocaleString(locale)
+            const timestamp = stationData.last_active
+                ? stationData.last_active
                 : 'Unknown';
-            let html = `<div class="station-popup"><h3>Station ${stationId}</h3><table>`;
+            let html = `<div class="station-popup" role="dialog" aria-label="Station ${escapeHTML(stationId)} details"><h3>Station ${escapeHTML(stationId)}</h3><table>`;
             for (const [key, value] of Object.entries(stationData)) {
-                html += `<tr><td>${key}</td><td>${value ?? 'N/A'}</td></tr>`;
+                html += `<tr><td>${escapeHTML(key)}</td><td>${escapeHTML(value)}</td></tr>`;
             }
             html += `</table><div class="timestamp">Last updated: ${timestamp}</div></div>`;
             return html;
         }
 
-        function showError(msg) {
-            errorMessage.textContent = msg;
-            errorMessage.style.display = 'block';
-            setTimeout(() => { errorMessage.style.display = 'none'; }, 5000);
+        function updateStationMarker(stationId, stationData) {
+            console.log(`Updating station ${stationId}:`, stationData);
+            if (!stationData || typeof stationData !== 'object') {
+                handleError(`Invalid station data for ${stationId}`);
+                return;
+            }
+            if (!stationData.latitude || !stationData.longitude || 
+                isNaN(stationData.latitude) || isNaN(stationData.longitude)) {
+                handleError(`Station ${stationId} has invalid coordinates`);
+                return;
+            }
+            const latLng = [stationData.latitude, stationData.longitude];
+            if (markers[stationId]) {
+                const existingData = markers[stationId].options.data || {};
+                const { last_active, ...dataWithoutTimestamp } = stationData;
+                const { last_active: oldTimestamp, ...existingWithoutTimestamp } = existingData;
+                const newPopupContent = createPopupContent(stationId, stationData);
+                if (!_.isEqual(dataWithoutTimestamp, existingWithoutTimestamp) || 
+                    markers[stationId].getPopup()?.getContent() !== newPopupContent) {
+                    markers[stationId].setLatLng(latLng);
+                    markers[stationId].setPopupContent(newPopupContent);
+                    markers[stationId].options.data = stationData;
+                }
+            } else {
+                markers[stationId] = L.marker(latLng, {
+                    icon: createMarkerIcon(stationId),
+                    data: stationData
+                })
+                .addTo(map)
+                .bindPopup(createPopupContent(stationId, stationData));
+                const bounds = Object.values(markers).map(marker => marker.getLatLng());
+                if (bounds.length > 1) {
+                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                }
+            }
+        }
+
+        function cleanupStaleMarkers() {
+            Object.keys(markers).forEach(id => {
+                if (!stations[id]) {
+                    map.removeLayer(markers[id]);
+                    delete markers[id];
+                }
+            });
+        }
+
+        async function fetchInitialData() {
+            showLoading(true);
+            try {
+                const response = await fetch('/api/stations');
+                if (!response.ok) throw new Error(`Initial fetch failed: ${response.status}`);
+                const data = await response.json();
+                console.log('Received initial station data:', data);
+                if (data && data.stations) {
+                    Object.entries(data.stations).forEach(([id, stationData]) => {
+                        stations[id] = stationData;
+                        updateStationMarker(id, stationData);
+                    });
+                }
+            } catch (error) {
+                handleError('Failed to load initial station data', error);
+            } finally {
+                showLoading(false);
+            }
         }
 
         function setupSocketHandlers(socket) {
             socket.on('initial_data', data => {
-                console.log('Received initial data:', data);
+                console.log('Received Socket.IO initial data:', data);
                 if (data && data.stations) {
                     Object.entries(data.stations).forEach(([id, stationData]) => {
                         stations[id] = stationData;
@@ -124,10 +227,12 @@
             });
 
             socket.on('station_update', data => {
-                if (data && data.station_id && data.latitude && data.longitude) {
-                    stations[data.station_id] = data;
-                    updateStationMarker(data.station_id, data);
+                if (!data || !data.station_id || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
+                    handleError('Invalid station update data');
+                    return;
                 }
+                stations[data.station_id] = data;
+                updateStationMarker(data.station_id, data);
             });
 
             socket.on('station_remove', data => {
@@ -140,87 +245,67 @@
             });
         }
 
-        function updateStationMarker(stationId, stationData) {
-            console.log(`Received data for ${stationId}:`, stationData);
-            if (!stationData.latitude || !stationData.longitude || 
-                isNaN(stationData.latitude) || isNaN(stationData.longitude)) {
-                console.warn(`Skipping marker for station ${stationId} due to missing or invalid coordinates`);
-                return;
-            }
-            const latLng = [stationData.latitude, stationData.longitude];
-            if (markers[stationId]) {
-                const existingData = markers[stationId].options.data || {};
-                if (!_.isEqual(existingData, stationData)) {
-                    markers[stationId].setLatLng(latLng);
-                    markers[stationId].setPopupContent(createPopupContent(stationId, stationData));
-                    markers[stationId].options.data = stationData;
-                }
-            } else {
-                markers[stationId] = L.marker(latLng, {
-                    icon: createMarkerIcon(stationId),
-                    data: stationData
-                })
-                .addTo(map)
-                .bindPopup(createPopupContent(stationId, stationData));
-            }
-        }
-
         async function initializeSocketIO() {
-            let socketUrl = window.location.hostname === 'localhost' 
-                ? 'http://localhost:5001' 
-                : 'http://10.2.1.199:5001';
+            let socketUrl ='http://localhost:5001';
             try {
                 const response = await fetch('/api/config');
                 if (!response.ok) throw new Error(`Config fetch failed: ${response.status}`);
                 const config = await response.json();
-                socketUrl = `http://${config['map_web']['host']}:${config['map_web']['port']}`;
+                socketUrl = `http://${config['map']['host']}:${config['map']['port']}`;
             } catch (error) {
-                console.error('Config fetch error:', error);
-                showError('Failed to load server config');
+                handleError('Failed to load server config', error);
             }
 
             const socket = io(socketUrl, { 
                 transports: ['websocket'],
-                reconnectionAttempts: 5,
+                reconnection: true,
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
                 withCredentials: true
             });
             socket.on('connect_error', (err) => {
-                console.error('SocketIO connect error:', err);
-                showError('Failed to connect to server');
+                handleError('Failed to connect to real-time server', err);
             });
             setupSocketHandlers(socket);
             return socket;
         }
 
-        initializeSocketIO().then(socket => {
+        // Initialize map with immediate data fetch
+        (async () => {
+            await fetchInitialData();
+            const socket = await initializeSocketIO();
             console.log('Socket.IO initialized');
-            const refreshInterval = 10000; // Changed to 10 seconds
-            setInterval(() => {
-                fetch('/api/stations')
-                    .then(response => {
-                        if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Received periodic station data:', data);
-                        if (data && data.stations) {
-                            Object.entries(data.stations).forEach(([id, stationData]) => {
-                                if (!stations[id] || !_.isEqual(stations[id], stationData)) {
-                                    stations[id] = stationData;
-                                    updateStationMarker(id, stationData);
+            const refreshInterval = 5000;
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/stations');
+                    if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+                    const data = await response.json();
+                    console.log('Received periodic station data:', data);
+                    if (data && data.stations) {
+                        Object.entries(data.stations).forEach(([id, stationData]) => {
+                            if (!stations[id] || !_.isEqual(stations[id], stationData)) {
+                                stations[id] = stationData;
+                                updateStationMarker(id, stationData);
+                            }
+                        });
+                        Object.keys(stations).forEach(id => {
+                            if (!data.stations[id]) {
+                                if (markers[id]) {
+                                    map.removeLayer(markers[id]);
+                                    delete markers[id];
                                 }
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Periodic fetch error:', error);
-                        showError('Failed to fetch station data');
-                    });
+                                delete stations[id];
+                            }
+                        });
+                    }
+                } catch (error) {
+                    handleError('Failed to fetch station data', error);
+                }
             }, refreshInterval);
-        }).catch(error => {
-            console.error('Socket.IO initialization failed:', error);
-            showError('Failed to initialize Socket.IO');
-        });
+            setInterval(cleanupStaleMarkers, 60000); // Run cleanup every minute
+        })();
     </script>
 </body>
 </html>

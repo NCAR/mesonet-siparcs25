@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from models.station import StationModel
 from schema.station import StationCreate, StationResponse
 from typing import List
-from datetime import datetime
+from datetime import datetime,timezone
 from logger import CustomLogger
 
 console = CustomLogger()
@@ -18,7 +18,7 @@ class StationService:
         return self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
 
     def create_station(self, station_data: StationCreate) -> StationResponse:
-        db_station = StationModel(**station_data.dict(), timestamp=datetime.now(datetime.timezone.utc))
+        db_station = StationModel(**station_data.dict(), timestamp= datetime.now(timezone.utc).isoformat())
         self.db.add(db_station)
         self.db.commit()
         self.db.refresh(db_station)

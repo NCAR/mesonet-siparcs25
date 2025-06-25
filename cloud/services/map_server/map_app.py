@@ -65,7 +65,7 @@ def get_stations():
 
 @app.route('/api/config')
 def get_config():
-    return jsonify({'map_web': config.get('map_web', {})})
+    return jsonify({'map': config.get('map', {})})
 
 @app.route('/favicon.ico')
 def favicon():

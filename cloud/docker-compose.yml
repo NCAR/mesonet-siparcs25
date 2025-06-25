@@ -7,6 +7,18 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+  redisinsight:
+    image: redis/redisinsight:2.68
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight_data:/db
+    restart: always
+    depends_on:
+      - redis
+    networks:
+      - default
   postgres:
     restart: always
     image: "postgres:16"
@@ -74,7 +86,6 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-
   database_api:
     build:
       context: ./services/database_api
@@ -108,7 +119,6 @@ services:
         condition: service_started
     volumes:
       - ./config.yaml:/cloud/config.yaml
-
   mqtt_legacy_orch:
     build:
       context: ./services/mqtt_legacy
@@ -122,12 +132,11 @@ services:
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/mqtt_legacy/logger.py
-
   metabase_orch:
     build:
       context: ./services/metabase
     container_name: orch_mb
-    hostname:  orchestrate_metabase
+    hostname: orchestrate_metabase
     env_file:
       - .env
     depends_on:
@@ -145,7 +154,6 @@ services:
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/metabase/logger.py
-
   map_server:
     build:
       context: ./services/map_server
@@ -153,8 +161,8 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - APP_MODULE=map_app:app  # Defined here for map_server
-      - APP_PORT=5001 
+      - APP_MODULE=map_app:app
+      - APP_PORT=5001
       - GUNICORN_WORKERS=5
       - GUNICORN_TIMEOUT=30
       - GUNICORN_WORKER_CLASS=geventwebsocket.gunicorn.workers.GeventWebSocketWorker
@@ -167,13 +175,16 @@ services:
     depends_on:
       - database_api
       - redis
- 
+
 volumes:
   postgres-data:
     name: tb-ce-postgres-data
     driver: local
   redis_data:
     name: redis_data
+    driver: local
+  redisinsight_data:
+    name: redisinsight_data
     driver: local
 
 networks:

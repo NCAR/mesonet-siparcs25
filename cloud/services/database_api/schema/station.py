@@ -9,6 +9,7 @@ class StationCreate(BaseModel):
     latitude: float
     firstname: str
     lastname: str
+    organization: str
     email: str
 
 class StationResponse(StationCreate):
