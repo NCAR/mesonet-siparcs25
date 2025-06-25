@@ -33,7 +33,7 @@ class Dashboard(ODM):
     @name.setter
     def name(self, value: str):
         if value:
-            self.console.debug(f"Setting dashboard name to: {value}")
+            self.console.log(f"Setting dashboard name to: {value}")
             self.__name = value
         else:
             self.console.error("Dashboard name cannot be empty.")
