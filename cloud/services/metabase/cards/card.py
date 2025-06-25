@@ -3,11 +3,11 @@ from utils.odm import ODM
 from utils.session import Session
 
 class Card(ODM):
-    def __init__(self, session: Session, logger: CustomLogger, name: str):
+    def __init__(self, session: Session, logger: CustomLogger, name: str = None):
         super().__init__(session)
-        self.__name = name
-        self.__path = "card"
         self.console = logger
+        self.__name = name if name else "IoTwx Card"
+        self.__path = "card"
         self.console.debug(f"Card initialized with name: {self.__name}")
 
     def __add_card(self, payload):

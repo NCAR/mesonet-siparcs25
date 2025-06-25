@@ -38,13 +38,9 @@ class Application:
         self.__connect_db() # Connect to Metabase and validate the database
 
     def __initialize(self) -> InitComponents:
-        collection_name = "IoTwx Collection"
-        collection_description = "Collection for IoTwx related dashboards and cards"
-        dash_name = "IoTwx Dashboard"
-        card_name = "Stations"
-        collection = Collection(self.session, console, collection_name, collection_description)
-        dashboard = Dashboard(self.session, console, dash_name)
-        card = Card(self.session, console, card_name)
+        collection = Collection(self.session, console)
+        dashboard = Dashboard(self.session, console)
+        card = Card(self.session, console)
         user = User(self.session, console)
         mb_db = ConnectDB(self.session, console, self.db_name)
         model = Model(self.session, console)
@@ -78,49 +74,69 @@ class Application:
         mb_db = self.instances.get("mb_db")
         mb_db.connect(user_data.get("email"), user_data.get("password"), self.db_payload)
 
-    def create_collection(self) -> str:
+    def create_collection(self) -> list[str]:
+        created_collections = {} # Dict to store created collections
         collection = self.instances.get("collection")
-        console.log(f"Creating collection: {collection.name}")
-        return collection.create()
-    
-    def create_model(self, collection_id="root") -> None:
-        # --- Fetch All Measurement Types ---
+        collection.name = "IoTwx Collection"
+        collection.description = "Collection for IoTwx related dashboards and cards"
+
+        stations = self.instances.get("db_service").get_stations()
+        if not len(stations):
+            console.error("No station(s) found. Please ensure the database is populated with station data.")
+            return "root"  # Default to root if no stations are found
+        
+        # Create a parent collection if it doesn't exist
+        console.log(f"Creating parent collection: {collection.name}")
+        parent_id = collection.create()
+        if parent_id is None:
+            console.error("Failed to create parent collection. Exiting.")
+            return []
+        console.log(f"Parent collection created with ID: {parent_id}")
+        
+        for station in stations:
+            station_id: str = station.get("station_id")
+            collection.name = f"{station_id.capitalize()} Collection"
+            collection.description = f"Collection for {station_id} station related dashboards and cards"
+            console.log(f"Creating collection: {collection.name}")
+            created_collections[station_id] = collection.create(parent_id)
+
+        return created_collections
+
+    def create_model(self, station_id: str, collection_id="root") -> None:
         model = self.instances.get("model")
         mb_db = self.instances.get("mb_db")
         db_id = mb_db.validate_db()
-
         if db_id is None:
             console.error("Database validation failed. Exiting.")
             return
+    
+        measurement_query = model.build_measurement_query(station_id)
+        measurement = model.get_measurements(measurement_query, db_id, collection_id)
+        # console.debug(f"Fetched measurements: {measurement}")
+        model_query = model.build_pivot_query(measurement, station_id)
+        model_name = f"{station_id}'s Readings"
 
-        stations = self.instances.get("db_service").get_stations()
-        if len(stations):
-            for station in stations:
-                station_id = station.get("station_id")
-                measurement_query = model.build_measurement_query(station_id)
-                measurement = model.get_measurements(measurement_query, db_id, collection_id)
-                console.debug(f"Fetched measurements: {measurement}")
-                model_query = model.build_pivot_query(measurement, station_id)
-                model_name = f"{station_id}'s Readings"
+        if len(measurement) and model_query:
+            card = self.instances.get("card")
+            card.name = model_name
+            question = {
+                "type": "native",
+                "native": {"query": model_query},
+                "database": db_id
+            }
+            console.log(f"Creating model card: {card.name} for station: {station_id}")
+            card.create(question=question, display="table", collection_id=collection_id)
 
-                if len(measurement) and model_query:
-                    card = self.instances.get("card")
-                    card.name = model_name
-                    question = {
-                        "type": "native",
-                        "native": {"query": model_query},
-                        "database": db_id
-                    }
-                    console.log(f"Creating model card: {card.name} for station: {station_id}")
-                    card.create(question=question, display="table", collection_id=collection_id)
-
-    def create_dashcard(self, collection_id="root") -> None:
+    def create_dashcard(self, station_id: str, collection_id="root") -> None:
         dashboard = self.instances.get("dashboard")
-        card = self.instances.get("card")
-        mb_db = self.instances.get("mb_db")
+        dashboard.name = f"{station_id}'s Dashboard"
 
-        card.name = "Stations Map"
+        card = self.instances.get("card")
+        card.name = f"{station_id}'s Map"
+
+        mb_db = self.instances.get("mb_db")
         db_id = mb_db.validate_db()
+
         question = {
             "type": "native",
             "native": {"query": "SELECT * FROM stations LIMIT 10"},
@@ -170,9 +186,13 @@ if __name__ == "__main__":
         db_base_url = configs["database_api"]["base_url"]
 
         app = Application(settings, db_name, db_payload, metabase_base_url, db_service_url=db_base_url)
-        collection_id = app.create_collection()
-        app.create_model(collection_id)
-        app.create_dashcard(collection_id)
+        collection_ids = app.create_collection()
+        console.debug(f"Created collections with IDs: {collection_ids}")
+
+        for station_id, collection_id in collection_ids.items():
+            console.debug(f"Creating model and dashcard for collection ID: {collection_id}")
+            app.create_model(station_id, collection_id)
+            app.create_dashcard(station_id, collection_id)
     
     except requests.exceptions.Timeout:
         console.exception("The request timed out")

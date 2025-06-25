@@ -3,39 +3,52 @@ from utils.odm import ODM
 from utils.session import Session
 
 class Dashboard(ODM):
-    def __init__(self, session: Session, logger: CustomLogger, name: str):
+    def __init__(self, session: Session, logger: CustomLogger, name: str = None):
         super().__init__(session)
         self.console = logger
-        self.console.debug(f"Initializing Dashboard with name: {name}")
-        self.name = name
-        self.path = "dashboard"
+        self.__name = name if name else "IoTwx Dashboard"
+        self.__path = "dashboard"
+        self.console.debug(f"Dashboard initialized with name: {self.__name}")
     
     def __get_dashboard(self, id):
-        return self.get_one(self.path, id)
+        return self.get_one(self.__path, id)
     
     def __update_dashboard(self, id, payload):
-        dash = self.update_one(self.path, id, payload)
+        dash = self.update_one(self.__path, id, payload)
         dash_id = dash.get("id")
         if dash_id:
-            self.console.log(f"Dasboard: {dash_id}/{self.name} is updated successfully")
+            self.console.log(f"Dasboard: {dash_id}/{self.__name} is updated successfully")
 
     def __add_dashboard(self, payload):
-        dash = self.add_one(self.path, payload)
+        dash = self.add_one(self.__path, payload)
         dash_id = dash.get("id")
         if dash_id:
-            self.console.log(f"Dashboard: {dash_id}/{self.name} is added successfully")
+            self.console.log(f"Dashboard: {dash_id}/{self.__name} is added successfully")
             return dash_id
         
-    def create(self, collection_id="root"):
-        payload = {"name": self.name, "collection_id": collection_id}
-        dashboards = self.get_all(self.path)
-        dash_id = self._exists(dashboards, self.name)
+    @property
+    def name(self) -> str:
+        return self.__name
+    
+    @name.setter
+    def name(self, value: str):
+        if value:
+            self.console.debug(f"Setting dashboard name to: {value}")
+            self.__name = value
+        else:
+            self.console.error("Dashboard name cannot be empty.")
+            raise ValueError("Dashboard name cannot be empty.")
+        
+    def create(self, collection_id="root") -> str:
+        payload = {"name": self.__name, "collection_id": collection_id}
+        dashboards = self.get_all(self.__path)
+        dash_id = self._exists(dashboards, self.__name)
         if dash_id is None:
             return self.__add_dashboard(payload)
         
         return dash_id
     
-    def add_card(self, dash_id, card_id):
+    def add_card(self, dash_id, card_id) -> None:
         payload = self.__get_dashboard(dash_id)
         dashcards = payload.get("dashcards", [])
         new_card = {
