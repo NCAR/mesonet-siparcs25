@@ -41,10 +41,11 @@ class MetabaseConnection:
                 res = self.session.post("database", body=self.db_payload)
 
                 if res.status_code == 200:
+                    db_id = res.json().get("id")
                     self.console.log("Database added to Metabase!")
                 else:
                     self.console.log(f"Failed: {res.text} to authenticate user")
         else:
             raise requests.exceptions.ConnectionError("Metabase is not ready yet!")
-        
+
         return db_id

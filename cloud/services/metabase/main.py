@@ -40,7 +40,7 @@ class Application:
         metabase = MetabaseService(self.session, console, db_name, db_payload)
         mb_db_id = metabase.connect(admin_data, mb_config)
 
-        if mb_db_id is None:
+        if not mb_db_id:
             console.error(f"Database '{db_name}' does not exist in Metabase. Please check your configuration.")
             raise ValueError(f"Database '{db_name}' does not exist in Metabase.")
         

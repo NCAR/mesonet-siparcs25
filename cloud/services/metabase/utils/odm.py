@@ -1,3 +1,6 @@
+from logger import CustomLogger
+import json
+console = CustomLogger()
 class ODM:
     def __init__(self, session):
         self.session = session
@@ -14,7 +17,10 @@ class ODM:
     
     def update_one(self, path, id, data):
         res = self.session.put(path=f"{path}/{id}", body=data)
-        res.raise_for_status()
+
+        if res.status_code != 200:
+            return res.raise_for_status()
+            
         return res.json()
     
     def add_one(self, path, data):

@@ -41,7 +41,7 @@ class Dashboard(ODM):
             self.console.error("Dashboard name cannot be empty.")
             raise ValueError("Dashboard name cannot be empty.")
         
-    def create(self, collection_id="root") -> str:
+    def create(self, collection_id="root") -> int | str:
         payload = self.payload \
             .reset() \
             .set_attr("name", self.__name) \
@@ -54,7 +54,7 @@ class Dashboard(ODM):
             return self.__add_dashboard(payload)
         
         return dash_id
-    
+            
     def add_card(self, dash_id, card_id, col=1, row=None, size_x=30, size_y=10) -> None:
         dashboard = self.__get_dashboard(dash_id)
         dashcards = dashboard.get("dashcards", [])

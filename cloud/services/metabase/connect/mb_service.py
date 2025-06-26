@@ -7,7 +7,7 @@ class MetabaseService(Meta):
         super().__init__(session, logger, db_name, db_payload)
         self.user = User(self.session, logger)
 
-    def connect(self, admin, config) -> None:
+    def connect(self, admin, config) -> int:
         # Setup token is created just once. i.e. when there is no user
         setup_token = self.user.get_setup_token()
 

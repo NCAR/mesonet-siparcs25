@@ -16,10 +16,10 @@ class DashboardServices:
     def create_dashboard(self, station_id: str, collection_id: str = "root") -> None:
         self.dashboard.name = f"{station_id}'s Dashboard"
         self.console.log(f"Creating dashboard: {self.dashboard.name}")
-        self.dash_id = self.dashboard.create(collection_id)
+        self.__dash_id = self.dashboard.create(collection_id)
     
     def merge_card(self, card_id: str, alt_dash_id: str = None) -> None:
-        dash_id = alt_dash_id if alt_dash_id else self.dash_id
+        dash_id = alt_dash_id if alt_dash_id else self.__dash_id
         self.console.log(f"Adding card: {card_id} to dashboard: {dash_id}")
         self.dashboard.add_card(dash_id, card_id)
         self.console.log(f"Card {card_id} added to dashboard {dash_id} successfully.")
