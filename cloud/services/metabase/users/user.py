@@ -1,23 +1,25 @@
 from logger import CustomLogger
 from utils.session import Session
+from utils.odm import ODM
 
-class User:
+class User(ODM):
     def __init__(self, session: Session, logger: CustomLogger):
-        self.session = session
+        super().__init__(session)
         self.console = logger
         self.console.debug("Initializing User management")
 
-    def get_setup_token(self):
-        return self.session.get_setup_token()
+    def get_token(self):
+        path = "session/properties"
+        res_data = self.get_all(path)
+        self.setup_token = res_data.get("setup-token")
+        return self.setup_token
 
-    def setup_initial_user(self, setup_token, user_data, prefs):
-        path = "setup"
-        body = {
-            "token": setup_token,
-            "user": user_data,
-            "prefs": prefs
-        }
-        res = self.session.post(path, body)
+    def add_admin(self, data) -> str:
+        res_data = self.add_one(path="setup", data=data)
+        token = res_data.get('id')
+        self.console.log(f"Admin created and login sucessfully with token {token}")
+        return token
 
-        if res.status_code == 200:
-            self.console.log(f"Admin created and login sucessfully")   
+    def get_users(self):
+        res_data = self.get_all(path="setup")
+        self.console.log(f"{len(res_data)} users retrieved successfully")

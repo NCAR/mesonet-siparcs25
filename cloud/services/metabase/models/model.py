@@ -9,7 +9,7 @@ class Model(ODM):
         self.console.debug("Initializing Model for dynamic SQL queries")
         self.path = "dataset"
 
-    def get_measurements(self, query: str, db_id: int, collection_id="root"):
+    def get_measurements(self, query: str, db_id: int, collection_id="root") -> list:
         """
         Returns a list of measurements.
         """
@@ -22,7 +22,11 @@ class Model(ODM):
             "collection_id": collection_id
         }
         measurements = self.add_one(self.path, payload)
-        return [measurement[0] for measurement in measurements["data"]["rows"]]
+
+        if measurements:
+            return [measurement[0] for measurement in measurements.get("data").get("rows")]
+        
+        return []
     
     def build_measurement_query(self, station_id: str) -> str:
         """

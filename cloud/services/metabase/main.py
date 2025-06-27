@@ -37,7 +37,7 @@ class Application:
         admin_data = config.metabase["admin_data"]
         mb_config = config.metabase["config"]
 
-        metabase = MetabaseService(self.session, console, db_name, db_payload)
+        metabase = MetabaseService(session=self.session, logger=console, db_name=db_name, db_payload=db_payload)
         mb_db_id = metabase.connect(admin_data, mb_config)
 
         if not mb_db_id:
@@ -60,7 +60,7 @@ class Application:
             "database": database,
         }
 
-    def create_collection(self) -> list[str]:
+    def create_collection(self) -> dict:
         collection = self.instances.get("collection")
         parent_collection = collection.create_parent_collection()
 
@@ -68,7 +68,7 @@ class Application:
         stations = database.get_stations()
         if not len(stations):
             console.error("No station(s) found. Please ensure the database is populated with station data.")
-            return
+            return {}
     
         return collection.create_stations_collection(stations, parent_collection)
 
@@ -87,6 +87,7 @@ class Application:
 
 if __name__ == "__main__":
     try:
+        pass
         app = Application()
         collection_ids = app.create_collection()
         console.debug(f"Created collections with IDs: {collection_ids}")

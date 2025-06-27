@@ -108,6 +108,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      metabase_orch:
+        condition: service_healthy
     volumes:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/mqtt_legacy/logger.py
@@ -120,6 +122,8 @@ services:
     hostname:  orchestrate_metabase
     env_file:
       - .env
+    ports:
+      - 8001:8001
     depends_on:
       postgres:
         condition: service_started
@@ -138,6 +142,13 @@ services:
       - ./config.yaml:/cloud/config.yaml
       - ./services/logger.py:/cloud/services/metabase/logger.py
       - ./logs:/cloud/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8001/health\")'"]
+      interval: 10s
+      retries: 3
+      start_period: 5s
+      timeout: 5s
 
   map_server:
     build:

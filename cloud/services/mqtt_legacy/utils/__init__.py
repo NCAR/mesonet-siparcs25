@@ -59,13 +59,17 @@ class Utils:
             json=data,
             headers={"Content-Type": "application/json"}
         )
-        res.raise_for_status()
+
+        if not (200 <= res.status_code < 300):
+            return res.raise_for_status()
         return res.json()
     
     @staticmethod
     def get_all(path):
         res = requests.get(path)
-        res.raise_for_status()
+
+        if not (200 <= res.status_code < 300):
+            res.raise_for_status()
         return res.json()
         
 utils_ftn = Utils

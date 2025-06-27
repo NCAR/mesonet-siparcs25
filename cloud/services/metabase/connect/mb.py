@@ -1,9 +1,11 @@
 import requests
 from logger import CustomLogger
 from utils.session import Session
+from .mb_db import MetabaseDB as MetaDB
 
-class MetabaseConnection:
+class MetabaseConnection(MetaDB):
     def __init__(self, session: Session, logger: CustomLogger, db_name: str, db_payload: dict):
+        super().__init__()
         self.session = session
         self.db_name = db_name
         self.db_payload = db_payload
@@ -34,7 +36,7 @@ class MetabaseConnection:
         db_id = None
 
         if healthy_con:
-            self.session.create_session(username, password)
+            self.session.create(username, password)
             db_id = self._validate_db()
 
             if db_id is None:
