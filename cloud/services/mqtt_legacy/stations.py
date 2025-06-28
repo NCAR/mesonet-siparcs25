@@ -2,6 +2,7 @@ import os
 import json
 from utils import utils_ftn
 from logger import CustomLogger
+from users import MetabaseUsers
 
 class StationService:
     def __init__(self, logger: CustomLogger, db_uri: str):
@@ -19,9 +20,18 @@ class StationService:
     def __add_station(self, data):
         path = f"{self.db_uri}/api/stations"
         for station in data:
-            res = utils_ftn.insert(path, station)
+            station_res = utils_ftn.insert(path, station)
             # console.debug(f"Station posted. ID: {posted_station}")
-            self.console.log(f"Station added with ID: {res.get('station_id')}")
+            self.console.log(f"Station added with ID: {station_res.get('station_id')}")
+            mb_users = MetabaseUsers()
+            payload = {
+                "first_name": station_res.get("firstname"),
+                "last_name": station_res.get("lastname"),
+                "email": station_res.get("email"),
+                "password": "assas" # generate a temporal password
+            }
+
+            mb_users.create(payload)
 
     def add_default_stations(self):
         self.__add_station(self.stations_data)
