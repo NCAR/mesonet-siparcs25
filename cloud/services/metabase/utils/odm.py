@@ -1,7 +1,3 @@
-from logger import CustomLogger
-
-console = CustomLogger()
-
 class ODM:
     def __init__(self, session):
         self.session = session

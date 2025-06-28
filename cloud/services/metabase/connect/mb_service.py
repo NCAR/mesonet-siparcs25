@@ -26,6 +26,9 @@ class MetabaseService(Meta):
         self.console.log(f"Connecting to Metabase database: {self.db_name}")
         return self._connect(admin.get("email"), admin.get("password"))
     
+    def disconnect(self):
+        self.session.close()
+    
     def __clear_settings_setup_token(self):
         console = self.console
         try:

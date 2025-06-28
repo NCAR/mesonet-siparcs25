@@ -15,5 +15,8 @@ class Session(Req):
         self.active_token = res.get("id")
         self.set_session_header(self.active_token)
 
+    def close(self):
+        self.delete("session")
+
     def set_session_header(self, data):
         self.add_header("X-Metabase-Session", data)

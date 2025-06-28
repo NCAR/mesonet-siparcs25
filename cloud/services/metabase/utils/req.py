@@ -21,3 +21,6 @@ class Req:
     
     def put(self, path, body):
         return requests.put(f"{self.base_url}/{path}", json=body, headers=self.headers)
+    
+    def delete(self, path):
+        return requests.delete(f"{self.base_url}/{path}", headers=self.headers)

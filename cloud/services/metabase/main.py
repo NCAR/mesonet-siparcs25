@@ -37,8 +37,8 @@ class Application:
         admin_data = config.metabase["admin_data"]
         mb_config = config.metabase["config"]
 
-        metabase = MetabaseService(session=self.session, logger=console, db_name=db_name, db_payload=db_payload)
-        mb_db_id = metabase.connect(admin_data, mb_config)
+        self.metabase = MetabaseService(session=self.session, logger=console, db_name=db_name, db_payload=db_payload)
+        mb_db_id = self.metabase.connect(admin_data, mb_config)
 
         if not mb_db_id:
             console.error(f"Database '{db_name}' does not exist in Metabase. Please check your configuration.")
@@ -108,3 +108,5 @@ if __name__ == "__main__":
         console.exception(f"An unexpected error occurred: {e}")
     except Exception as e:
         console.exception(f"Error occurred: {e}")
+    finally:
+        app.metabase.disconnect()
