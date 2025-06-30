@@ -1,6 +1,7 @@
 from logger import CustomLogger
 from utils.session import Session
 from utils.odm import ODM
+from apis.users.types import APIResponse
 
 class User(ODM):
     def __init__(self, session: Session, logger: CustomLogger):
@@ -9,8 +10,7 @@ class User(ODM):
         self.console.debug("Initializing User management")
 
     def get_token(self):
-        path = "session/properties"
-        res_data = self.get_all(path)
+        res_data = self.get_all(path="session/properties")
         self.setup_token = res_data.get("setup-token")
         return self.setup_token
 
@@ -20,6 +20,16 @@ class User(ODM):
         self.console.log(f"Admin created and login sucessfully with token {token}")
         return token
 
-    def get_users(self):
-        res_data = self.get_all(path="setup")
-        self.console.log(f"{len(res_data)} users retrieved successfully")
+    async def get_users(self) -> list:
+        res = await self.get_all_async(path="user")
+        res_data = res.get("data", [])
+        if res_data:
+            self.console.log(f"{len(res_data)} users retrieved successfully")
+        return res_data
+
+    async def add_user(self, payload) -> APIResponse:
+        res = await self.add_one_async(path="user", data=payload)
+        res_data = res.get("data", {})
+        if res_data:
+            self.console.log(f"User {res_data.get('email')} has been added successfully.")
+        return res_data

@@ -6,7 +6,7 @@ app = FastAPI(
     title="IoTwx Metabase APIs",
     description="APIs for accessing IoTwx metabase APIs",
     version="0.0.1",
-    docs_url="/iotwx_api/docs"
+    docs_url="/metabase/docs"
 )
 
 app.add_middleware(
