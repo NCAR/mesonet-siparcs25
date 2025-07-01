@@ -1,4 +1,5 @@
 from datetime import datetime
+import httpx
 import requests
 from logger import CustomLogger
 
@@ -53,7 +54,7 @@ class Utils:
             return datetime.fromtimestamp(int(unix_time))
         
     @staticmethod
-    def insert(path, data):
+    def insert(path: str, data):
         res = requests.post(
             path,
             json=data,
@@ -65,11 +66,24 @@ class Utils:
         return res.json()
     
     @staticmethod
-    def get_all(path):
+    def get_all(path: str):
         res = requests.get(path)
 
         if not (200 <= res.status_code < 300):
             res.raise_for_status()
         return res.json()
-        
+    
+    @staticmethod
+    async def insert_async(path: str, data):
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                path,
+                json=data,
+                headers={"Content-Type": "application/json"}
+            )
+
+            if not (200 <= res.status_code < 300):
+                return res.raise_for_status()
+            return res.json()
+ 
 utils_ftn = Utils

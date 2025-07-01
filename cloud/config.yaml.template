@@ -35,3 +35,4 @@ metabase:
     is_on_demand: false
     cache_ttl: null
   base_url: http://host_name_or_localhost:3000/api # This should correspond to the service name
+  orch_url: http://host_name_or_localhost:3000/api # This should correspond to the service name
