@@ -30,14 +30,16 @@ class StationService:
         await self.__add_station(self.stations_data)
 
     async def add_new_station(self, station_id, admin_data=None):
-        station_data = {
-            "station_id": station_id,
-            "firstname": admin_data.get("first_name", ""),
-            "lastname": admin_data.get("last_name", ""),
-            "email": admin_data.get("email", ""),
-            "latitude": 40.01499, # Default value, location to NCAR
-            "longitude": -105.27055,  # Default value, location to NCAR
-        }
+        station_data = Payload() \
+            .reset() \
+            .set_attr("station_id", station_id) \
+            .set_attr("firstname", admin_data.get("first_name", "")) \
+            .set_attr("lastname", admin_data.get("last_name", "")) \
+            .set_attr("email", admin_data.get("email", "")) \
+            .set_attr("latitude", 40.01499) \
+            .set_attr("longitude", -105.27055) \
+            .build()
+
         await self.__add_station([station_data])
 
     async def get_stations(self):
