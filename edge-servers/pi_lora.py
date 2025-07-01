@@ -220,11 +220,13 @@ def map_packet_fields(packet_data):
         'o': 'organization',        # Organization for station_info
         'lat': 'latitude',          # Latitude for station_info
         'lon': 'longitude',         # Longitude for station_info
-        'C02': 'C02 Concentration', # C02 Concentration
-        'rh': 'Relative Humidity',  # Relative Humidity
-        'tmp': 'Temperature',       # Temperature
-        'pre': 'Pressure',          # Pressure
-        # PMSA003I measurements
+        'C02': 'co2 Concentration', # C02 Concentration
+        'rh': 'relative humidity',  # Relative Humidity
+        'tmp': 'temperature',       # Temperature
+        'pre': 'pressure',          # Pressure
+        'uvs': 'uv light',          # UV Light
+        'als': 'ambient light',      # Ambient Light
+	 # PMSA003I measurements
         'pm0': 'pm10standard',
         'pm1': 'pm25standard',
         'pm2': 'pm100standard',
@@ -244,8 +246,8 @@ def map_packet_fields(packet_data):
         'B': 'pong',
         'C': 'keep_alive',
         'D': 'disconnect',
-        'S': 'station_info',
-        'd': 'sensor_data'
+        'E': 'station_info',
+        'F': 'sensor_data'
     }
     # Create new dictionary with full field names
     mapped_packet = {}

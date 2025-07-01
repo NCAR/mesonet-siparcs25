@@ -2,14 +2,14 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.client import CallbackAPIVersion
 import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import requests
 import redis
 import os
 import yaml
 from typing import Dict, Any
-from threading import Lock
-
+from threading import Lock, Thread
+from collections import defaultdict
 
 # Configuration
 CONFIG_FILE = "/cloud/config.yaml"
@@ -27,7 +27,8 @@ required_fields = {
     'mqtt': ['host', 'port', 'msg_topic'],
     'database_api': ['base_url'],
     'redis': ['host', 'port'],
-    'station': ['active_station_timeout']
+    'station': ['active_station_timeout', 'batch_interval'],
+    'model_service': ['base_url']
 }
 for section, fields in required_fields.items():
     if section not in config:
@@ -46,30 +47,41 @@ API_BASE_URL = config['database_api']['base_url']
 REDIS_HOST = config['redis']['host']
 REDIS_PORT = config['redis']['port']
 ACTIVE_STATION_TIMEOUT = config['station']['active_station_timeout']
-
+BATCH_INTERVAL = config['station']['batch_interval']
+MODEL_SERVICE_URL = config['model_service']['base_url']
+MODEL_ENDPOINT = f"{MODEL_SERVICE_URL}/predict"
 STATION_ENDPOINT = f"{API_BASE_URL}/api/stations"
 READING_ENDPOINT = f"{API_BASE_URL}/api/readings/"
-
 
 def get_current_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 class MQTTDatabaseUpdater:
-    def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int):
+    def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int, batch_interval: int, model_service_url: str):
         self.broker = broker
         self.port = port
         self.api_base_url = api_base_url
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.active_station_timeout = active_station_timeout
+        self.batch_interval = batch_interval
+        self.model_service_url = model_service_url
         self.redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
         self.client = None
         self.connected = False
         self.last_connection_attempt = 0
         self.connection_interval = 30
         self.stations_lock = Lock()
+        self.sensor_buffer = defaultdict(lambda: {
+            "data": defaultdict(dict),
+            "metadata": {}
+        })
+        self.buffer_lock = Lock()
         self.initialize_client()
         self.test_redis_connection()
+        self.test_api_connections()
+        self.batch_thread = Thread(target=self.process_batch, daemon=True)
+        self.batch_thread.start()
 
     def test_redis_connection(self):
         try:
@@ -77,6 +89,26 @@ class MQTTDatabaseUpdater:
             print(f"[info]: Connected to Redis at {self.redis_host}:{self.redis_port}")
         except redis.ConnectionError as e:
             print(f"[error]: Failed to connect to Redis: {e}")
+            exit(1)
+
+    def test_api_connections(self):
+        try:
+            response = requests.get(f"{self.api_base_url}/health", timeout=5)
+            if response.status_code == 200:
+                print(f"[info]: Connected to database API at {self.api_base_url}")
+            else:
+                print(f"[warn]: Database API health check failed: {response.status_code} {response.text}")
+        except requests.RequestException as e:
+            print(f"[error]: Failed to connect to database API: {e}")
+            exit(1)
+        try:
+            response = requests.get(f"{self.model_service_url}/health", timeout=5)
+            if response.status_code == 200:
+                print(f"[info]: Connected to model service at {self.model_service_url}")
+            else:
+                print(f"[warn]: Model service health check failed: {response.status_code} {response.text}")
+        except requests.RequestException as e:
+            print(f"[error]: Failed to connect to model service: {e}")
             exit(1)
 
     def initialize_client(self):
@@ -99,19 +131,96 @@ class MQTTDatabaseUpdater:
         print(f"[warn]: Disconnected from MQTT broker, reason_code={reason_code}")
         self.connected = False
 
-    def get_redis_coordinates(self, type, station_id: str) -> None:
-        """Retrieve last seen latitude and longitude from Redis."""
-        redis_key = f"station:{station_id}"
+    def query_model_service(self, station_id: str, sensor_data: Dict[str, Any], model_name: str) -> str:
+        payload = {
+            "model": model_name,
+            "data": json.dumps(sensor_data)
+        }
         try:
-            if type == 'lat':
-                lat = self.redis_client.hget(redis_key, 'latitude')
-                return lat if lat else 0
+            response = requests.post(MODEL_ENDPOINT, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+            if response.status_code == 200:
+                print(f"[info]: Successfully queried {model_name} for station {station_id}")
+                return response.json().get("result", "")
             else:
-                lon = self.redis_client.hget(redis_key, 'longitude')
-                return lon if lon else 0
-        except redis.RedisError as e:
-            print(f"[error]: Failed to get coordinates from Redis for {station_id}: {e}")
-            return None
+                print(f"[error]: Failed to query {model_name} for station {station_id}: {response.text}")
+                return ""
+        except requests.RequestException as e:
+            print(f"[error]: Failed to communicate with model_service for {model_name}: {e}")
+            return ""
+
+    def merge_sensor_data(self, existing_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[str, Any]:
+        merged_data = existing_data.copy()
+        if "data" not in merged_data:
+            merged_data["data"] = {}
+        for sensor, measurements in new_data["data"].items():
+            if sensor not in merged_data["data"]:
+                merged_data["data"][sensor] = {}
+            merged_data["data"][sensor].update(measurements)
+        return merged_data
+
+    def merge_metadata(self, existing_metadata: Dict[str, Any], new_metadata: Dict[str, Any]) -> Dict[str, Any]:
+        merged_metadata = existing_metadata.copy()
+        merged_metadata.update(new_metadata)
+        return merged_metadata
+
+    def process_batch(self):
+        while True:
+            time.sleep(self.batch_interval)
+            with self.buffer_lock:
+                if not self.sensor_buffer:
+                    continue
+                print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
+                for station_id, station_data in list(self.sensor_buffer.items()):
+                    sensor_data = {"data": station_data["data"]}
+                    model_names = ["ai/smollm2"]
+                    model_summaries = {}
+                    for model_name in model_names:
+                        summary = self.query_model_service(station_id, sensor_data, model_name)
+                        if summary:
+                            model_summaries[f"summary_{model_name}"] = summary
+
+                    redis_key = f"station:{station_id}"
+                    try:
+                        existing_redis_data = self.redis_client.hget(redis_key, "data") or "{}"
+                        existing_sensor_data = json.loads(existing_redis_data)
+                        existing_redis_metadata = self.redis_client.hget(redis_key, "metadata") or "{}"
+                        existing_metadata = json.loads(existing_redis_metadata)
+
+                        merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
+                        merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
+
+                        redis_station_data = {
+                            'data': json.dumps(merged_sensor_data),
+                            'metadata': json.dumps(merged_metadata),
+                            'model_summaries': json.dumps(model_summaries),
+                            'latitude': str(station_data["metadata"].get('latitude', self.redis_client.hget(redis_key, 'latitude') or '39.9784')),
+                            'longitude': str(station_data["metadata"].get('longitude', self.redis_client.hget(redis_key, 'longitude') or '-105.2749')),
+                            'last_active': station_data["metadata"].get('last_active', get_current_timestamp())
+                        }
+                        self.redis_client.hset(redis_key, mapping=redis_station_data)
+                        self.redis_client.expire(redis_key, self.active_station_timeout)
+                        print(f"[info]: Updated Redis for station {station_id}: data={merged_sensor_data}, metadata={merged_metadata}, model_summaries={model_summaries}")
+
+                        if 'latitude' in station_data["metadata"] or 'longitude' in station_data["metadata"]:
+                            try:
+                                station_payload = {
+                                    "station_id": station_id,
+                                    "latitude": redis_station_data['latitude'],
+                                    "longitude": redis_station_data['longitude'],
+                                    "timestamp": redis_station_data['last_active']
+                                }
+                                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
+                                if response.status_code == 200:
+                                    print(f"[info]: Updated station {station_id} latitude/longitude in Postgres")
+                                else:
+                                    print(f"[error]: Failed to update station {station_id} latitude/longitude in Postgres: {response.status_code} {response.text}")
+                            except requests.RequestException as e:
+                                print(f"[error]: Failed to communicate with Postgres for station {station_id}: {e}")
+
+                    except (redis.RedisError, json.JSONDecodeError) as e:
+                        print(f"[error]: Failed to update Redis for station {station_id}: {e}")
+
+                    del self.sensor_buffer[station_id]
 
     def on_message(self, client, userdata, message):
         try:
@@ -124,164 +233,125 @@ class MQTTDatabaseUpdater:
                 print("[warn]: Missing station_id in message")
                 return
 
-            # Ignore keep_alive and disconnect messages
             if data.get('type') in ['keep_alive', 'disconnect']:
                 print(f"[info]: Ignored {data.get('type')} message from {station_id}")
                 return
 
-            # Use message timestamp or current MDT time
             timestamp = get_current_timestamp()
             data['timestamp'] = timestamp
 
-            # Handle station_info messages
             if data.get('type') == 'station_info':
                 self.handle_station_info(station_id, data, timestamp)
-            # Handle sensor readings (including latitude/longitude)
             else:
                 self.handle_reading(station_id, data, timestamp)
 
+        except json.JSONDecodeError as e:
+            print(f"[error]: Failed to decode MQTT payload: {e}")
         except Exception as e:
             print(f"[error]: Failed to process message: {e}")
-   
-
-    def update_station_activity(self, station_id: str, timestamp: str):
-        try:
-            redis_key = f"station:{station_id}"
-            self.redis_client.hset(redis_key, 'last_active', timestamp)
-            self.redis_client.expire(redis_key, self.active_station_timeout)
-            print(f"[info]: Updated activity for station {station_id} in Redis")
-        except redis.RedisError as e:
-            print(f"[error]: Failed to update activity for station {station_id} in Redis: {e}")
 
     def handle_station_info(self, station_id: str, station_data: Dict[str, Any], timestamp: str):
-        station_payload = {
-            'station_id': station_id,
-            'longitude': station_data.get('longitude', 0),
-            'latitude': station_data.get('latitude', 0),
+        metadata = {
             'firstname': station_data.get('firstname', ''),
             'lastname': station_data.get('lastname', ''),
             'email': station_data.get('email', ''),
             'organization': station_data.get('organization', ''),
+            'target_id': station_data.get('target_id', '')
         }
-        print(f"[info {station_data.get('firstname', '')}")
+        station_payload = {
+            'station_id': station_id,
+            'longitude': str(station_data.get('longitude', '0')),
+            'latitude': str(station_data.get('latitude', '0')),
+            'last_active': timestamp,
+            **metadata
+        }
+        print(f"[info]: Processing station_info for {station_id}")
 
-        # Update Postgres
         try:
-            response = requests.get(f"{STATION_ENDPOINT}/{station_id}")
+            response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
             if response.status_code == 200:
-                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload,headers={"Content-Type": "application/json"})
+                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Updated station {station_id} in Postgres")
                 else:
-                    print(f"[error]: Failed to update station {station_id} in Postgres: {response.text}")
+                    print(f"[error]: Failed to update station {station_id} in Postgres: {response.status_code} {response.text}")
             elif response.status_code == 404:
-                response = requests.post(STATION_ENDPOINT, json=station_payload,headers={"Content-Type": "application/json"})
+                response = requests.post(STATION_ENDPOINT, json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Created station {station_id} in Postgres")
                 else:
-                    print(f"[error]: Failed to create station {station_id} in Postgres: {response.text}")
+                    print(f"[error]: Failed to create station {station_id} in Postgres: {response.status_code} {response.text}")
             else:
-                print(f"[error]: Error checking station {station_id} in Postgres: {response.text}")
+                print(f"[error]: Error checking station {station_id} in Postgres: {response.status_code} {response.text}")
         except requests.RequestException as e:
             print(f"[error]: Failed to communicate with Postgres for station {station_id}: {e}")
 
-        # Update Redis metadata
         try:
             redis_key = f"station:{station_id}"
-            self.redis_client.hset(redis_key, mapping=station_payload)
+            redis_station_data = {
+                'metadata': json.dumps(metadata),
+                'latitude': str(station_data.get('latitude', '39.9784')),
+                'longitude': str(station_data.get('longitude', '-105.2749')),
+                'last_active': timestamp,
+            }
+            self.redis_client.hset(redis_key, mapping=redis_station_data)
             self.redis_client.expire(redis_key, self.active_station_timeout)
-            print(f"[info]: Updated station {station_id} metadata in Redis")
+            print(f"[info]: Updated station {station_id} in Redis: {redis_station_data}")
         except redis.RedisError as e:
-            print(f"[error]: Failed to update station {station_id} in Redis: {e}")
+            print(f"[error]: Failed to update Redis for station {station_id}: {e}")
 
     def handle_reading(self, station_id: str, data: Dict[str, Any], timestamp: str):
-        # Prepare reading data
-        reading_value = data.get('reading_value', '')
+        reading_value = str(data.get('reading_value', ''))
         measurement = data.get('measurement', '')
         sensor = data.get('sensor', 'unknown')
-        edge_id = data.get('target_id', '')
-        rssi = data.get('rssi', 0)
 
-        # Format measurement for Postgres
         sensor_prefix = sensor[:5].lower()
         formatted_measurement = f"{measurement}({sensor_prefix})"
 
-        
-        if measurement not in ['latitude', 'longitude']:
-            # Set latitude/longitude for ReadingCreate
-            latitude,longitude = self.get_redis_coordinates('lat', station_id), self.get_redis_coordinates('lon', station_id)
-            # Prepare reading payload using incoming data
+        with self.buffer_lock:
+            redis_key = f"station:{station_id}"
+            if measurement not in ['latitude', 'longitude']:
+                self.sensor_buffer[station_id]["data"][sensor][measurement] = reading_value
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
+                if data.get('target_id'):
+                    self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
+                if data.get('rssi'):
+                    self.sensor_buffer[station_id]["metadata"]['rssi'] = str(data.get('rssi'))
+            else:
+                if measurement == 'latitude':
+                    self.sensor_buffer[station_id]["metadata"]['latitude'] = reading_value
+                else:
+                    self.sensor_buffer[station_id]["metadata"]['longitude'] = reading_value
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
+                if data.get('target_id'):
+                    self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
+                if data.get('rssi'):
+                    self.sensor_buffer[station_id]["metadata"]['rssi'] = str(data.get('rssi'))
 
+        if measurement not in ['latitude', 'longitude']:
+            redis_key = f"station:{station_id}"
+            latitude = self.sensor_buffer[station_id]["metadata"].get('latitude', self.redis_client.hget(redis_key, 'latitude') or '39.9784')
+            longitude = self.sensor_buffer[station_id]["metadata"].get('longitude', self.redis_client.hget(redis_key, 'longitude') or '-105.2749')
             reading_payload = {
                 "station_id": station_id,
-                "edge_id": edge_id,
-                "measurement": measurement,
+                "edge_id": data.get('target_id', ''),
+                "measurement": formatted_measurement,
                 "reading_value": reading_value,
                 "sensor_model": sensor,
                 "latitude": latitude,
                 "longitude": longitude,
                 "timestamp": timestamp,
-                "rssi": rssi
+                "rssi": data.get('rssi', 0)
             }
 
-            # Update Postgres readings
             try:
-                response = requests.post(READING_ENDPOINT, json=reading_payload,headers={"Content-Type": "application/json"})
+                response = requests.post(READING_ENDPOINT, json=reading_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
-                    print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
+                    print(f"[info]: Created reading for station {station_id}, measurement {formatted_measurement} in Postgres")
                 else:
-                    print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.text}")
+                    print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.status_code} {response.text}")
             except requests.RequestException as e:
                 print(f"[error]: Failed to communicate with Postgres for reading {station_id}: {e}")
-        else:
-            # For latitude/longitude, we only update the station table in postgres and Redis
-            if measurement == 'latitude':
-                latitude = reading_value
-                longitude = self.get_redis_coordinates('lon', station_id)
-            else:
-                longitude = reading_value
-                latitude = self.get_redis_coordinates('lat', station_id)
-            # Update station info in Postgres
-            try:
-                station_payload = {
-                    "station_id": station_id,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"})
-                if response.status_code == 200:
-                    print(f"[info]: Updated station {station_id} latitude/longitude in Postgres")
-                else:
-                    print(f"[error]: Failed to update station {station_id} latitude/longitude in Postgres: {response.text}")
-            except requests.RequestException as e:
-                print(f"[error]: Failed to communicate with Postgres for station {station_id}: {e}")
-
-        
-        # Update Redis measurement
-        try:
-            redis_key = f"station:{station_id}"
-            # Format Redis key
-            if  measurement in ['latitude', 'longitude']:
-                redis_measurement_key = measurement
-            else:
-                redis_measurement_key = f"{measurement}_{sensor_prefix}"
-
-            redis_station_data = {
-                redis_measurement_key: str(reading_value),
-                'edge_id': edge_id,
-                'last_active': timestamp,
-                'latitude': latitude,
-                'longitude': longitude,
-                'rssi': rssi
-            }
-            self.redis_client.hset(redis_key, mapping=redis_station_data)
-            self.redis_client.expire(redis_key, self.active_station_timeout)
-            print(f"[info]: Updated measurement {redis_measurement_key} for station {station_id} in Redis")
-
-        
-        except redis.RedisError as e:
-            print(f"[error]: Failed to update measurement {redis_measurement_key} for {station_id} in Redis: {e}")
 
     def connect(self):
         current_time = time.time()
@@ -308,7 +378,9 @@ def main():
         API_BASE_URL,
         REDIS_HOST,
         REDIS_PORT,
-        ACTIVE_STATION_TIMEOUT
+        ACTIVE_STATION_TIMEOUT,
+        BATCH_INTERVAL,
+        MODEL_SERVICE_URL
     )
     updater.start()
 

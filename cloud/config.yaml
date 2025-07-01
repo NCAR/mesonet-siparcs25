@@ -7,13 +7,16 @@ mqtt:
 database_api:
   base_url: http://database_api:8000
 map:
-  host:  localhost
+  host: localhost
   port: 5001
 redis:
   host: redis
   port: 6379
 station:
   active_station_timeout: 3600
+  batch_interval: 20
+model_service:
+  base_url: http://model_service:5000
 metabase:
   admin_data:
     first_name: Isaac
@@ -35,5 +38,4 @@ metabase:
     is_full_sync: true
     is_on_demand: false
     cache_ttl: null
-  base_url: http://metabase:3000/api # This should correspond to the service name
-
+  base_url: http://metabase:3000/api
