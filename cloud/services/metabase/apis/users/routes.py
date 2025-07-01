@@ -51,7 +51,8 @@ async def main(session: Session, callback):
     except requests.exceptions.HTTPError as e:
         console.exception(f"HTTP error occurred: {e}")
         return {
-            "message": f"Ouch! There is an error with the request you made.",
+            "error": True,
+            "message": f"Ouch! There is something wrong with your request.",
             "status": e.response.status_code if e.response else 400,
             "reason": e.response.text if e.response else str(e),
         }

@@ -1,7 +1,5 @@
-import asyncio
 import json
-import warnings
-from utils import utils_ftn
+from utils import utils_ftn, request
 from logger import CustomLogger
 
 class ReadingService:
@@ -44,7 +42,7 @@ class ReadingService:
         return self.reading
 
     async def create_reading(self):
-        return await utils_ftn.insert(self.db_uri, self.reading)
+        return await request.insert(self.db_uri, self.reading)
 
     def add_location_to_reading(self, station_id, stations):
         for station in stations:
