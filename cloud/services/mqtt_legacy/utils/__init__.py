@@ -1,7 +1,5 @@
 from datetime import datetime
 import httpx
-import requests
-from logger import CustomLogger
 
 sensor_measurements_map = {
     "rg15": "Acc Rain",
@@ -11,6 +9,7 @@ sensor_measurements_map = {
     "pmsa003i": "Air Quality",
     "bme680": "Temperature",
 }
+headers = {"Content-Type": "application/json"}
 
 class Utils:
     @staticmethod
@@ -52,38 +51,29 @@ class Utils:
             return datetime.fromtimestamp(int(unix_time), tz=datetime.timezone.utc)
         else:
             return datetime.fromtimestamp(int(unix_time))
-        
-    @staticmethod
-    def insert(path: str, data):
-        res = requests.post(
-            path,
-            json=data,
-            headers={"Content-Type": "application/json"}
-        )
-
-        if not (200 <= res.status_code < 300):
-            return res.raise_for_status()
-        return res.json()
     
     @staticmethod
-    def get_all(path: str):
-        res = requests.get(path)
-
-        if not (200 <= res.status_code < 300):
-            res.raise_for_status()
-        return res.json()
-    
-    @staticmethod
-    async def insert_async(path: str, data):
+    async def insert(path: str, data):
+        path = path if path.endswith('/') else path + '/'
         async with httpx.AsyncClient() as client:
             res = await client.post(
                 path,
                 json=data,
-                headers={"Content-Type": "application/json"}
+                headers=headers
             )
 
             if not (200 <= res.status_code < 300):
                 return res.raise_for_status()
+            return res.json()
+        
+    @staticmethod
+    async def get_all(path: str):
+        path = path if path.endswith('/') else path + '/'
+        async with httpx.AsyncClient() as client:
+            res = await client.get(path, headers=headers)
+
+            if not (200 <= res.status_code < 300):
+                res.raise_for_status()
             return res.json()
  
 utils_ftn = Utils

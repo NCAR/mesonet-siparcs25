@@ -19,6 +19,7 @@ class Application:
         )
 
     async def run(self):
+        await self.orchestrator.initialize()
         await self.orchestrator.listen_and_store_readings()
 
 if __name__ == "__main__":
