@@ -5,7 +5,7 @@ from logger import CustomLogger
 class ReadingService:
     def __init__(self, logger: CustomLogger, bd_url: str):
         self.console = logger
-        self.db_uri = f"{bd_url}/api/readings"
+        self.db_uri = f"{bd_url}/api/readings/"
         self.reading = {}
 
     def get_station_id(self, decoded_data):

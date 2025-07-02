@@ -56,29 +56,5 @@ class Utils:
             return datetime.fromtimestamp(int(unix_time), tz=datetime.timezone.utc)
         else:
             return datetime.fromtimestamp(int(unix_time))
-    
-    @staticmethod
-    async def insert(path: str, data):
-        path = path if path.endswith('/') else path + '/'
-        async with httpx.AsyncClient() as client:
-            res = await client.post(
-                path,
-                json=data,
-                headers=headers
-            )
-
-            if not (200 <= res.status_code < 300):
-                return res.raise_for_status()
-            return res.json()
-        
-    @staticmethod
-    async def get_all(path: str):
-        path = path if path.endswith('/') else path + '/'
-        async with httpx.AsyncClient() as client:
-            res = await client.get(path, headers=headers)
-
-            if not (200 <= res.status_code < 300):
-                res.raise_for_status()
-            return res.json()
  
 utils_ftn = Utils

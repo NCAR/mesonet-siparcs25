@@ -67,7 +67,7 @@ class Application:
         database = self.instances.get("database")
         stations = database.get_stations()
         if not len(stations):
-            console.error("No station(s) found. Please ensure the database is populated with station data.")
+            console.error("No station(s) found. Please ensure the database is populated with station data and rerun this service.")
             return {}
     
         return collection.create_stations_collection(stations, parent_collection)

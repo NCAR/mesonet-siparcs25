@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database.connection import Base, engine
-from routes import station, reading
+from database.connection import Base, async_engine
+from routes import station, reading, user
 from logger import CustomLogger
 
 app = FastAPI(
@@ -11,7 +11,10 @@ app = FastAPI(
     docs_url="/api/docs"
 )
 console = CustomLogger(name="database_logs", log_dir="/cloud/logs")
-Base.metadata.create_all(bind=engine)
+
+async def init_db():
+    async with async_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,6 +24,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def on_startup():
+    await init_db()
+
 @app.get("/health")
 def health():
     console.log("Health check pinged.")
@@ -28,3 +35,4 @@ def health():
 
 app.include_router(station.router)
 app.include_router(reading.router)
+app.include_router(user.router)

@@ -6,8 +6,8 @@ class StationCreate(BaseModel):
     station_id: str
     longitude: float
     latitude: float
-    firstname: str
-    lastname: str
+    first_name: str
+    last_name: str
     email: str
 
 class StationResponse(StationCreate):

@@ -14,7 +14,7 @@ class OrchestrateData:
         self.station_service = StationService(logger, db_uri, mb_url)
 
     async def initialize(self):
-        self.console.debug("Initializing default stations...")
+        self.console.log("Initializing default stations...")
         await self.station_service.add_default_stations()
 
     async def listen_and_store_readings(self):
