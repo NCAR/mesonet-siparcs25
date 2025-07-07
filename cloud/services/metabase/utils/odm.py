@@ -44,7 +44,7 @@ class ODM:
         res = await self.session.post_async(path=path, body=data)
         if not (200 <= res.status_code < 300):
             if res.status_code == 400:
-                raise requests.exceptions.HTTPError(f"Bad Request: {res.text}", response=res)
+                raise requests.exceptions.HTTPError(f"Bad Request: {res.text}")
             res.raise_for_status()
             
         return {
@@ -65,3 +65,11 @@ class ODM:
             "data": res.json()["data"],
             "status": res.status_code
         }
+    
+    async def update_async(self, path, data):
+        res = await self.session.put_async(path=path, body=data)
+
+        if not (200 <= res.status_code < 300):
+            res.raise_for_status()
+            
+        return res.json()

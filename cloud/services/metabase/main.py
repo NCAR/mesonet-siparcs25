@@ -25,7 +25,7 @@ class Application:
     def __init__(self):
         config = Config()
         metabase_base_url = config.metabase["base_url"]
-        self.session = Session(metabase_base_url)
+        self.session = Session(console, metabase_base_url)
 
         self.instances = self.__initialize(config) # Initialize all components
         console.log("Application components initialized successfully.")        
@@ -38,13 +38,15 @@ class Application:
         mb_config = config.metabase["config"]
 
         self.metabase = MetabaseService(session=self.session, logger=console, db_name=db_name, db_payload=db_payload)
-        mb_db_id = self.metabase.connect(admin_data, mb_config)
+        mb_db_id = self.metabase.connect(admin_data, mb_config) or 0
 
         if not mb_db_id:
             console.error(f"Database '{db_name}' does not exist in Metabase. Please check your configuration.")
-            raise ValueError(f"Database '{db_name}' does not exist in Metabase.")
-        
-        console.log(f"Database '{db_name}' is validated with ID: {mb_db_id}")
+            raise ValueError("Hello")
+        else:        
+            console.log(f"Database '{db_name}' is validated with ID: {mb_db_id}")
+
+        self.metabase.setup_email()
 
         card = CardServices(self.session, console, mb_db_id)
         model = ModelServices(self.session, console, mb_db_id)
@@ -108,5 +110,3 @@ if __name__ == "__main__":
         console.exception(f"An unexpected error occurred: {e}")
     except Exception as e:
         console.exception(f"Error occurred: {e}")
-    finally:
-        app.metabase.disconnect()

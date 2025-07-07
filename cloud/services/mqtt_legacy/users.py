@@ -84,7 +84,7 @@ class UsersService:
         user_res: MetabaseNewUser = await self.add(mb_url, payload=user_data)
         # console.debug(user_res)
         if user_res.get("error"):
-            console.error(f"{user_res.get('message')}: {user_res.get('reason')}")
+            console.warning(f"Error: {user_res.get('message')}: {user_res.get('reason')}")
             return
         
         console.log(f"User {user_res.get('email')} added to metabase successfully")

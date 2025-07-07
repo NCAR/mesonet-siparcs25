@@ -22,8 +22,10 @@ class UserResponse(UserData):
     login_attributes: Optional[dict] = None
     tenant_id: Optional[int] = None
     sso_source: Optional[str] = None
+    group_ids: List[int]
+    personal_collection_id: int
 
 class APIResponse(TypedDict):
     message: str
-    data: UserData
+    data: UserResponse
     status: int

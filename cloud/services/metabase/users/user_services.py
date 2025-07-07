@@ -2,7 +2,7 @@ from logger import CustomLogger
 from utils.session import Session
 from .user import User
 from utils.payload import Payload
-from apis.users.types import UserData, APIResponse
+from apis.users.types import UserData, UserResponse
 
 class UserServices:
     def __init__(self, session: Session, logger: CustomLogger):
@@ -22,8 +22,8 @@ class UserServices:
     async def get_all_users(self):
         return await self.users.get_users()
     
-    async def add_user(self, data: UserData) -> APIResponse:
-        payload = Payload() \
+    async def add_user(self, data: UserData) -> UserResponse:
+        payload: UserData = Payload() \
             .reset() \
             .set_attr("email", data.email) \
             .set_attr("first_name", data.first_name) \

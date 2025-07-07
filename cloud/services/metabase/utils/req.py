@@ -21,7 +21,6 @@ class Req:
     def post(self, path, body):
         return requests.post(f"{self.base_url}/{path}", json=body, headers=self.headers)
     
-    
     def put(self, path, body):
         return requests.put(f"{self.base_url}/{path}", json=body, headers=self.headers)
     
@@ -35,3 +34,7 @@ class Req:
     async def get_async(self, path):
         async with httpx.AsyncClient() as client:
             return await client.get(f"{self.base_url}/{path}", headers=self.headers)
+    
+    async def put_async(self, path, body):
+        async with httpx.AsyncClient() as client:
+            return await client.put(f"{self.base_url}/{path}", json=body, headers=self.headers)

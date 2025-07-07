@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apis.users import routes as user
+from apis.emails import routes as emails
 
 app = FastAPI(
     title="IoTwx Metabase APIs",
@@ -23,3 +24,4 @@ def health():
     return {"status": "ok"}
 
 app.include_router(user.router)
+app.include_router(emails.router)

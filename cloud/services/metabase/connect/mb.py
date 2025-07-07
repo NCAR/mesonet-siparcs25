@@ -51,3 +51,12 @@ class MetabaseConnection(MetaDB):
             raise requests.exceptions.ConnectionError("Metabase is not ready yet!")
 
         return db_id
+    
+    def _setup_email(self, smtp_settings):
+        console = self.console
+        res = self.session.put(path="email", body=smtp_settings)
+
+        if res.status_code == 200:
+            console.log(f"Email settings for {smtp_settings.get('email-smtp-username')} have been successfully setup.")
+        else:
+            raise requests.exceptions.HTTPError("Problem setting up the email in metabase.")

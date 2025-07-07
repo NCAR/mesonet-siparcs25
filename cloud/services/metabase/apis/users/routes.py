@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, cast
 from fastapi import APIRouter, Depends
 import requests
 from users.user_services import UserServices
@@ -16,7 +16,7 @@ def get_mb():
     email = config.metabase["admin_data"]["email"]
     password = config.metabase["admin_data"]["password"]
     metabase_base_url = config.metabase["base_url"]
-    session = Session(metabase_base_url)
+    session = Session(console, metabase_base_url)
     session.create(email, password)
 
     try:
@@ -32,10 +32,15 @@ async def get_users(session: Session = Depends(get_mb)):
 
     return await main(session, __)
 
-@router.post("/", response_model=None)
+@router.post("/", response_model=UserResponse | dict)
 async def add_user(data: UserData, session: Session = Depends(get_mb)):
     async def __(user: UserServices):
-        return await user.add_user(data)
+        user_res = await user.add_user(data)
+
+        if not user_res:
+            return cast(dict, user_res)
+        
+        return cast(UserResponse, user_res)
 
     return await main(session, __)
 

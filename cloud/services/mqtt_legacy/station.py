@@ -25,8 +25,7 @@ class StationService:
             user = await self.users.manage(station)
 
             if not (user and user.get("email")):
-                console.error("The user does not exist.")
-                return
+                console.warning("The user already exists in the database.")
 
             # Add the station
             station_res = await request.insert(url, station)
