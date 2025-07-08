@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, TypedDict
+from typing import Optional, List, TypedDict, Any
 from datetime import datetime
 
 class UserData(BaseModel):
@@ -27,5 +27,5 @@ class UserResponse(UserData):
 
 class APIResponse(TypedDict):
     message: str
-    data: any
+    data: Any
     status: int
