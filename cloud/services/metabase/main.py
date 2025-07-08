@@ -9,7 +9,7 @@ from connect.mb_service import MetabaseService
 from connect.db_services import DatabaseService
 from dashboards.dash_services import DashboardServices
 from cards.card_services import CardServices
-from mb_collections.collection_services import CollectionServices
+from collections_.collection_services import CollectionServices
 from models.model_services import ModelServices
 
 console = CustomLogger(name="metabase_logs", log_dir="/cloud/logs")
