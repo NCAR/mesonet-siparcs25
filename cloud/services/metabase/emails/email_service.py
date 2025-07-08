@@ -1,4 +1,4 @@
-from apis.emails.types import SMTPSettings
+from apis.emails.schema import SMTPSettings
 from logger import CustomLogger
 from utils.session import Session
 from utils.odm import ODM

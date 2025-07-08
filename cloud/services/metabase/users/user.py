@@ -1,7 +1,7 @@
 from logger import CustomLogger
 from utils.session import Session
 from utils.odm import ODM
-from apis.users.types import APIResponse, UserData, UserResponse
+from apis.users.schema import APIResponse, UserData, UserResponse
 
 class User(ODM):
     def __init__(self, session: Session, logger: CustomLogger):
@@ -22,7 +22,7 @@ class User(ODM):
 
     async def get_users(self) -> list:
         res = await self.get_all_async(path="user")
-        res_data = res.get("data", [])
+        res_data = res.get("data").get("data", [])
         if res_data:
             self.console.log(f"{len(res_data)} users retrieved successfully")
         return res_data

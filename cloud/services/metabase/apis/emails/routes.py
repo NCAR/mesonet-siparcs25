@@ -2,7 +2,7 @@ import requests
 from fastapi import APIRouter, Depends
 from apis.connection import get_mb, logger as console, Session
 from emails.email_service import EmailService
-from .types import SMTPSettings, EmailResponse
+from .schema import SMTPSettings, EmailResponse
 
 router = APIRouter(prefix="/metabase/email", tags=["Email"])
 

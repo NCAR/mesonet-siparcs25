@@ -2,7 +2,7 @@ from logger import CustomLogger
 from utils.session import Session
 from .user import User
 from utils.payload import Payload
-from apis.users.types import UserData, UserResponse
+from apis.users.schema import UserData, UserResponse
 
 class UserServices:
     def __init__(self, session: Session, logger: CustomLogger):

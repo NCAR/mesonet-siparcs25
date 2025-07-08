@@ -1,6 +1,5 @@
 import requests
 from utils.session import Session
-from apis.users.types import APIResponse
 
 class ODM:
     def __init__(self, session: Session):
@@ -40,7 +39,7 @@ class ODM:
             
         return res.json()
     
-    async def add_one_async(self, path, data) -> APIResponse :
+    async def add_one_async(self, path, data) :
         res = await self.session.post_async(path=path, body=data)
         if not (200 <= res.status_code < 300):
             if res.status_code == 400:
@@ -48,7 +47,7 @@ class ODM:
             res.raise_for_status()
             
         return {
-            "message": "User added successfully.",
+            "message": "Added successfully.",
             "data": res.json(),
             "status": res.status_code
         }
@@ -61,8 +60,8 @@ class ODM:
             raise ValueError("No users found.")
             
         return {
-            "message": "Users retrieved successfully.",
-            "data": res.json()["data"],
+            "message": "Retrieved successfully.",
+            "data": res.json(),
             "status": res.status_code
         }
     

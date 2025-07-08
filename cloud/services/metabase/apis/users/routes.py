@@ -5,7 +5,7 @@ from users.user_services import UserServices
 from utils.session import Session
 from utils.config import Config
 from logger import CustomLogger
-from .types import UserData, UserResponse
+from .schema import UserData, UserResponse
 
 console = CustomLogger(name="metabase_db_logs", log_dir="/cloud/logs")
 router = APIRouter(prefix="/metabase/users", tags=["Users"])

@@ -27,5 +27,5 @@ class UserResponse(UserData):
 
 class APIResponse(TypedDict):
     message: str
-    data: UserResponse
+    data: any
     status: int
