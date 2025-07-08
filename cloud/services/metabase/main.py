@@ -74,7 +74,6 @@ class Application:
     
         return collection.create_stations_collection(stations, parent_collection)
 
-
     def create_model(self, station_id: str, collection_id="root") -> None:
         model = self.instances.get("model")
         model.create_station_pivot(station_id, collection_id)

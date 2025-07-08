@@ -65,7 +65,6 @@ class MetabaseService(Meta):
             .set_attr("email-from-address", os.getenv("SMTP_FROM_ADDRESS", "mesonet@ucar.edu")) \
             .set_attr("email-from-name", os.getenv("SMTP_FROM_NAME", "UCAR")) \
             .build()
-        
         self._setup_email(smtp_settings)
     
     def disconnect(self):
