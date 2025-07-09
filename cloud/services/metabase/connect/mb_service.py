@@ -52,7 +52,7 @@ class MetabaseService(Meta):
 
         # Now login and connect databases
         self.console.log(f"Connecting to Metabase database: {self.db_name}")
-        return self._connect(admin.get("email"), admin.get("password"))
+        return self._connect_db(admin.get("email"), admin.get("password"))
     
     def setup_email(self):
         smtp_settings = Payload() \
@@ -66,6 +66,13 @@ class MetabaseService(Meta):
             .set_attr("email-from-name", os.getenv("SMTP_FROM_NAME", "UCAR")) \
             .build()
         self._setup_email(smtp_settings)
+
+    def change_site_url(self, url: str) -> None :
+        payload = Payload() \
+            .reset() \
+            .set_attr("value", url) \
+            .build()
+        self._change_site_url(payload)
     
     def disconnect(self):
         self.session.close()

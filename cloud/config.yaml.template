@@ -21,6 +21,8 @@ metabase:
   password: admin_password
   config:
     site_name: name_of_the_metabase_site # Give it a name
+  settings:
+    site_url: url for metabase redirects and notifications
   database:
     name: database_name # How do you want to call the database in metabase
     engine: postgres

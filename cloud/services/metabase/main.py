@@ -36,6 +36,7 @@ class Application:
         db_service_url = config.database_api["base_url"]
         admin_data = config.metabase["admin_data"]
         mb_config = config.metabase["config"]
+        mb_settings = config.metabase["settings"]
 
         self.metabase = MetabaseService(session=self.session, logger=console, db_name=db_name, db_payload=db_payload)
         mb_db_id = self.metabase.connect(admin_data, mb_config) or 0
@@ -46,6 +47,8 @@ class Application:
         else:        
             console.log(f"Database '{db_name}' is validated with ID: {mb_db_id}")
 
+        # Modify settings. Need admin privileges
+        self.metabase.change_site_url(mb_settings.get("site_url"))
         self.metabase.setup_email()
 
         card = CardServices(self.session, console, mb_db_id)

@@ -31,7 +31,7 @@ class MetabaseConnection(MetaDB):
     
         return db_id
     
-    def _connect(self, username, password) -> int:
+    def _connect_db(self, username, password) -> int:
         healthy_con = self._can_connect()
         db_id = None
 
@@ -58,5 +58,14 @@ class MetabaseConnection(MetaDB):
 
         if res.status_code == 200:
             console.log(f"Email settings for {smtp_settings.get('email-smtp-username')} have been successfully setup.")
+        else:
+            raise requests.exceptions.HTTPError("Problem setting up the email in metabase.")
+        
+    def _change_site_url(self, payload: dict) -> None :
+        console = self.console
+        res = self.session.put(path="setting/site-url", body=payload)
+
+        if res.status_code == 204:
+            console.log(f"Site URL is changed to {payload.get('value')}.")
         else:
             raise requests.exceptions.HTTPError("Problem setting up the email in metabase.")
