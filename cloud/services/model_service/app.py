@@ -15,16 +15,15 @@ logger = logging.getLogger(__name__)
 client = OpenAI(
     api_key='docker',
     base_url='http://host.docker.internal:12434/engines/llama.cpp/v1',
-    timeout=50,  # Set a timeout for requests  
+    timeout=200,  # Set a timeout for requests  
     )
 
-# Model configuration
-MODEL_NAME = "ai/smollm2"
+#
 
 @app.route('/health', methods=['GET'])
 def health():
     """Return health status."""
-    return jsonify({"status": "ok", "model": MODEL_NAME})
+    return jsonify({"status": "ok"})
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -42,14 +41,14 @@ def predict():
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a weatherman. summarize the weather conditions based on the sensor data provided and provide practical advice."},
+                {"role": "system", "content": "You are a weatherman. summarize the weather conditions based on the sensor data provided in easy to understand language, and provide practical advice. Do not hallucinate data. Do not assume what time of the day it is. Everything should  be less than 100 words"},
                 {"role": "user", "content": prompt}
             ]
         )
         
         result = response.choices[0].message.content
         
-        logger.info(f"Prediction successful: {result}")
+        logger.info(f"Prediction successful({model}): {result}")
         return jsonify({"result": result}), 200
         
     except Exception as e:

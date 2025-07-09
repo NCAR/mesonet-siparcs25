@@ -1,7 +1,21 @@
 CREATE DATABASE metabase;
-
 CREATE DATABASE iotwx_db;
+-- Connect to iotwx_db before creating tables
+\c iotwx_db;
 
+-- Create the stations table first (required for FK in readings)
+CREATE TABLE IF NOT EXISTS stations (
+    id SERIAL PRIMARY KEY,
+    station_id VARCHAR(25) NOT NULL UNIQUE,
+    longitude DOUBLE PRECISION,
+    latitude DOUBLE PRECISION,
+    firstname CHAR(25),
+    lastname CHAR(25),
+    email VARCHAR(25),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create the readings table referencing stations
 CREATE TABLE IF NOT EXISTS readings (
     id SERIAL PRIMARY KEY,
     station_id VARCHAR(25),
@@ -17,14 +31,3 @@ CREATE TABLE IF NOT EXISTS readings (
     latitude DOUBLE PRECISION,
     FOREIGN KEY (station_id) REFERENCES stations(station_id)
 );
-
-CREATE TABLE IF NOT EXISTS stations (
-    id SERIAL PRIMARY KEY,
-    station_id VARCHAR(25) NOT NULL UNIQUE,
-    longitude DOUBLE PRECISION,
-    latitude DOUBLE PRECISION,
-    firstname CHAR(25),
-    lastname CHAR(25),
-    email VARCHAR(25),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)

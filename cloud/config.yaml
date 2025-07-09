@@ -14,7 +14,7 @@ redis:
   port: 6379
 station:
   active_station_timeout: 3600
-  batch_interval: 20
+  batch_interval: 60
 model_service:
   base_url: http://model_service:5000
 metabase:
@@ -39,3 +39,11 @@ metabase:
     is_on_demand: false
     cache_ttl: null
   base_url: http://metabase:3000/api
+thingsboard:
+  broker_ip: "thingsboard-ce"
+  broker_port: 1883  
+  api_url: "http://thingsboard-ce:8080"
+  username: "tenant@thingsboard.org"
+  password: "tenant"  # Replace with your tenant admin password
+  default_device_type: "GPS_Station"  # New: Define a type for your dynamic devices
+  dashboard_name: "Dynamic Station Dashboard"  # New: Name for the dashboard

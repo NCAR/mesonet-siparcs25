@@ -137,7 +137,7 @@ class MQTTDatabaseUpdater:
             "data": json.dumps(sensor_data)
         }
         try:
-            response = requests.post(MODEL_ENDPOINT, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+            response = requests.post(MODEL_ENDPOINT, json=payload, headers={"Content-Type": "application/json"}, timeout=200)
             if response.status_code == 200:
                 print(f"[info]: Successfully queried {model_name} for station {station_id}")
                 return response.json().get("result", "")
@@ -172,13 +172,6 @@ class MQTTDatabaseUpdater:
                 print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
                 for station_id, station_data in list(self.sensor_buffer.items()):
                     sensor_data = {"data": station_data["data"]}
-                    model_names = ["ai/smollm2"]
-                    model_summaries = {}
-                    for model_name in model_names:
-                        summary = self.query_model_service(station_id, sensor_data, model_name)
-                        if summary:
-                            model_summaries[f"summary_{model_name}"] = summary
-
                     redis_key = f"station:{station_id}"
                     try:
                         existing_redis_data = self.redis_client.hget(redis_key, "data") or "{}"
@@ -188,7 +181,12 @@ class MQTTDatabaseUpdater:
 
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
-
+                        model_names =[ "ai/gemma3n", ]#"ai/deepseek-r1-distill-llama", "ai/phi4, "ai/qwen3", "ai/mistral","]
+                        model_summaries = {}
+                        for model_name in model_names:
+                            summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, model_name)
+                            if summary:
+                                model_summaries[f"{model_name}"] = summary
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
