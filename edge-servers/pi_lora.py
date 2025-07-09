@@ -220,12 +220,14 @@ def map_packet_fields(packet_data):
         'o': 'organization',        # Organization for station_info
         'lat': 'latitude',          # Latitude for station_info
         'lon': 'longitude',         # Longitude for station_info
-        'C02': 'co2 Concentration', # C02 Concentration
-        'rh': 'relative humidity',  # Relative Humidity
-        'tmp': 'temperature',       # Temperature
-        'pre': 'pressure',          # Pressure
+        'C02': 'co2 Concentration', # C02 Concentration(ppm)
+        'rh': 'relative humidity',  # Relative Humidity(%)
+        'tmp': 'temperature',       # Temperature(C)
+        'pre': 'pressure',          # Pressure(hPa)
+        'gr': 'gas resistance',     # Gas Resistance(KOhms)
+        'al': 'altitude',           # altitude(m)
         'uvs': 'uv light',          # UV Light
-        'als': 'ambient light',      # Ambient Light
+        'als': 'ambient light',     # Ambient Light
 	 # PMSA003I measurements
         'pm0': 'pm10standard',
         'pm1': 'pm25standard',

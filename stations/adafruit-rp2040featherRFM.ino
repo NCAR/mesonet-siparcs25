@@ -375,7 +375,6 @@ bool send_ping() {
   Serial.println(F("[info]: Sent ping, waiting for pongs"));
   while (millis() - pong_start_time < config.pong_timeout) {
     rfm95_receive();
-    delay(10);
     rp2040.wdt_reset();
   }
   waiting_for_pongs = false;
@@ -702,6 +701,16 @@ bool bme680_measure_transmit() {
   // Sensor packet for pressure:
   doc["t"] = "F";            // "t": Type, "F" for sensor data
   add_common_json_fields(doc, timestamp, "bme680", "pre", bme680.pressure / 100.0);
+  serializeJson(doc, packet, sizeof(packet));
+  rfm95_send(packet);
+  // Sensor packet for pressure:
+  doc["t"] = "F";            // "t": Type, "F" for sensor data
+  add_common_json_fields(doc, timestamp, "bme680", "gr", bme680.gas_resistance / 1000.0);
+  serializeJson(doc, packet, sizeof(packet));
+  rfm95_send(packet);
+  // Sensor packet for pressure:
+  doc["t"] = "F";            // "t": Type, "F" for sensor data
+  add_common_json_fields(doc, timestamp, "bme680", "al", bme680.readAltitude(SEALEVELPRESSURE_HPA));
   serializeJson(doc, packet, sizeof(packet));
   rfm95_send(packet);
   Serial.println(F("[debug]: Exit bme680_measure_transmit"));
