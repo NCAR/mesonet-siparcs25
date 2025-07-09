@@ -1,4 +1,3 @@
-from datetime import datetime
 import httpx
 
 sensor_measurements_map = {
@@ -11,7 +10,7 @@ sensor_measurements_map = {
 }
 headers = {"Content-Type": "application/json"}
 
-class Req:    
+class Req:
     @staticmethod
     async def insert(path: str, data):
         path = path if path.endswith('/') else path + '/'

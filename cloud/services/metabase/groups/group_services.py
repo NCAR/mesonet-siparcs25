@@ -1,6 +1,6 @@
 import requests
 from typing import List
-from apis.groups.schema import GroupCreate, GroupResponse, Membership, MembershipRes, MembershipMap, APIResponse
+from apis.groups.schema import GroupCreate, GroupRes, Membership, MembershipRes, MembershipMap, APIRes
 from logger import CustomLogger
 from utils.session import Session
 from utils.odm import ODM
@@ -9,6 +9,7 @@ from fastapi import status
 
 class GroupServices(ODM):
     def __init__(self, session: Session, logger: CustomLogger, name: str):
+        super().__init__(session)
         self.__name = name
         self.session = session
         self.console = logger
@@ -33,7 +34,7 @@ class GroupServices(ODM):
 
         return any(m.get("group_id") == group_id for m in user_membership)
 
-    async def get_all(self, path: str) -> List[GroupResponse] | MembershipMap:
+    async def get_all(self, path: str) -> List[GroupRes] | MembershipMap:
         console = self.console
         res = await self.get_all_async(path)
         data, msg, status = res.get("data"), res.get("message"), res.get("status")
@@ -44,16 +45,16 @@ class GroupServices(ODM):
 
         return data
 
-    async def create(self, path: str, body: GroupCreate) -> GroupResponse:
+    async def create(self, path: str, body: GroupCreate) -> GroupRes:
         console = self.console
-        name = f"{self.__name.lower()}_{body.name.lower()}"
+        name = f"{self.__name}_{body.email}_{body.name}".lower()
         payload = Payload() \
             .reset() \
             .set_attr("name", name) \
             .build()
         
-        groups: List[GroupResponse] = await self.get_all(path)
-        console.log(f"{len(data)} groups retrieved successfully.")
+        groups: List[GroupRes] = await self.get_all(path)
+        console.log(f"{len(groups)} groups retrieved successfully.")
         if any(group.get("name") == name for group in groups):
             console.log(f"Group with station ID '{body.name}' already exists.")
             return {}
@@ -65,10 +66,10 @@ class GroupServices(ODM):
             console.error("Error creating group")
             raise requests.exceptions.HTTPError(res.text)
         
-        console.log(f"Group {data.get('id')}: {msg.lower()}.\nStatus: {status}")
+        console.log(f"Group {data.get('name')}: {msg.lower()}.\nStatus: {status}")
         return data
 
-    async def membership(self, path: str, body: Membership) -> APIResponse[MembershipRes]:
+    async def membership(self, path: str, body: Membership) -> APIRes[MembershipRes]:
         console = self.console
         user_id, group_id, is_group_manager = body.user_id, body.group_id, body.is_group_manager
 

@@ -3,6 +3,7 @@ import json
 from utils import request, Payload
 from logger import CustomLogger
 from users import UsersService
+from groups import GroupService
 
 class StationService:
     def __init__(self, logger: CustomLogger, db_url: str, mb_url: str):
@@ -10,6 +11,7 @@ class StationService:
         self.stations_data = self.__load_stations_data("stations_data.json")
         self.db_url = db_url
         self.users = UsersService(logger, db_url, mb_url)
+        self.groups = GroupService(logger, mb_url)
 
     def __load_stations_data(self, file_name):
         base_dir = os.path.dirname(__file__)
@@ -23,9 +25,14 @@ class StationService:
 
         for station in data:
             user = await self.users.manage(station)
-
             if not (user and user.get("email")):
                 console.warning("The user already exists in the database.")
+
+            station_id = station.get("station_id", "test")
+            group = await self.groups.manage(user, station_id)
+            if group:
+                group_name = group.get("name")
+                console.log(f"Group '{group_name}' has been added successfully")
 
             # Add the station
             station_res = await request.insert(url, station)

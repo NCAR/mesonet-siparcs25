@@ -1,7 +1,7 @@
 from typing import List, Optional
-from utils import request, Payload
 from logger import CustomLogger
-from type_c import DatabaseUser, MetabaseExisitngUser, MetabaseNewUser
+from utils import request, Payload
+from utils.type_c import DatabaseUser, MetabaseUserRes, MetabaseUserPayload
 
 class UsersService:
     def __init__(self, logger: CustomLogger, db_url: str, mb_url: str):
@@ -9,15 +9,15 @@ class UsersService:
         self.db_url = db_url
         self.mb_url = mb_url
 
-    async def get(self, url: str) -> List[MetabaseExisitngUser]:
+    async def get(self, url: str) -> List[MetabaseUserRes]:
         url = url if url.endswith('/') else url + '/'
         return await request.get_all(url)
     
-    async def add(self, url: str, payload) -> MetabaseNewUser | DatabaseUser:
+    async def add(self, url: str, payload: MetabaseUserPayload) -> MetabaseUserRes:
         url = url if url.endswith('/') else url + '/'
         return await request.insert(url, payload)
     
-    async def map_user(self, url: str, payload: MetabaseNewUser | MetabaseExisitngUser) -> Optional[str]:
+    async def map_user(self, url: str, payload: MetabaseUserPayload) -> Optional[str]:
         console = self.console
         users = await self.get(url=url)
         
@@ -31,7 +31,7 @@ class UsersService:
             console.log(f"User {user_email} mapped to the database successfully.")
             return user_email
         
-    async def map_new_user(self, url: str, user_data: MetabaseNewUser) -> Optional[str]:    
+    async def map_new_user(self, url: str, user_data: MetabaseUserPayload) -> Optional[str]:    
         payload = Payload() \
             .reset() \
             .set_attr("email", user_data.get("email")) \
@@ -40,7 +40,7 @@ class UsersService:
             .build()
         return await self.map_user(url, payload)
 
-    async def map_existing_user(self, url: str, user_data: MetabaseExisitngUser) -> Optional[str]:
+    async def map_existing_user(self, url: str, user_data: MetabaseUserPayload) -> Optional[str]:
         payload = Payload() \
             .reset() \
             .set_attr("email", user_data.get("email")) \
@@ -49,7 +49,7 @@ class UsersService:
             .build()
         return await self.map_user(url, payload)
     
-    async def manage(self, station_data) -> Optional[MetabaseNewUser | MetabaseExisitngUser]:
+    async def manage(self, station_data) -> Optional[MetabaseUserRes]:
         console = self.console
         mb_url = f"{self.mb_url}/users"
         db_url = f"{self.db_url}/api/users/"
@@ -58,7 +58,7 @@ class UsersService:
         Deal with existing users
         """
 
-        users: List[MetabaseExisitngUser] = await self.get(mb_url)
+        users: List[MetabaseUserRes] = await self.get(mb_url)
         for user in users:
             user_email = user.get('email')
             if station_data.get("email") == user_email:
@@ -81,7 +81,7 @@ class UsersService:
             .set_attr("password", "@siparcs255") \
             .build()
         
-        user_res: MetabaseNewUser = await self.add(mb_url, payload=user_data)
+        user_res: MetabaseUserRes = await self.add(mb_url, payload=user_data)
         # console.debug(user_res)
         if user_res.get("error"):
             console.warning(f"Error: {user_res.get('message')}: {user_res.get('reason')}")

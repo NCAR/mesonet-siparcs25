@@ -5,15 +5,10 @@ T = TypeVar("T")
 
 class GroupCreate(BaseModel):
     name: str = Field(..., alias="station_id")
-
-class Membership(BaseModel):
-    group_id: int
-    is_group_manager: Optional[bool] = False
-    user_id: int
-
-class GroupResponse(GroupCreate):
+    email: Optional[EmailStr] = None
+    
+class GroupRes(GroupCreate):
     id: int
-    name: str
     entity_id: Optional[str] = None
     magic_group_type: Optional[str] = None
     is_tenant_group: bool
@@ -22,6 +17,11 @@ class GroupResponse(GroupCreate):
     model_config = {
         "from_attributes": True,
     }
+
+class Membership(BaseModel):
+    group_id: int
+    is_group_manager: Optional[bool] = False
+    user_id: int
 
 class MembershipRes(Membership):
     email: EmailStr
@@ -44,7 +44,7 @@ class DynamicMap(Membership):
 class MembershipMap(RootModel[Dict[str, List[Membership]]]):
     pass
 
-class APIResponse(BaseModel, Generic[T]):
+class APIRes(BaseModel, Generic[T]):
     message: str
-    data: Any
+    data: T
     status: Optional[int] = None

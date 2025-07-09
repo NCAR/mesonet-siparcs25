@@ -1,21 +1,21 @@
 from typing import List, cast
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from utils.session import Session
 from apis.connection import get_mb, logger as console
 from groups.group_services import GroupServices
-from .schema import GroupCreate, GroupResponse, Membership, MembershipRes, APIResponse
+from .schema import GroupCreate, GroupRes, Membership, MembershipRes, APIRes
 
 router = APIRouter(prefix="/metabase", tags=["Groups"])
 
-@router.get("/group", response_model=List[GroupResponse])
+@router.get("/group/", response_model=List[GroupRes])
 async def add_group(session: Session = Depends(get_mb)):
     async def __(group: GroupServices):
         path = "permissions/group"
         return await group.get_all(path)
     return await main(session, __)
 
-@router.post("/group", response_model=GroupResponse | dict)
+@router.post("/group/", response_model=GroupRes | dict)
 async def add_group(data: GroupCreate, session: Session = Depends(get_mb)):
     async def __(group: GroupServices):
         path = "permissions/group"
@@ -24,21 +24,21 @@ async def add_group(data: GroupCreate, session: Session = Depends(get_mb)):
 
         if not group:
             return cast(dict, group)
-        
-        return cast(GroupResponse, group)
+
+        return cast(GroupRes, group)
 
     return await main(session, __)
 
-@router.post("/membership", response_model=APIResponse[MembershipRes | dict])
+@router.post("/membership/", response_model=APIRes[MembershipRes | dict])
 async def add_member(data: Membership, session: Session = Depends(get_mb)):
     async def __(group: GroupServices):
         path = "permissions/membership"
         group = await group.membership(path, data)
 
         if not group:
-            return cast(APIResponse[dict], group)
+            return cast(APIRes[dict], group)
         
-        return cast(APIResponse[MembershipRes], group)
+        return cast(APIRes[MembershipRes], group)
 
     return await main(session, __)
 
