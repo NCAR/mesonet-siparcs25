@@ -34,7 +34,6 @@ sudo apt update && sudo apt install -y \
   python3-venv \
   python3-dev \
   i2c-tools \
-  python3-rpi.gpio \
   libatlas-base-dev  # For numpy
 
 # Create virtual environment
