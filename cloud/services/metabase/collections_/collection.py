@@ -1,3 +1,5 @@
+from typing import List
+from apis.collections.schema import CollectionRes
 from utils.payload import Payload
 from utils.session import Session
 from utils.odm import ODM
@@ -59,3 +61,25 @@ class Collection(ODM):
         else:
             self.console.log(f"Collection: {self.__name} already exists with ID: {collection_id}")
             return collection_id
+        
+    async def create_async(self, payload: dict, path: str = None) -> CollectionRes:
+        console = self.console
+        path = path or self.__path
+        name = payload.get("name")
+
+        collections_res = await self.get_all_async(path)
+        collections: List[CollectionRes] = collections_res.get("data") or []
+        existing_collection = next((c for c in collections if c.get("name") == name), None)
+
+        if existing_collection:
+            console.log(f"Collection: '{name}' with ID: '{existing_collection.get('id')}' already exists.")
+            return existing_collection
+        
+        collection_res = await self.add_one_async(path, payload)
+        collection: CollectionRes = collection_res.get("data") or {}
+
+        if not collection:
+            return {}
+
+        console.log(f"Collection: {name} is added successfully with ID: {collection.get('id')}")
+        return collection

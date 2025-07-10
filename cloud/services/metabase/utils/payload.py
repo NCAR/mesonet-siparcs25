@@ -9,7 +9,7 @@ class Payload:
             :param value: The value of the attribute.
             :returns class object
         """
-        if key:
+        if key and value:
             self.payload[key] = value
         return self
     
