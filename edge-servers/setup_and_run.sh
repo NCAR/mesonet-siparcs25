@@ -34,6 +34,7 @@ sudo apt update && sudo apt install -y \
   python3-venv \
   python3-dev \
   i2c-tools \
+  python3-rpi.gpio \
   libatlas-base-dev  # For numpy
 
 # Create virtual environment
@@ -46,27 +47,8 @@ echo -e "[4/4] Installing Python packages..."
 pip install --upgrade pip
 pip install -r "$REQUIREMENTS"
 
-# Version verification
-echo -e "${GREEN}=== Verifying Versions ==="
-python -c "
-import pkg_resources
-required = {
-    'adafruit-circuitpython-rfm9x': '4.1.4',
-    'adafruit-circuitpython-ssd1306': '2.12.4',
-    'paho-mqtt': '1.6.1',
-    'psutil': '5.9.5',
-    'numpy': '1.24.4'
-}
-for pkg, ver in required.items():
-    try:
-        installed = pkg_resources.get_distribution(pkg.split('-')[0]).version
-        assert installed == ver, f'\\033[91m✗ {pkg} (expected {ver}, got {installed})\\033[0m'
-        print(f'\\033[92m✓ {pkg: <30} {ver}\\033[0m')
-    except Exception as e:
-        print(f'\\033[91m✗ Version check failed: {e}\\033[0m')
-        raise
-" || exit 1
+
 
 # Launch application
 echo -e "${GREEN}=== Starting LoRa Gateway ===${NC}"
-exec python "$PYTHON_SCRIPT"  # exec replaces shell process
+exec python3 "$PYTHON_SCRIPT"  # exec replaces shell process

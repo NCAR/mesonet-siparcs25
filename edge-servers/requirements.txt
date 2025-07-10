@@ -1,6 +1,5 @@
 # Pinned versions for LoRa Gateway
-adafruit-circuitpython-rfm9x==4.1.4
-adafruit-circuitpython-ssd1306==2.12.4
-paho-mqtt==1.6.1
-psutil==5.9.5
-numpy==1.24.4
+adafruit-circuitpython-rfm9x==2.2.20
+adafruit-circuitpython-ssd1306==2.12.21
+paho-mqtt==2.1.0
+psutil==7.0.0
