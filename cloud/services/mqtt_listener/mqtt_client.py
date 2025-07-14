@@ -188,6 +188,9 @@ class MQTTDatabaseUpdater:
                                 summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, model_name)
                                 if summary:
                                     model_summaries[f"{model_name}"] = summary
+                        #update buffer
+                        self.sensor_buffer[station_id]["data"] = merged_sensor_data
+                        self.sensor_buffer[station_id]["metadata"] = merged_metadata
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
@@ -201,26 +204,10 @@ class MQTTDatabaseUpdater:
                         self.redis_client.expire(redis_key, self.active_station_timeout)
                         print(f"[info]: Updated Redis for station {station_id}: data={merged_sensor_data}, metadata={merged_metadata}, model_summaries={model_summaries}")
 
-                        if 'latitude' in station_data["metadata"] or 'longitude' in station_data["metadata"]:
-                            try:
-                                station_payload = {
-                                    "station_id": station_id,
-                                    "latitude": redis_station_data['latitude'],
-                                    "longitude": redis_station_data['longitude'],
-                                    "timestamp": redis_station_data['last_active']
-                                }
-                                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
-                                if response.status_code == 200:
-                                    print(f"[info]: Updated station {station_id} latitude/longitude in Postgres")
-                                else:
-                                    print(f"[error]: Failed to update station {station_id} latitude/longitude in Postgres: {response.status_code} {response.text}")
-                            except requests.RequestException as e:
-                                print(f"[error]: Failed to communicate with Postgres for station {station_id}: {e}")
-
                     except (redis.RedisError, json.JSONDecodeError) as e:
                         print(f"[error]: Failed to update Redis for station {station_id}: {e}")
 
-                    del self.sensor_buffer[station_id]
+                 
 
     def on_message(self, client, userdata, message):
         try:
@@ -251,35 +238,18 @@ class MQTTDatabaseUpdater:
             print(f"[error]: Failed to process message: {e}")
 
     def handle_station_info(self, station_id: str, station_data: Dict[str, Any], timestamp: str):
-        metadata = {
-            'firstname': station_data.get('firstname', ''),
-            'lastname': station_data.get('lastname', ''),
-            'email': station_data.get('email', ''),
-            'organization': station_data.get('organization', ''),
-            'device': station_data.get('device', 'unknown'),
-            'target_id': station_data.get('target_id', ''),
-            'rssi': station_data.get('rssi', '0'),
-            'last_active': station_data.get('timestamp', timestamp),
-        }
-        station_payload = {
-            'station_id': station_id,
-            'longitude': str(station_data.get('longitude', '0')),
-            'latitude': str(station_data.get('latitude', '0')),
-            'altitude': str(station_data.get('altitude', '0')),
-            **metadata
-        }
         print(f"[info]: Processing station_info for {station_id}")
 
         try:
             response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
             if response.status_code == 200:
-                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
+                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_data, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Updated station {station_id} in Postgres")
                 else:
                     print(f"[error]: Failed to update station {station_id} in Postgres: {response.status_code} {response.text}")
             elif response.status_code == 404:
-                response = requests.post(STATION_ENDPOINT, json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
+                response = requests.post(STATION_ENDPOINT, json=station_data, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Created station {station_id} in Postgres")
                 else:
@@ -292,7 +262,7 @@ class MQTTDatabaseUpdater:
         try:
             redis_key = f"station:{station_id}"
             redis_station_data = {
-                'metadata': json.dumps(metadata),
+                'metadata': json.dumps(station_data),
                 'latitude': str(station_data.get('latitude', '39.9784')),
                 'longitude': str(station_data.get('longitude', '-105.2749')),
                 'altitude': str(station_data.get('altitude', '1624.0')),
@@ -332,9 +302,11 @@ class MQTTDatabaseUpdater:
 
         if measurement not in ['latitude', 'longitude', 'altitude']:
             redis_key = f"station:{station_id}"
-            latitude = self.sensor_buffer[station_id]["metadata"].get('latitude', self.redis_client.hget(redis_key, 'latitude') or '39.9784')
-            longitude = self.sensor_buffer[station_id]["metadata"].get('longitude', self.redis_client.hget(redis_key, 'longitude') or '-105.2749')
-            altitude = self.sensor_buffer[station_id]["metadata"].get('altitude', self.redis_client.hget(redis_key, 'altitude') or '1624.0')
+            latitude = self.sensor_buffer[station_id]["metadata"].get('latitude', None)
+            longitude = self.sensor_buffer[station_id]["metadata"].get('longitude', None)
+            altitude = self.sensor_buffer[station_id]["metadata"].get('altitude', None)
+            if not latitude or not longitude or not altitude:
+                return
             reading_payload = {
                 "station_id": station_id,
                 "edge_id": data.get('target_id', ''),
@@ -355,8 +327,30 @@ class MQTTDatabaseUpdater:
                     print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
                 else:
                     print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.status_code} {response.text}")
+                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json={"last_active": data.get("timestamp", timestamp)}, headers={"Content-Type": "application/json"}, timeout=5)
+                if response.status_code == 200:
+                    print(f"[info]: Updated station {station_id} last_active in Postgres")
+                else:
+                    print(f"[error]: Failed to update station {station_id} last_active in Postgres: {response.status_code} {response.text}")
+ 
             except requests.RequestException as e:
                 print(f"[error]: Failed to communicate with Postgres for reading {station_id}: {e}")
+            
+        else:  
+            try:
+                station_payload = {
+                    "station_id": station_id,
+                    **self.sensor_buffer[station_id]["metadata"],
+                }
+                if "target_id" in station_payload:
+                    station_payload.pop("target_id")
+                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
+                if response.status_code == 200:
+                    print(f"[info]: Updated station {station_id} latitude/longitude in Postgres")
+                else:
+                    print(f"[error]: Failed to update station {station_id} latitude/longitude in Postgres: {response.status_code} {response.text}")
+            except requests.RequestException as e:
+                print(f"[error]: Failed to communicate with Postgres for station {station_id}: {e}")
 
     def connect(self):
         current_time = time.time()

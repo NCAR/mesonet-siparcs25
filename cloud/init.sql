@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS stations (
     device VARCHAR(50),
     longitude DOUBLE PRECISION,
     latitude DOUBLE PRECISION,
+    altitude DOUBLE PRECISION,
     firstname CHAR(50),
     lastname CHAR(50),
     email VARCHAR(50),
