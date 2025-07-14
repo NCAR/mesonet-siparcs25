@@ -304,7 +304,7 @@ class MQTTDatabaseUpdater:
         sensor = data.get('sensor', 'unknown')
 
         sensor_prefix = sensor[:5].lower()
-        formatted_measurement = f"{measurement}({sensor_prefix})"
+        #formatted_measurement = f"{measurement}({sensor_prefix})"
 
         with self.buffer_lock:
             redis_key = f"station:{station_id}"
@@ -333,7 +333,7 @@ class MQTTDatabaseUpdater:
             reading_payload = {
                 "station_id": station_id,
                 "edge_id": data.get('target_id', ''),
-                "measurement": formatted_measurement,
+                "measurement": measurement,
                 "reading_value": reading_value,
                 "sensor_model": sensor,
                 "latitude": latitude,
@@ -345,7 +345,7 @@ class MQTTDatabaseUpdater:
             try:
                 response = requests.post(READING_ENDPOINT, json=reading_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
-                    print(f"[info]: Created reading for station {station_id}, measurement {formatted_measurement} in Postgres")
+                    print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
                 else:
                     print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.status_code} {response.text}")
             except requests.RequestException as e:

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from requests import Session
 from database.connection import SessionLocal
 from crud.station import StationService
-from schema.station import StationCreate, StationResponse
+from schema.station import StationCreate, StationResponse, StationUpdate
 from typing import List
 
 router = APIRouter(prefix="/api/stations", tags=["Stations"])
@@ -33,7 +33,7 @@ def create_station(data: StationCreate, db: Session = Depends(get_db)):
     return service.create_station(data)
 
 @router.put("/{station_id}", response_model=StationResponse)
-def update_station(station_id: str, data: StationCreate, db: Session = Depends(get_db)):
+def update_station(station_id: str, data: StationUpdate, db: Session = Depends(get_db)):
     service = StationService(db)
     updated = service.update_station(station_id, data)
     if not updated:

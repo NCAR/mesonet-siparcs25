@@ -6,25 +6,26 @@ CREATE DATABASE iotwx_db;
 -- Create the stations table first (required for FK in readings)
 CREATE TABLE IF NOT EXISTS stations (
     id SERIAL PRIMARY KEY,
-    station_id VARCHAR(25) NOT NULL UNIQUE,
+    station_id VARCHAR(50) NOT NULL UNIQUE,
     longitude DOUBLE PRECISION,
     latitude DOUBLE PRECISION,
-    firstname CHAR(25),
-    lastname CHAR(25),
-    email VARCHAR(25),
+    firstname CHAR(50),
+    lastname CHAR(50),
+    email VARCHAR(50),
+    organization VARCHAR(50),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create the readings table referencing stations
 CREATE TABLE IF NOT EXISTS readings (
     id SERIAL PRIMARY KEY,
-    station_id VARCHAR(25),
-    edge_id VARCHAR(25),
-    device VARCHAR(25),
-    measurement VARCHAR(25),
+    station_id VARCHAR(50),
+    edge_id VARCHAR(50),
+    device VARCHAR(50),
+    measurement VARCHAR(50),
     reading_value DOUBLE PRECISION NOT NULL,
-    sensor_protocol VARCHAR(25),
-    sensor_model VARCHAR(25),
+    sensor_protocol VARCHAR(50),
+    sensor_model VARCHAR(50),
     rssi INTEGER,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     longitude DOUBLE PRECISION,
