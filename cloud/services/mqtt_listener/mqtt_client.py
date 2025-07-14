@@ -238,6 +238,8 @@ class MQTTDatabaseUpdater:
             print(f"[error]: Failed to process message: {e}")
 
     def handle_station_info(self, station_id: str, station_data: Dict[str, Any], timestamp: str):
+        station_data['last_active'] = station_data.get('timestamp', timestamp)
+        station_data.pop('timestamp', None)
         print(f"[info]: Processing station_info for {station_id}")
 
         try:
@@ -282,7 +284,7 @@ class MQTTDatabaseUpdater:
             redis_key = f"station:{station_id}"
             if measurement not in ['latitude', 'longitude', 'altitude']:
                 self.sensor_buffer[station_id]["data"][sensor][measurement] = reading_value
-                self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = data.get("timestamp", timestamp)
                 if data.get('target_id'):
                     self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
                 if data.get('rssi'):
@@ -294,7 +296,7 @@ class MQTTDatabaseUpdater:
                     self.sensor_buffer[station_id]["metadata"]['altitude'] = reading_value
                 else:
                     self.sensor_buffer[station_id]["metadata"]['longitude'] = reading_value
-                self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = data.get("timestamp", timestamp)
                 if data.get('target_id'):
                     self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
                 if data.get('rssi'):
