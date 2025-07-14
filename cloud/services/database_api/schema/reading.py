@@ -12,6 +12,8 @@ class ReadingCreate(BaseModel):
     rssi: Optional[int] = None
     latitude: float
     longitude: float
+    altitude: float
+    timestamp: Optional[datetime] = None  # Match table's timestamp field
 
 
 class ReadingResponse(ReadingCreate):
