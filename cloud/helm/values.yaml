@@ -1,0 +1,138 @@
+app:
+  group: mesonet
+  imagePullPolicy: Always
+credit:
+  name: credit
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/credit:v1
+    memory: 2Gi
+    cpu: 2
+databaseapi:
+  name: database-api
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/database-api:v1
+    memory: 2Gi
+    cpu: 2
+    port: 8000
+mapserver:
+  name: map-server
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/map-server:v1
+    memory: 2Gi
+    cpu: 2
+    port: 5001
+metabase:
+  name: metabase
+  replicaCount: 1
+  container:
+    image: metabase/metabase:latest
+    memory: 2Gi
+    cpu: 2
+    port: 3000
+metabaseorch:
+  name: orch-mb
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/metabase:v1
+    memory: 2Gi
+    cpu: 2
+    port: 8001
+modelservice:
+  name: model-service
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/model-service:v1
+    memory: 2Gi
+    cpu: 2
+    port: 5000
+mqttlegacy:
+  name: mqtt-legacy-orch
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:v1
+    memory: 2Gi
+    cpu: 2
+mqttlistener:
+  name: mqtt-listener
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:v1
+    memory: 2Gi
+    cpu: 2
+pgadmin:
+  name: pgadmin4
+  replicaCount: 1
+  container:
+    image: dpage/pgadmin4
+    memory: 2Gi
+    cpu: 2
+    port: 8888
+postgres:
+  name: postgres
+  replicaCount: 1
+  container:
+    image: postgres:16
+    memory: 2Gi
+    cpu: 2
+    port: 5432
+redis:
+  name: redis
+  replicaCount: 1
+  container:
+    image: redis:8-alpine
+    memory: 2Gi
+    cpu: 2
+    port: 6379
+redisinsight:
+  name: redisinsight
+  replicaCount: 1
+  container:
+    image: redis/redisinsight:2.68
+    memory: 2Gi
+    cpu: 2
+    port: 5540
+thingsboardce:
+  name: thingsboard-ce
+  replicaCount: 1
+  container:
+    image: thingsboard/tb-node:4.0.1.1
+    memory: 2Gi
+    cpu: 2
+    ports:
+      - name: http
+        containerPort: 8080
+        protocol: TCP
+      - name: rpc
+        containerPort: 7070
+        protocol: TCP
+      - name: mqtt
+        containerPort: 1883
+        protocol: TCP
+      - name: coap-udp
+        containerPort: 5683
+        protocol: UDP
+      - name: coap-udp-2
+        containerPort: 5684
+        protocol: UDP
+      - name: coap-udp-3
+        containerPort: 5685
+        protocol: UDP
+      - name: coap-udp-4
+        containerPort: 5686
+        protocol: UDP
+      - name: coap-udp-5
+        containerPort: 5687
+        protocol: UDP
+      - name: coap-udp-6
+        containerPort: 5688
+        protocol: UDP
+thingsboardorch:
+  name: thingsboard-orch
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/thingsboard:v1
+    memory: 2Gi
+    cpu: 2

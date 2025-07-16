@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mqttlegacy.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mqttlegacy.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.mqttlegacy.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mqttlegacy.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mqttlegacy.name }}
+    spec:
+      containers:
+      - name: {{ .Values.mqttlegacy.name }}
+        image: {{ .Values.mqttlegacy.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.mqttlegacy.container.memory }}
+            cpu: {{ .Values.mqttlegacy.container.cpu }}

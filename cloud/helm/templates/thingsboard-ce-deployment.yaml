@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.thingsboardce.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.thingsboardce.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.thingsboardce.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.thingsboardce.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.thingsboardce.name }}
+    spec:
+      containers:
+      - name: {{ .Values.thingsboardce.name }}
+        image: {{ .Values.thingsboardce.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.thingsboardce.container.memory }}
+            cpu: {{ .Values.thingsboardce.container.cpu }}
+        ports:
+        {{- range .Values.thingsboardce.container.ports }}
+        - name: {{ .name }}
+          containerPort: {{ .containerPort }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        env:
+        - name: TB_SERVICE_ID
+          value: 5000
+        - name: SPRING_DATASOURCE_URL
+          value: 5000

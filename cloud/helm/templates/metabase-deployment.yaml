@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.metabase.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.metabase.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.metabase.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.metabase.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.metabase.name }}
+    spec:
+      containers:
+      - name: {{ .Values.metabase.name }}
+        image: {{ .Values.metabase.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.metabase.container.memory }}
+            cpu: {{ .Values.metabase.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.metabase.container.port }}
+        env:
+        - name: MB_DB_TYPE
+          value: postgres
+        - name: MB_DB_DBNAME
+          value: postgres
+        - name: MB_DB_PORT
+          value: postgres
+        - name: MB_DB_USER
+          value: postgres
+        - name: MB_DB_PASS
+          value: redis
+        - name: MB_DB_HOST
+          value: 6379

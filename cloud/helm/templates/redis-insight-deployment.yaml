@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.redisinsight.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.redisinsight.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.redisinsight.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.redisinsight.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.redisinsight.name }}
+    spec:
+      containers:
+      - name: {{ .Values.redisinsight.name }}
+        image: {{ .Values.redisinsight.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.redisinsight.container.memory }}
+            cpu: {{ .Values.redisinsight.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.redisinsight.container.port }}

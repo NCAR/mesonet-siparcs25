@@ -1,5 +1,5 @@
 # Use the base image image
-FROM iotwx-base:latest
+FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
 
 # Copy the necessary files
 COPY . ./services/mqtt_listener/

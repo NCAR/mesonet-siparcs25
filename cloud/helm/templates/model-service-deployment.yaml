@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.modelservice.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.modelservice.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.modelservice.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.modelservice.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.modelservice.name }}
+    spec:
+      containers:
+      - name: {{ .Values.modelservice.name }}
+        image: {{ .Values.modelservice.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.modelservice.container.memory }}
+            cpu: {{ .Values.modelservice.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.modelservice.container.port }}
+        env:
+        - name: APP_PORT
+          value: 5000

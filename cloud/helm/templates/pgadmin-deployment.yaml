@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.pgadmin.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.pgadmin.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.pgadmin.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.pgadmin.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.pgadmin.name }}
+    spec:
+      containers:
+      - name: {{ .Values.pgadmin.name }}
+        image: {{ .Values.pgadmin.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.pgadmin.container.memory }}
+            cpu: {{ .Values.pgadmin.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.pgadmin.container.port }}
+        env:
+        - name: PGADMIN_DEFAULT_EMAIL
+          value: 5000
+        - name: PGADMIN_DEFAULT_PASSWORD
+          value: 5000

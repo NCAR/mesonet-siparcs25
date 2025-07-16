@@ -26,7 +26,7 @@ WORKDIR /cloud/services/credit
 # Copy static and service files
 COPY scripts ./scripts
 # COPY static_data ./static_data
-COPY model.yml ./model.yml
+# COPY model.yml ./model.yml
 
 # Copy project repository
 COPY miles-credit ./miles-credit

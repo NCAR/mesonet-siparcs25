@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.databaseapi.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.databaseapi.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.databaseapi.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.databaseapi.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.databaseapi.name }}
+    spec:
+      containers:
+      - name: {{ .Values.databaseapi.name }}
+        image: {{ .Values.databaseapi.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.databaseapi.container.memory }}
+            cpu: {{ .Values.databaseapi.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.databaseapi.container.port }}
+        env:
+        - name: DB_USER
+          value: postgres
+        - name: DB_PASS
+          value: postgres
+        - name: DB_NAME
+          value: postgres
+        - name: DB_HOST
+          value: postgres

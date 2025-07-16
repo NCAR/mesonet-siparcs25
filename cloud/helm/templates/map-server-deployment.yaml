@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mapserver.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mapserver.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.mapserver.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mapserver.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mapserver.name }}
+    spec:
+      containers:
+      - name: {{ .Values.mapserver.name }}
+        image: {{ .Values.mapserver.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.mapserver.container.memory }}
+            cpu: {{ .Values.mapserver.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.mapserver.container.port }}
+        env:
+        - name: APP_MODULE
+          value: map_app:app
+        - name: APP_PORT
+          value: 5001
+        - name: GUNICORN_WORKERS
+          value: 5
+        - name: GUNICORN_TIMEOUT
+          value: 30
+        - name: GUNICORN_WORKER_CLASS
+          value: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+        - name: REDIS_HOST
+          value: redis
+        - name: REDIS_PORT
+          value: 6379

@@ -1,4 +1,4 @@
-FROM iotwx-base:latest
+FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
 
 # Copy application code and config
 COPY . /cloud/services/map_server/

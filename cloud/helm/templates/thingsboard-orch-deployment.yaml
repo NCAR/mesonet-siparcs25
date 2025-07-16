@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.thingsboardorch.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.thingsboardorch.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.thingsboardorch.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.thingsboardorch.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.thingsboardorch.name }}
+    spec:
+      containers:
+      - name: {{ .Values.thingsboardorch.name }}
+        image: {{ .Values.thingsboardorch.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.thingsboardorch.container.memory }}
+            cpu: {{ .Values.thingsboardorch.container.cpu }}

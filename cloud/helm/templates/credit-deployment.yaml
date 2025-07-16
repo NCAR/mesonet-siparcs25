@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.credit.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.credit.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.credit.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.credit.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.credit.name }}
+    spec:
+      containers:
+      - name: {{ .Values.credit.name }}
+        image: {{ .Values.credit.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.credit.container.memory }}
+            cpu: {{ .Values.credit.container.cpu }}
