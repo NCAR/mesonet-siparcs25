@@ -1,0 +1,19 @@
+[Unit]
+Description=LoRa Gateway Service
+After=network.target
+
+[Service]
+Type=simple
+User=ncar
+Group=ncar
+WorkingDirectory=/home/ncar/mesonet-siparcs25/edge-servers
+ExecStart=/bin/bash /home/ncar/mesonet-siparcs25/edge-servers/setup_and_run.sh
+Restart=always
+RestartSec=30
+Environment="PYTHONUNBUFFERED=1"
+
+# Virtual environment paths
+Environment="PATH=/home/ncar/mesonet-siparcs25/edge-servers/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target

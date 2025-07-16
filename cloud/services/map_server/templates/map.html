@@ -1,232 +1,535 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Real-Time Sensor Network Map</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { height: 100vh; width: 100vw; }
-        .station-marker {
-            background: #3388ff;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-weight: bold;
-            border: 2px solid white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.2);
-        }
-        .station-popup {
-            min-width: 200px;
-            font-size: 14px;
-        }
-        .station-popup h3 {
-            margin: 0 0 10px 0;
-            padding-bottom: 5px;
-            border-bottom: 1px solid #eee;
-        }
-        .station-popup table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .station-popup td {
-            padding: 3px 5px;
-            border-bottom: 1px solid #eee;
-        }
-        .station-popup td:first-child {
-            font-weight: bold;
-        }
-        .timestamp {
-            font-size: 0.8em;
-            color: #777;
-            text-align: right;
-            margin-top: 5px;
-        }
-        #error-message {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #ff4444;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            display: none;
-            z-index: 1000;
-        }
-    </style>
-    <link rel="icon" href="/static/favicon.ico">
+  <title>Real-Time Sensor Network Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { height: 100vh; width: 100vw; }
+
+    .station-marker {
+      background: #3388ff;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-weight: bold;
+      border: 2px solid white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .station-popup {
+      min-width: 250px;
+      max-width: 350px;
+      font-size: 14px;
+      overflow-y: auto;
+      max-height: 70vh;
+    }
+
+    .station-popup h3 {
+      margin: 0 0 10px 0;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #eee;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+    }
+
+    .station-popup table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+
+    .station-popup td {
+      padding: 3px 5px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .station-popup td:first-child {
+      font-weight: bold;
+      width: 40%;
+    }
+
+    .timestamp {
+      font-size: 0.8em;
+      color: #777;
+      text-align: right;
+      margin-top: 5px;
+      position: sticky;
+      bottom: 0;
+      background: white;
+      padding-top: 5px;
+      border-top: 1px solid #eee;
+    }
+
+    .popup-controls {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      z-index: 20;
+      display: flex;
+      gap: 3px;
+    }
+
+    .popup-controls button {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      padding: 2px 5px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.1s ease-out;
+    }
+
+    .popup-controls button:hover {
+      background: #f0f0f0;
+    }
+
+    .close-popup { color: #ff4444; }
+
+    #error-message {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff4444;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      z-index: 1001;
+      max-width: 80%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    #loading-message {
+      position: fixed;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      z-index: 1000;
+      max-width: 80%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    #loading-message::before {
+      content: '';
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 5px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .collapsible {
+      cursor: pointer;
+      padding: 5px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      margin: 5px 0;
+      border-radius: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .collapsible:hover {
+      background: #e0e0e0;
+    }
+
+    .collapsible::after {
+      content: '+';
+      font-weight: bold;
+    }
+
+    .collapsible.active::after {
+      content: '-';
+    }
+
+    .content {
+      display: none;
+      padding: 5px;
+      margin-left: 10px;
+      border-left: 2px solid #ddd;
+    }
+
+    .content.active {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="error-message"></div>
+  <div id="map" aria-label="Interactive sensor network map"></div>
+  <div id="error-message" role="alert"></div>
+  <div id="loading-message">Loading...</div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
-    <script>
-        const DEFAULT_LATITUDE = 39.9784;
-        const DEFAULT_LONGITUDE = -105.2749;
-        const locale = navigator.language || 'en-US';
-        const map = L.map('map').setView([DEFAULT_LATITUDE, DEFAULT_LONGITUDE], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    const DEFAULT_LATITUDE = 39.9784;
+    const DEFAULT_LONGITUDE = -105.2749;
+    const locale = navigator.language || 'en-US';
 
-        const stations = {};
-        const markers = {};
-        const errorMessage = document.getElementById('error-message');
+    const map = L.map('map').setView([DEFAULT_LATITUDE, DEFAULT_LONGITUDE], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-        function createMarkerIcon(stationId) {
-            return L.divIcon({
-                className: 'station-marker',
-                html: stationId,
-                iconSize: [48, 48],
-                iconAnchor: [12, 12],
-                popupAnchor: [0, -12]
-            });
-        }
+    const stations = {};
+    const markerMap = {};
+    const activePopups = new Set();
+    const expandedSectionsState = {};
 
-        function createPopupContent(stationId, stationData) {
-            const timestamp = new Date(stationData.last_update * 1000).toLocaleString(locale);
-            let html = `<div class="station-popup"><h3>Station ${stationId}</h3><table>`;
-            for (const [key, value] of Object.entries(stationData)) {
-                if (key !== 'last_update') {
-                    html += `<tr><td>${key}</td><td>${value}</td></tr>`;
-                }
-            }
-            html += `</table><div class="timestamp">Last updated: ${timestamp}</div></div>`;
-            return html;
-        }
-
-        function showError(msg) {
-            errorMessage.textContent = msg;
-            errorMessage.style.display = 'block';
-            setTimeout(() => { errorMessage.style.display = 'none'; }, 5000);
-        }
-
-        // function debounce(func, wait) {
-        //     let timeout;
-        //     return function (...args) {
-        //         clearTimeout(timeout);
-        //         timeout = setTimeout(() => func.apply(this, args), wait);
-        //     };
-        // }
-
-        function setupSocketHandlers(socket) {
-            socket.on('initial_data', data => {
-                console.log('Received initial data:', data);
-                if (data && data.stations) {
-                    Object.entries(data.stations).forEach(([id, stationData]) => {
-                        stations[id] = stationData;
-                        updateStationMarker(id, stationData);
-                    });
-                }
-            });
-
-            socket.on('station_update', data => {
-                if (data && data.station_id && data.latitude && data.longitude) {
-                    stations[data.station_id] = data;
-                    updateStationMarker(data.station_id, data);
-                }
-            });
-
-            socket.on('station_remove', data => {
-                console.log('Removing station:', data);
-                if (markers[data.station_id]) {
-                    map.removeLayer(markers[data.station_id]);
-                    delete markers[data.station_id];
-                }
-                delete stations[data.station_id];
-            });
-        }
-
-        function updateStationMarker(stationId, stationData) {
-            console.log(`Received data for ${stationId}:`, stationData);
-            if (!stationData.latitude || !stationData.longitude || 
-                isNaN(stationData.latitude) || isNaN(stationData.longitude)) {
-                console.warn(`Skipping marker for station ${stationId} due to missing or invalid coordinates`);
-                return;
-            }
-            const latLng = [stationData.latitude, stationData.longitude];
-            if (markers[stationId]) {
-                const existingData = markers[stationId].options.data || {};
-                if (!_.isEqual(existingData, stationData)) {
-                    markers[stationId].setLatLng(latLng);
-                    markers[stationId].setPopupContent(createPopupContent(stationId, stationData));
-                    markers[stationId].options.data = stationData;
-                }
-            } else {
-                markers[stationId] = L.marker(latLng, {
-                    icon: createMarkerIcon(stationId),
-                    data: stationData
-                })
-                .addTo(map)
-                .bindPopup(createPopupContent(stationId, stationData));
-            }
-        }
-
-        async function initializeSocketIO() {
-            let socketUrl = window.location.hostname === 'localhost' 
-                ? 'http://localhost:5001' 
-                : 'http://10.2.1.199:5001';
-            try {
-                const response = await fetch('/api/config');
-                if (!response.ok) throw new Error(`Config fetch failed: ${response.status}`);
-                const config = await response.json();
-                socketUrl = `http://${config['map_web']['host']}:${config['map_web']['port']}`;
-            } catch (error) {
-                console.error('Config fetch error:', error);
-                showError('Failed to load server config');
-            }
-
-            const socket = io(socketUrl, { 
-                transports: ['websocket'],
-                reconnectionAttempts: 5,
-                withCredentials: true
-            });
-            socket.on('connect_error', (err) => {
-                console.error('SocketIO connect error:', err);
-                showError('Failed to connect to server');
-            });
-            setupSocketHandlers(socket);
-            return socket;
-        }
-
-        initializeSocketIO().then(socket => {
-            console.log('Socket.IO initialized');
-            const refreshInterval = 3000;
-            setInterval(() => {
-                fetch('/api/stations')
-                    .then(response => {
-                        if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Received periodic station data:', data);
-                        if (data && data.stations) {
-                            Object.entries(data.stations).forEach(([id, stationData]) => {
-                                if (!stations[id] || !_.isEqual(stations[id], stationData)) {
-                                    stations[id] = stationData;
-                                    updateStationMarker(id, stationData);
-                                }
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Periodic fetch error:', error);
-                        showError('Failed to fetch station data');
-                    });
-            }, refreshInterval);
-        }).catch(error => {
-            console.error('Socket.IO initialization failed:', error);
-            showError('Failed to initialize Socket.IO');
+    const markers = L.markerClusterGroup({
+      maxClusterRadius: 40,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: true,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        const size = Math.min(40 + Math.log(count) * 10, 60);
+        return L.divIcon({
+          html: `<div>${count}</div>`,
+          className: 'marker-cluster marker-cluster-small',
+          iconSize: L.point(size, size)
         });
-    </script>
+      }
+    });
+    map.addLayer(markers);
+
+    const errorMessage = document.getElementById('error-message');
+    const loadingMessage = document.getElementById('loading-message');
+
+    function handleError(message, error) {
+      console.error(`[error] ${message}`, error);
+      errorMessage.textContent = message;
+      errorMessage.style.display = 'block';
+      setTimeout(() => errorMessage.style.display = 'none', 10000);
+    }
+
+    function showLoading(show) {
+      loadingMessage.style.display = show ? 'block' : 'none';
+    }
+
+    function escapeHTML(str) {
+      if (str == null) return 'N/A';
+      return str.toString()
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"')
+        .replace(/'/g, "'");
+    }
+
+    function createMarkerIcon(stationId) {
+      return L.divIcon({
+        className: 'station-marker',
+        html: escapeHTML(stationId),
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -12]
+      });
+    }
+
+    function createPopupContent(stationId, stationData) {
+      let html = `
+        <div class="station-popup" role="dialog" aria-label="Station ${escapeHTML(stationId)} details">
+          <div class="popup-controls">
+            <button class="close-popup" title="Close" aria-label="Close popup">×</button>
+          </div>
+          <h3>Station ${escapeHTML(stationId)}</h3>
+      `;
+
+      let sensorData = {}, modelSummaries = {}, metadata = {};
+      try {
+        sensorData = JSON.parse(stationData.data || '{}').data || {};
+        modelSummaries = JSON.parse(stationData.model_summaries || '{}');
+        metadata = JSON.parse(stationData.metadata || '{}');
+      } catch (e) {
+        console.error(`[error] parsing data for ${stationId}`, e);
+        html += `<p>Error parsing station data</p></div>`;
+        return html;
+      }
+
+      const mdOpen = expandedSectionsState[stationId]?.metadata;
+      html += `<div class="collapsible ${mdOpen ? 'active' : ''}" data-section="metadata">Metadata</div>
+               <div class="content ${mdOpen ? 'active' : ''}">
+               <table>
+                 <tr><td>station_id</td><td>${escapeHTML(stationId)}</td></tr>
+                 <tr><td>latitude</td><td>${escapeHTML(stationData.latitude)}</td></tr>
+                 <tr><td>longitude</td><td>${escapeHTML(stationData.longitude)}</td></tr>`;
+
+      for (const [k, v] of Object.entries(metadata)) {
+        html += `<tr><td>${escapeHTML(k)}</td><td>${escapeHTML(v)}</td></tr>`;
+      }
+      html += `</table>`;
+
+      if (stationData.last_active) {
+        const ts = new Date(stationData.last_active);
+        html += `<div class="timestamp">Last updated: ${
+          isNaN(ts) ? 'N/A' : escapeHTML(ts.toLocaleString(locale))
+        }</div>`;
+      }
+      html += `</div>`;
+
+      for (const [sensor, measurements] of Object.entries(sensorData)) {
+        const open = expandedSectionsState[stationId]?.[sensor];
+        html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
+                 <div class="content ${open ? 'active' : ''}"><table>`;
+        for (const [m, v] of Object.entries(measurements)) {
+          html += `<tr><td>${escapeHTML(m)}</td><td>${escapeHTML(v)}</td></tr>`;
+        }
+        html += `</table></div>`;
+      }
+
+      const smOpen = expandedSectionsState[stationId]?.summaries;
+      html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
+               <div class="content ${smOpen ? 'active' : ''}">`;
+
+      if (Object.keys(modelSummaries).length>0) {
+        html += `<table>`;
+        for (const [k, v] of Object.entries(modelSummaries)) {
+          const name = k.replace('summary_', '').replace('ai/', '');
+          html += `<tr><td>${escapeHTML(name)}</td><td>${escapeHTML(v)}</td></tr>`;
+        }
+        html += `</table>`;
+      } else {
+        html += `<p>No model summaries available</p>`;
+      }
+
+      html += `</div></div>`;
+      return html;
+    }
+
+    function debounce(fn, wait) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), wait);
+      };
+    }
+
+    function setupPopupControls(popup, marker) {
+      const el = popup.getElement();
+      const closeBtn = el.querySelector('.close-popup');
+      const listeners = [];
+
+      const onClose = e => {
+        e.stopPropagation();
+        popup.remove();
+        activePopups.delete(marker);
+        if (marker.cleanupPopup) {
+          marker.cleanupPopup();
+        }
+      };
+      closeBtn.addEventListener('click', onClose);
+      listeners.push({ el: closeBtn, ev: 'click', fn: onClose });
+
+      Array.from(el.querySelectorAll('.collapsible')).forEach(sec => {
+        const onToggle = e => {
+          e.stopPropagation();
+          const name = sec.dataset.section;
+          const isOpen = sec.classList.toggle('active');
+          const content = sec.nextElementSibling;
+          content.classList.toggle('active', isOpen);
+          expandedSectionsState[marker.options.layerId] = {
+            ...expandedSectionsState[marker.options.layerId],
+            [name]: isOpen
+          };
+        };
+        sec.addEventListener('click', onToggle);
+        listeners.push({ el: sec, ev: 'click', fn: onToggle });
+      });
+
+      marker.cleanupPopup = () => {
+        listeners.forEach(({ el, ev, fn }) => el.removeEventListener(ev, fn));
+      };
+    }
+
+    function updateStationMarker(stationId, stationData) {
+      if (!stationData?.latitude || !stationData?.longitude) {
+        handleError(`Invalid data for station ${stationId}`);
+        return;
+      }
+
+      stations[stationId] = stationData;
+      const ll = [+stationData.latitude, +stationData.longitude];
+      const existing = markerMap[stationId];
+
+      if (existing) {
+        const wasOpen = activePopups.has(existing);
+        existing.options.data = stationData;
+
+        const newLatLng = L.latLng(ll);
+        if (!existing.getLatLng().equals(newLatLng)) {
+          existing.setLatLng(newLatLng);
+        }
+
+        const html = createPopupContent(stationId, stationData);
+        const popup = existing.getPopup();
+
+        if (popup) {
+          existing.cleanupPopup && existing.cleanupPopup();
+          popup.remove();
+        }
+
+        existing.bindPopup(html, {
+          className: 'station-popup-container',
+          maxWidth: 350,
+          minWidth: 250,
+          autoClose: true,
+          closeOnClick: true,
+          closeButton: true
+        });
+
+        if (wasOpen) {
+          existing.openPopup();
+        }
+        return;
+      }
+
+      const marker = L.marker(ll, {
+        icon: createMarkerIcon(stationId),
+        data: stationData,
+        layerId: stationId
+      });
+
+      const content = createPopupContent(stationId, stationData);
+      marker.bindPopup(content, {
+        className: 'station-popup-container',
+        maxWidth: 350,
+        minWidth: 250,
+        autoClose: true,
+        closeOnClick: true,
+        closeButton: true
+      });
+
+      const adjustView = debounce(() => {
+        const el = marker.getPopup()?.getElement();
+        if (!el) return;
+        const pr = el.getBoundingClientRect();
+        const mr = map.getContainer().getBoundingClientRect();
+        const dx = Math.min(0, mr.right - pr.right - 10);
+        const dy = Math.min(0, mr.bottom - pr.bottom - 10);
+        if (dx || dy) map.panBy([dx, dy], { animate: true });
+      }, 100);
+
+      marker.on('popupopen', () => {
+        setupPopupControls(marker.getPopup(), marker);
+        activePopups.add(marker);
+        adjustView();
+      });
+
+      marker.on('popupclose', () => {
+        activePopups.delete(marker);
+        if (marker.cleanupPopup) {
+          marker.cleanupPopup();
+        }
+      });
+
+      markers.addLayer(marker);
+      markerMap[stationId] = marker;
+    }
+
+    function cleanupStaleMarkers() {
+      const valid = new Set(Object.keys(stations));
+      Object.entries(markerMap).forEach(([id, marker]) => {
+        if (!valid.has(id)) {
+          marker.cleanupPopup && marker.cleanupPopup();
+          marker.getPopup()?.remove();
+          markers.removeLayer(marker);
+          activePopups.delete(marker);
+          delete markerMap[id];
+          delete expandedSectionsState[id];
+        }
+      });
+    }
+
+    async function fetchInitialData() {
+      showLoading(true);
+      try {
+        const res = await fetch('/api/stations');
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        Object.entries(data.stations || {}).forEach(([id, s]) => {
+          updateStationMarker(id, s);
+        });
+        cleanupStaleMarkers();
+      } catch (e) {
+        handleError('Failed to load initial station data', e);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function setupSocketHandlers(socket) {
+      socket.on('initial_data', d => {
+        Object.entries(d.stations || {}).forEach(([i, s]) => updateStationMarker(i, s));
+        cleanupStaleMarkers();
+      });
+
+      socket.on('station_update', d => updateStationMarker(d.station_id, d));
+
+      socket.on('station_remove', d => {
+        delete stations[d.station_id];
+        cleanupStaleMarkers();
+      });
+    }
+
+    (async () => {
+      await fetchInitialData();
+
+      const url = location.hostname === 'localhost'
+        ? 'http://localhost:5001'
+        : `${location.protocol}//${location.host}`;
+
+      const socket = io(url, {
+        transports: ['websocket'],
+        reconnection: true
+      });
+
+      socket.on('connect_error', e => {
+        handleError(`Socket error: ${e.message}`, e);
+      });
+
+      setupSocketHandlers(socket);
+
+      setInterval(async () => {
+        try {
+          const res = await fetch('/api/stations');
+          if (!res.ok) throw new Error(res.statusText);
+          const data = await res.json();
+          Object.entries(data.stations || {}).forEach(([id, s]) => updateStationMarker(id, s));
+          cleanupStaleMarkers();
+        } catch (e) {
+          handleError('Failed to refresh station data', e);
+        }
+      }, 60000);
+
+      setInterval(cleanupStaleMarkers, 60000);
+    })();
+  </script>
 </body>
 </html>

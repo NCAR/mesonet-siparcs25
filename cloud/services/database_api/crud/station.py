@@ -2,9 +2,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
 from models.station import StationModel
-from schema.station import StationCreate, StationResponse
+from schema.station import StationCreate, StationResponse, StationUpdate
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from logger import CustomLogger
 
 console = CustomLogger()
@@ -46,6 +48,9 @@ class StationService:
         except IntegrityError as e:
             await self.db.rollback()
             raise ValueError(f"Station with ID {station_data.station_id} already exists.") from e
+        except Exception as e:
+            await self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Internal error creating station {station_data['station_id']}: {str(e)}")
 
     async def update_station(self, station_id: str, update_data: StationCreate) -> Optional[StationResponse]:
         result = await self.db.execute(
@@ -54,11 +59,26 @@ class StationService:
         station = result.scalar_one_or_none()
 
         if not station:
-            return None
+            update_data["station_id"] = station_id
+            update_data.setdefault("firstname", None)
+            update_data.setdefault("lastname", None)
+            update_data.setdefault("email", None)
+            update_data.setdefault("organization", None)
+            if "created_at" not in update_data or update_data["created_at"] is None:
+                update_data["created_at"] = datetime.now(timezone.utc)
 
         for key, value in update_data.model_dump().items():
-            setattr(station, key, value)
+            if hasattr(station, key):
+                setattr(station, key, value)
 
-        await self.db.commit()
-        await self.db.refresh(station)
+        try:
+            await self.db.commit()
+            await self.db.refresh(station)
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=f"Failed to update station {station_id}: {str(e)}")
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Internal error updating station {station_id}: {str(e)}")
+        
         return StationResponse.model_validate(station)

@@ -1,22 +1,36 @@
-
-import yamlimport time
+import yaml
+import time
 import logging
-from flask import Flask, render_template, jsonify,send_from_directory
+import json
+from flask import Flask, render_template, jsonify, send_from_directory
 from flask_socketio import SocketIO
-import requests
+import redis
+from redis.exceptions import RedisError
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'map_secret'
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*","http://10.219.130.204:5001", "http://localhost:5001"])
+socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*", "http://localhost:5001"])
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s')
 
 # Load config
-with open('config.yml', 'r') as f:
+with open('/cloud/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
-MAIN_SERVER_URL = f"http://{config['web']['host']}:{config['web']['port']}"
+# Redis connection
+REDIS_CONFIG = config.get('redis', {'host': 'localhost', 'port': 6379})
+redis_client = redis.Redis(
+    host=REDIS_CONFIG['host'],
+    port=REDIS_CONFIG['port'],
+    decode_responses=True
+)
 
-
+# Test Redis connection
+try:
+    redis_client.ping()
+    app.logger.info("Connected to Redis")
+except RedisError as e:
+    app.logger.error(f"Failed to connect to Redis: {e}")
+    raise RuntimeError("Redis connection failed")
 
 @app.route('/')
 def index():
@@ -25,18 +39,33 @@ def index():
 @app.route('/api/stations')
 def get_stations():
     try:
-        start = time.time()  # Ensure time is imported
-        response = requests.get(f'{MAIN_SERVER_URL}/api/stations')
-        response.raise_for_status()
+        start = time.time()
+        # Fetch all station keys
+        station_keys = sorted(redis_client.keys('station:*'))
+        stations = {}
+        if station_keys:
+            # Use pipeline for efficient retrieval
+            pipe = redis_client.pipeline()
+            for key in station_keys:
+                pipe.hgetall(key)
+            station_data_list = pipe.execute()
+            for key, station_data in zip(station_keys, station_data_list):
+                station_id = key.split(':', 1)[1]
+                # Include all fields from the hash
+                stations[station_id] = station_data
         delta_time = time.time() - start
-        return jsonify(response.json())
+        app.logger.debug(f"Fetched {len(stations)} stations from Redis in {delta_time:.3f}s")
+        return jsonify({'stations': stations})
+    except RedisError as e:
+        app.logger.error(f"Error fetching stations from Redis: {e}")
+        return jsonify({'stations': {}}), 500
     except Exception as e:
-        app.logger.error(f"Error fetching stations: {e}")
+        app.logger.error(f"Unexpected error: {e}")
         return jsonify({'stations': {}}), 500
 
 @app.route('/api/config')
 def get_config():
-    return jsonify({'map_web': config.get('map_web', {})})
+    return jsonify({'map': config.get('map', {})})
 
 @app.route('/favicon.ico')
 def favicon():
@@ -45,9 +74,25 @@ def favicon():
 @socketio.on('connect')
 def handle_connect():
     try:
-        response = requests.get(f'{MAIN_SERVER_URL}/api/stations')
-        socketio.emit('initial_data', response.json())
-        app.logger.info('Map client connected')
+        # Fetch all station keys
+        station_keys = sorted(redis_client.keys('stations:*'))
+        stations = {}
+        if station_keys:
+            # Use pipeline for efficient retrieval
+            pipe = redis_client.pipeline()
+            for key in station_keys:
+                pipe.hgetall(key)
+            station_data_list = pipe.execute()
+            for key, station_data in zip(station_keys, station_data_list):
+                station_id = key.split(':', 1)[1]
+                # Include all fields from the hash
+                stations[station_id] = station_data
+        socketio.emit('initial_data', {'stations': stations})
+        app.logger.info("Map client connected")
+    except RedisError as e:
+        app.logger.error(f"Failed to send initial data from Redis: {e}")
     except Exception as e:
-        app.logger.error(f"Error sending initial data: {e}")
+        app.logger.error(f"Unexpected error: {e}")
 
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5001)

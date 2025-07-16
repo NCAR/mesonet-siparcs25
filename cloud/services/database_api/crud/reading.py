@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update
@@ -27,9 +28,15 @@ class ReadingService:
 
     async def create_reading(self, reading_data: ReadingCreate) -> ReadingResponse:
         db_reading = ReadingModel(**reading_data.model_dump(), timestamp=datetime.utcnow())
-        self.db.add(db_reading)
-        await self.db.commit()
-        await self.db.refresh(db_reading)
+        
+        try:
+            self.db.add(db_reading)
+            await self.db.commit()
+            await self.db.refresh(db_reading)
+        except Exception as e:
+            await self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Internal error creating reading {reading_data['id']}: {str(e)}")
+        
         return ReadingResponse.model_validate(db_reading)
 
     async def update_reading(self, station_id: str, reading_id: str, update_data: ReadingCreate) -> Optional[ReadingResponse]:

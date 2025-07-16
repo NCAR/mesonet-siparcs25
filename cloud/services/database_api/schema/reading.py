@@ -1,21 +1,27 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional
 from datetime import datetime
 
 class ReadingCreate(BaseModel):
     station_id: str
-    device: Optional[str] = None
+    edge_id: Optional[str] = None
     measurement: str
     reading_value: float
     sensor_protocol: Optional[str] = None
     sensor_model: str
-    signal_strength: Optional[float] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    rssi: Optional[int] = None
+    latitude: float
+    longitude: float
+    altitude: float
+    timestamp: Optional[datetime] = None
+
 
 class ReadingResponse(ReadingCreate):
     id: int
     timestamp: Optional[datetime]
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # Enable ORM compatibility
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None  # Serialize datetime to ISO 8601
+        }
