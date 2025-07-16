@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.pgadmin.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+spec:
+  ports:
+  - port: {{ .Values.pgadmin.container.port }}
+  selector:
+    app: {{ .Values.pgadmin.name }}

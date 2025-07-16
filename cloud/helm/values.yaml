@@ -102,6 +102,9 @@ postgres:
     memory: 2Gi
     cpu: 2
     port: 5432
+  volume:
+    name: postgres-pv
+    size: 1Gi
 redis:
   name: redis
   replicaCount: 1
@@ -110,6 +113,9 @@ redis:
     memory: 2Gi
     cpu: 2
     port: 6379
+  volume:
+    name: redis-pv
+    size: 1Gi
 redisinsight:
   name: redisinsight
   replicaCount: 1
@@ -122,6 +128,9 @@ redisinsight:
     fqdn: redis-insight.mesonet.k8s.ucar.edu
     secretName: redis-insight-tls-cert
   path: /
+  volume:
+    name: redis-insight-pv
+    size: 1Gi
 thingsboardce:
   name: thingsboard-ce
   replicaCount: 1

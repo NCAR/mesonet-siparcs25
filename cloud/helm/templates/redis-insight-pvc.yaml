@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.redisinsight.volume.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ceph-kubepv
+  resources:
+    requests:
+      storage: {{ .Values.redisinsight.volume.size }}
