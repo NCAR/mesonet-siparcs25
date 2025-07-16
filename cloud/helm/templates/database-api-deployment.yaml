@@ -35,3 +35,11 @@ spec:
           value: postgres
         - name: DB_HOST
           value: postgres
+        volumeMounts:
+        - name: logger-volume
+        mountPath: /cloud/services/database_api/logger.py
+        subPath: logger.py
+      volumes:
+      - name: logger-volume
+      configMap:
+        name: {{ .Values.app.logger.name }}

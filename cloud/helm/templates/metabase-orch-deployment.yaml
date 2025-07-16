@@ -43,7 +43,13 @@ spec:
         - name: config-volume
           mountPath: /cloud/config.yaml
           subPath: config.yaml
+        - name: logger-volume
+          mountPath: /cloud/services/metabase/logger.py
+          subPath: logger.py
       volumes:
       - name: config-volume
         configMap:
           name: {{ .Values.app.config.name }}
+      - name: logger-volume
+        configMap:
+            name: {{ .Values.app.logger.name }}

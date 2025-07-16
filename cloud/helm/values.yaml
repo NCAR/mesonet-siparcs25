@@ -3,6 +3,8 @@ app:
   imagePullPolicy: Always
   config:
     name: mesonet-config
+  logger:
+    name: mesonet-logger
 credit:
   name: credit
   replicaCount: 1
