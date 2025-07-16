@@ -3,6 +3,5 @@
 .env
 .vscode
 logs
-cloud/services/credit/model.yml
 cloud/services/credit/static_data
 cloud/services/credit/credit_run/results/

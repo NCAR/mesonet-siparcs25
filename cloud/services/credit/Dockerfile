@@ -56,4 +56,4 @@ WORKDIR /cloud/services/credit
 RUN chmod +x ./scripts/credit.sh
 
 # Default startup command
-CMD ["./scripts/credit.sh"]
+CMD ["./scripts/init_credit.sh"]
