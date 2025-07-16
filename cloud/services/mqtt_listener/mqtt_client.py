@@ -72,10 +72,7 @@ class MQTTDatabaseUpdater:
         self.last_connection_attempt = 0
         self.connection_interval = 30
         self.stations_lock = Lock()
-        self.sensor_buffer = defaultdict(lambda: {
-            "data": defaultdict(defaultdict),
-            "metadata": {}
-        })
+        self.sensor_buffer = {}
         self.buffer_lock = Lock()
         self.initialize_client()
         self.test_redis_connection()
@@ -315,6 +312,16 @@ class MQTTDatabaseUpdater:
             ts_iso = ts_st.isoformat()
         
         with self.buffer_lock:
+            # Check and create keys if they don't exist
+            if station_id not in self.sensor_buffer:
+                self.sensor_buffer[station_id] = {"data": {}, "metadata": {}}
+            if "data" not in self.sensor_buffer[station_id]:
+                self.sensor_buffer[station_id]["data"] = {}
+            if sensor not in self.sensor_buffer[station_id]["data"] and measurement not in ['latitude', 'longitude', 'altitude']:
+                self.sensor_buffer[station_id]["data"][sensor] = {}
+            if "metadata" not in self.sensor_buffer[station_id]:
+                self.sensor_buffer[station_id]["metadata"] = {}
+
             if measurement not in ['latitude', 'longitude', 'altitude']:
                 self.sensor_buffer[station_id]["data"][sensor][measurement] = reading_value
                 self.sensor_buffer[station_id]["metadata"]['last_active'] = ts_iso
