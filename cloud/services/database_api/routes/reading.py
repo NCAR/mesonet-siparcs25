@@ -7,7 +7,6 @@ from typing import List
 
 router = APIRouter(prefix="/api/readings", tags=["Readings"])
 
-
 @router.get("/", response_model=List[ReadingResponse])
 async def read_readings(db: AsyncSession = Depends(get_db_async)):
     service = ReadingService(db)

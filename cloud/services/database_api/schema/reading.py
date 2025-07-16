@@ -15,7 +15,6 @@ class ReadingCreate(BaseModel):
     altitude: float
     timestamp: Optional[datetime] = None
 
-
 class ReadingResponse(ReadingCreate):
     id: int
     timestamp: Optional[datetime]
