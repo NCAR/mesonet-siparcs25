@@ -37,9 +37,9 @@ spec:
           value: postgres
         volumeMounts:
         - name: logger-volume
-        mountPath: /cloud/services/database_api/logger.py
-        subPath: logger.py
+          mountPath: /cloud/services/database_api/logger.py
+          subPath: logger.py
       volumes:
       - name: logger-volume
-      configMap:
-        name: {{ .Values.app.logger.name }}
+        configMap:
+          name: {{ .Values.app.logger.name }}
