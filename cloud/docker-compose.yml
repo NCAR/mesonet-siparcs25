@@ -7,8 +7,7 @@ services:
     volumes:
       - redis_data:/data
     restart: always
-    networks:
-      - default
+
   redisinsight:
     image: redis/redisinsight:2.68
     container_name: redisinsight
@@ -19,8 +18,7 @@ services:
     restart: always
     depends_on:
       - redis
-    networks:
-      - default
+
   postgres:
     restart: always
     image: "postgres:16"
@@ -34,8 +32,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - default
+
   thingsboard-ce:
     image: "thingsboard/tb-node:4.0.1.1"
     container_name: thingsboard-ce
@@ -65,12 +62,11 @@ services:
   thingsboard_orch:
     build: ./services/thingsboard
     container_name: thingsboard_orch
-    networks:
-      - default
     depends_on:
       - thingsboard-ce
     volumes:
       - ./config.yaml:/cloud/config.yaml
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin4
@@ -85,8 +81,7 @@ services:
     restart: always
     depends_on:
       - postgres
-    networks:
-      - default
+
   metabase:
     image: metabase/metabase:latest
     container_name: metabase
@@ -108,8 +103,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-    networks:
-      - default
+
   database_api:
     build:
       context: ./services/database_api
@@ -132,8 +126,7 @@ services:
       retries: 3
       start_period: 5s
       timeout: 5s
-    networks:
-      - default
+
   mqtt_listener:
     build:
       context: ./services/mqtt_listener
@@ -146,8 +139,7 @@ services:
         condition: service_started
     volumes:
       - ./config.yaml:/cloud/config.yaml
-    networks:
-      - default
+
   mqtt_legacy_orch:
     build:
       context: ./services/mqtt_legacy
@@ -223,8 +215,6 @@ services:
         condition: service_started
       model_service:
         condition: service_healthy
-    networks:
-      - default
 
   model_service:
     build:
@@ -232,34 +222,32 @@ services:
     container_name: model_service
     hostname: model_service
     ports:
-      - "5000:5000"
+      - "5002:5002"
     environment:
-      - APP_PORT=5000
+      - APP_PORT=5002
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:5000/health\")'"]
       interval: 10s
       retries: 50
       timeout: 500s
     restart: always
-    networks:
-      - default
 
-  credit:
-    build:
-      context: ./services/credit
-      dockerfile: Dockerfile
-      args:
-        ENV_NAME: ${CREDIT_ENV}
-        ENV_FILE: ${CREDIT_ENV_FILE}
-    container_name: credit
-    hostname: credit
-    environment:
-      ENV_NAME: ${CREDIT_ENV}
-    volumes:
-      - ./config.yaml:/cloud/config.yaml
-      - ./services/logger.py:/cloud/services/credit/logger.py
-    depends_on:
-      - database_api
+  # credit:
+  #   build:
+  #     context: ./services/credit
+  #     dockerfile: Dockerfile
+  #     args:
+  #       ENV_NAME: ${CREDIT_ENV}
+  #       ENV_FILE: ${CREDIT_ENV_FILE}
+  #   container_name: credit
+  #   hostname: credit
+  #   environment:
+  #     ENV_NAME: ${CREDIT_ENV}
+  #   volumes:
+  #     - ./config.yaml:/cloud/config.yaml
+  #     - ./services/logger.py:/cloud/services/credit/logger.py
+  #   depends_on:
+  #     - database_api
 
 volumes:
   postgres-data:

@@ -16,7 +16,7 @@ station:
   active_station_timeout: 150
   batch_interval: 60
 model_service:
-  base_url: http://model_service:5000
+  base_url: http://model_service:5002
 metabase:
   admin_data:
     first_name: Isaac
