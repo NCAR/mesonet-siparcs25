@@ -1,6 +1,8 @@
 app:
   group: mesonet
   imagePullPolicy: Always
+  config:
+    name: mesonet-config
 credit:
   name: credit
   replicaCount: 1

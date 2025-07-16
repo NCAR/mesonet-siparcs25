@@ -24,3 +24,11 @@ spec:
           limits:
             memory: {{ .Values.credit.container.memory }}
             cpu: {{ .Values.credit.container.cpu }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /cloud/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.app.config.name }}

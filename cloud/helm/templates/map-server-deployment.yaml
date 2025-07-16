@@ -41,3 +41,11 @@ spec:
           value: redis
         - name: REDIS_PORT
           value: 6379
+        volumeMounts:
+        - name: config-volume
+          mountPath: /cloud/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.app.config.name }}
