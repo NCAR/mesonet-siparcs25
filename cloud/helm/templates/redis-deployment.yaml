@@ -26,3 +26,10 @@ spec:
             cpu: {{ .Values.redis.container.cpu }}
         ports:
         - containerPort: {{ .Values.redis.container.port }}
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: {{ .Values.redis.volume.name }}

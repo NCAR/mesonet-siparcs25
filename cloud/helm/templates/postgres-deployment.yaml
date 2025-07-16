@@ -31,3 +31,11 @@ spec:
           value: 5000
         - name: POSTGRES_PASSWORD
           value: 5000
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: {{ .Values.postgres.volume.name }}
+        

@@ -26,3 +26,10 @@ spec:
             cpu: {{ .Values.redisinsight.container.cpu }}
         ports:
         - containerPort: {{ .Values.redisinsight.container.port }}
+        volumeMounts:
+        - name: redisinsight-data
+          mountPath: /db
+      volumes:
+      - name: redisinsight-data
+        persistentVolumeClaim:
+          claimName: {{ .Values.redisinsight.volume.name }}
