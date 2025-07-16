@@ -17,6 +17,7 @@ station:
   batch_interval: 60
 model_service:
   base_url: http://model_service:5002
+  model_name: ai/gemma3n:4B-Q4_K_M
 metabase:
   admin_data:
     first_name: Isaac

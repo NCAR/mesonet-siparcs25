@@ -5,11 +5,9 @@ import time
 from datetime import datetime, timezone
 import requests
 import redis
-import os
 import yaml
 from typing import Dict, Any
 from threading import Lock, Thread
-from collections import defaultdict
 
 # Configuration
 CONFIG_FILE = "/cloud/config.yaml"
@@ -49,6 +47,7 @@ REDIS_PORT = config['redis']['port']
 ACTIVE_STATION_TIMEOUT = config['station']['active_station_timeout']
 BATCH_INTERVAL = config['station']['batch_interval']
 MODEL_SERVICE_URL = config['model_service']['base_url']
+MODEL_SERVICE_MODEL_NAME = config['model_service']['model_name']
 MODEL_ENDPOINT = f"{MODEL_SERVICE_URL}/predict"
 STATION_ENDPOINT = f"{API_BASE_URL}/api/stations"
 READING_ENDPOINT = f"{API_BASE_URL}/api/readings/"
@@ -193,7 +192,7 @@ class MQTTDatabaseUpdater:
 
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
-                        model_names = ["ai/gemma3n"]
+                        model_names = [MODEL_SERVICE_MODEL_NAME]
                         model_summaries = {}
                         if merged_sensor_data:
                             for model_name in model_names:
