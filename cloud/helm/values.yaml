@@ -16,6 +16,10 @@ databaseapi:
     memory: 2Gi
     cpu: 2
     port: 8000
+  tls:
+    fqdn: database-api.mesonet.k8s.ucar.edu
+    secretName: database-api-tls-cert
+  path: /
 mapserver:
   name: map-server
   replicaCount: 1
@@ -24,6 +28,10 @@ mapserver:
     memory: 2Gi
     cpu: 2
     port: 5001
+  tls:
+    fqdn: map-server.mesonet.k8s.ucar.edu
+    secretName: map-server-tls-cert
+  path: /
 metabase:
   name: metabase
   replicaCount: 1
@@ -32,6 +40,10 @@ metabase:
     memory: 2Gi
     cpu: 2
     port: 3000
+  tls:
+    fqdn: metabase.mesonet.k8s.ucar.edu
+    secretName: metabase-tls-cert
+  path: /
 metabaseorch:
   name: orch-mb
   replicaCount: 1
@@ -40,6 +52,10 @@ metabaseorch:
     memory: 2Gi
     cpu: 2
     port: 8001
+  tls:
+    fqdn: metabase-orch.mesonet.k8s.ucar.edu
+    secretName: metabase-orch-tls-cert
+  path: /
 modelservice:
   name: model-service
   replicaCount: 1
@@ -48,6 +64,10 @@ modelservice:
     memory: 2Gi
     cpu: 2
     port: 5000
+  tls:
+    fqdn: model-service.mesonet.k8s.ucar.edu
+    secretName: model-service-tls-cert
+  path: /
 mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
@@ -70,6 +90,10 @@ pgadmin:
     memory: 2Gi
     cpu: 2
     port: 8888
+  tls:
+    fqdn: pgadmin.mesonet.k8s.ucar.edu
+    secretName: pgadmin-tls-cert
+  path: /
 postgres:
   name: postgres
   replicaCount: 1
@@ -94,6 +118,10 @@ redisinsight:
     memory: 2Gi
     cpu: 2
     port: 5540
+  tls:
+    fqdn: redis-insight.mesonet.k8s.ucar.edu
+    secretName: redis-insight-tls-cert
+  path: /
 thingsboardce:
   name: thingsboard-ce
   replicaCount: 1
@@ -129,6 +157,10 @@ thingsboardce:
       - name: coap-udp-6
         containerPort: 5688
         protocol: UDP
+  tls:
+    fqdn: thingsboard.mesonet.k8s.ucar.edu
+    secretName: thingsboard-ce-tls-cert
+  path: /
 thingsboardorch:
   name: thingsboard-orch
   replicaCount: 1

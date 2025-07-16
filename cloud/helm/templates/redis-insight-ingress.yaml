@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.redisinsight.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+  annotations:
+    cert-manager.io/cluster-issuer: "incommon"
+spec:
+  ingressClassName: nginx-internal
+  tls:
+    - hosts:
+      - {{ .Values.redisinsight.tls.fqdn }}
+      secretName: {{ .Values.redisinsight.tls.secretName }}
+  rules:
+  - host: {{ .Values.redisinsight.tls.fqdn }}
+    http:
+      paths:
+      - path: {{ .Values.redisinsight.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.redisinsight.name }}
+            port:
+              number: {{ .Values.redisinsight.container.port }}

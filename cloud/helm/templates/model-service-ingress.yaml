@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.modelservice.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+  annotations:
+    cert-manager.io/cluster-issuer: "incommon"
+spec:
+  ingressClassName: nginx-internal
+  tls:
+    - hosts:
+      - {{ .Values.modelservice.tls.fqdn }}
+      secretName: {{ .Values.modelservice.tls.secretName }}
+  rules:
+  - host: {{ .Values.modelservice.tls.fqdn }}
+    http:
+      paths:
+      - path: {{ .Values.modelservice.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.modelservice.name }}
+            port:
+              number: {{ .Values.modelservice.container.port }}

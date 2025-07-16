@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.databaseapi.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+  annotations:
+    cert-manager.io/cluster-issuer: "incommon"
+spec:
+  ingressClassName: nginx-internal
+  tls:
+    - hosts:
+      - {{ .Values.databaseapi.tls.fqdn }}
+      secretName: {{ .Values.databaseapi.tls.secretName }}
+  rules:
+  - host: {{ .Values.databaseapi.tls.fqdn }}
+    http:
+      paths:
+      - path: {{ .Values.databaseapi.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.databaseapi.name }}
+            port:
+              number: {{ .Values.databaseapi.container.port }}

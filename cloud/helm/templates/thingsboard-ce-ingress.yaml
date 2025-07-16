@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.thingsboardce.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+  annotations:
+    cert-manager.io/cluster-issuer: "incommon"
+spec:
+  ingressClassName: nginx-internal
+  tls:
+    - hosts:
+      - {{ .Values.thingsboardce.tls.fqdn }}
+      secretName: {{ .Values.thingsboardce.tls.secretName }}
+  rules:
+  - host: {{ .Values.thingsboardce.tls.fqdn }}
+    http:
+      paths:
+      - path: {{ .Values.thingsboardce.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.thingsboardce.name }}
+            port:
+              number: {{ .Values.thingsboardce.container.port }}

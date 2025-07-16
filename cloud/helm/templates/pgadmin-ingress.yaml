@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.pgadmin.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+  annotations:
+    cert-manager.io/cluster-issuer: "incommon"
+spec:
+  ingressClassName: nginx-internal
+  tls:
+    - hosts:
+      - {{ .Values.pgadmin.tls.fqdn }}
+      secretName: {{ .Values.pgadmin.tls.secretName }}
+  rules:
+  - host: {{ .Values.pgadmin.tls.fqdn }}
+    http:
+      paths:
+      - path: {{ .Values.pgadmin.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.pgadmin.name }}
+            port:
+              number: {{ .Values.pgadmin.container.port }}
