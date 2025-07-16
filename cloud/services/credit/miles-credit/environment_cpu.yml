@@ -1,10 +1,17 @@
 name: credit
 channels:
   - conda-forge
+  - defaults
+
 dependencies:
   - python=3.11
+  - libgcc-ng>=13.2.0
+  - numpy=2.2
+  - esmf
+  - esmpy
+  - xesmf
+  - h5netcdf
   - pip
   - pip:
-    - torch --index-url https://download.pytorch.org/whl/cpu
-    - torchvision --index-url https://download.pytorch.org/whl/cpu
-    - .
+      - "torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu"
+      - "torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu"

@@ -7,7 +7,8 @@ from torch import nn
 import torch_harmonics as harmonics
 import segmentation_models_pytorch as smp
 
-from torch.amp import custom_fwd
+# from torch.amp import custom_fwd
+from torch.cuda.amp import custom_fwd
 
 import numpy as np
 import xarray as xr
@@ -609,7 +610,8 @@ class SKEBS(nn.Module):
         new_coef = (1.0 - self.alpha) * spec_coef + self.g_n * torch.sqrt(self.alpha) * noise  # (lmax, mmax)
         return new_coef * self.spectral_pattern_filter 
     
-    @custom_fwd(device_type='cuda', cast_inputs=torch.float32)
+    # @custom_fwd(device_type='cuda', cast_inputs=torch.float32)
+    @custom_fwd(cast_inputs=torch.float32)
     def forward(self, x):
         """ the inverse sht operation requires float32 or greater """
  

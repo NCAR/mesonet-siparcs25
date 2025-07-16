@@ -170,6 +170,23 @@ services:
     depends_on:
       - database_api
       - redis
+
+  credit:
+    build:
+      context: ./services/credit
+      dockerfile: Dockerfile
+      args:
+        ENV_NAME: ${CREDIT_ENV}
+        ENV_FILE: ${CREDIT_ENV_FILE}
+    container_name: credit
+    hostname: credit
+    environment:
+      ENV_NAME: ${CREDIT_ENV}
+    volumes:
+      - ./config.yaml:/cloud/config.yaml
+      - ./services/logger.py:/cloud/services/credit/logger.py
+    depends_on:
+      - database_api
  
 volumes:
   postgres-data:

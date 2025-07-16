@@ -264,6 +264,7 @@ class Normalize_ERA5_and_Forcing:
         self.std_tensors = {}
 
         for var in varnames_all:
+            print(var)
             mean_array = self.mean_ds[var].values
             std_array = self.std_ds[var].values
             # convert to tensor
@@ -393,8 +394,10 @@ class Normalize_ERA5_and_Forcing:
         # Upper air variable structure: var 1 [all levels] --> var 2 [all levels]
         k = 0
         for name in self.varname_upper_air:
-            mean_tensor = self.mean_tensors[name].to(device)
-            std_tensor = self.std_tensors[name].to(device)
+            mean_tensor = self.mean_tensors[name].to(torch.float32).to(device)
+            std_tensor = self.std_tensors[name].to(torch.float32).to(device)
+            # mean_tensor = self.mean_tensors[name].to(device)
+            # std_tensor = self.std_tensors[name].to(device)
             for level in range(self.levels):
                 var_mean = mean_tensor[level]
                 var_std = std_tensor[level]
@@ -406,15 +409,19 @@ class Normalize_ERA5_and_Forcing:
         # Standardize surface variables
         if self.flag_surface:
             for k, name in enumerate(self.varname_surface):
-                var_mean = self.mean_tensors[name].to(device)
-                var_std = self.std_tensors[name].to(device)
+                # var_mean = self.mean_tensors[name].to(device)
+                # var_std = self.std_tensors[name].to(device)
+                var_mean = self.mean_tensors[name].to(torch.float32).to(device)
+                var_std = self.std_tensors[name].to(torch.float32).to(device)
                 transformed_surface[:, k] = (tensor_surface[:, k] - var_mean) / var_std
 
         # Standardize diagnostic variables
         if self.flag_diagnostic:
             for k, name in enumerate(self.varname_diagnostic):
-                var_mean = self.mean_tensors[name].to(device)
-                var_std = self.std_tensors[name].to(device)
+                # var_mean = self.mean_tensors[name].to(device)
+                # var_std = self.std_tensors[name].to(device)
+                var_mean = self.mean_tensors[name].to(torch.float32).to(device)
+                var_std = self.std_tensors[name].to(torch.float32).to(device)
                 transformed_diagnostic[:, k] = (
                     transformed_diagnostic[:, k] - var_mean
                 ) / var_std
@@ -527,8 +534,10 @@ class Normalize_ERA5_and_Forcing:
         # Reverse upper air variables
         k = 0
         for name in self.varname_upper_air:
-            mean_tensor = self.mean_tensors[name].to(device)
-            std_tensor = self.std_tensors[name].to(device)
+            # mean_tensor = self.mean_tensors[name].to(device)
+            # std_tensor = self.std_tensors[name].to(device)
+            mean_tensor = self.mean_tensors[name].to(torch.float32).to(device)
+            std_tensor = self.std_tensors[name].to(torch.float32).to(device)
             for level in range(self.levels):
                 mean = mean_tensor[level]
                 std = std_tensor[level]
@@ -538,15 +547,19 @@ class Normalize_ERA5_and_Forcing:
         # Reverse surface variables
         if self.flag_surface:
             for k, name in enumerate(self.varname_surface):
-                mean = self.mean_tensors[name].to(device)
-                std = self.std_tensors[name].to(device)
+                # mean = self.mean_tensors[name].to(device)
+                # std = self.std_tensors[name].to(device)
+                mean = self.mean_tensors[name].to(torch.float32).to(device)
+                std = self.std_tensors[name].to(torch.float32).to(device)
                 transformed_surface[:, k] = tensor_surface[:, k] * std + mean
 
         # Reverse diagnostic variables
         if self.flag_diagnostic:
             for k, name in enumerate(self.varname_diagnostic):
-                mean = self.mean_tensors[name].to(device)
-                std = self.std_tensors[name].to(device)
+                # mean = self.mean_tensors[name].to(device)
+                # std = self.std_tensors[name].to(device)
+                mean = self.mean_tensors[name].to(torch.float32).to(device)
+                std = self.std_tensors[name].to(torch.float32).to(device)
                 transformed_diagnostic[:, k] = transformed_diagnostic[:, k] * std + mean
 
         # Concatenate everything
@@ -631,8 +644,10 @@ class Normalize_ERA5_and_Forcing:
         # Inverse transform upper air variables
         k = 0
         for name in self.varname_upper_air:
-            mean_tensor = self.mean_tensors[name].to(device)
-            std_tensor = self.std_tensors[name].to(device)
+            # mean_tensor = self.mean_tensors[name].to(device)
+            # std_tensor = self.std_tensors[name].to(device)
+            mean_tensor = self.mean_tensors[name].to(torch.float32).to(device)
+            std_tensor = self.std_tensors[name].to(torch.float32).to(device)
             for level in range(self.levels):
                 mean = mean_tensor[level]
                 std = std_tensor[level]
@@ -642,15 +657,19 @@ class Normalize_ERA5_and_Forcing:
         # Inverse transform surface variables
         if self.flag_surface:
             for k, name in enumerate(self.varname_surface):
-                mean = self.mean_tensors[name].to(device)
-                std = self.std_tensors[name].to(device)
+                # mean = self.mean_tensors[name].to(device)
+                # std = self.std_tensors[name].to(device)
+                mean = self.mean_tensors[name].to(torch.float32).to(device)
+                std = self.std_tensors[name].to(torch.float32).to(device)
                 transformed_surface[:, k] = tensor_surface[:, k] * std + mean
 
         # Inverse transform dynamic forcing variables
         if self.flag_dyn_forcing:
             for k, name in enumerate(self.varname_dyn_forcing):
-                mean = self.mean_tensors[name].to(device)
-                std = self.std_tensors[name].to(device)
+                # mean = self.mean_tensors[name].to(device)
+                # std = self.std_tensors[name].to(device)
+                mean = self.mean_tensors[name].to(torch.float32).to(device)
+                std = self.std_tensors[name].to(torch.float32).to(device)
                 transformed_dyn_forcing[:, k] = tensor_dyn_forcing[:, k] * std + mean
 
         # Reconstruct input tensor
