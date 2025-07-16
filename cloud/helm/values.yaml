@@ -109,6 +109,8 @@ postgres:
   volume:
     name: postgres-pv
     size: 1Gi
+  config:
+    name: postgres-init
 redis:
   name: redis
   replicaCount: 1
