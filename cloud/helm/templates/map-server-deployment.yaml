@@ -32,11 +32,11 @@ spec:
         - name: APP_PORT
           value: 5001
         - name: GUNICORN_WORKERS
-          value: 5
+          value: "5"
         - name: GUNICORN_TIMEOUT
-          value: 30
+          value: "30"
         - name: GUNICORN_WORKER_CLASS
-          value: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+          value: "geventwebsocket.gunicorn.workers.GeventWebSocketWorker"
         - name: REDIS_HOST
           value: redis
         - name: REDIS_PORT
