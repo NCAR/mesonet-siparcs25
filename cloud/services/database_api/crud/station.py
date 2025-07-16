@@ -4,7 +4,7 @@ from schema.station import StationCreate, StationResponse, StationUpdate
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from typing import List
-from datetime import datetime,timezone
+from datetime import datetime, timezone
 from logger import CustomLogger
 
 console = CustomLogger()
@@ -14,23 +14,39 @@ class StationService:
         self.db = db
 
     def get_stations(self) -> List[StationResponse]:
-        return self.db.query(StationModel).all()
-    
+        stations = self.db.query(StationModel).all()
+        return [station for station in stations]
+
     def get_station(self, station_id: str) -> StationResponse:
-        return self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
+        station = self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
+        if not station:
+            raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
+        return station
 
     def create_station(self, station_data: StationCreate) -> StationResponse:
-        db_station = StationModel(**station_data.dict(), timestamp= datetime.now(timezone.utc).isoformat())
-        self.db.add(db_station)
-        self.db.commit()
-        self.db.refresh(db_station)
+        #console.info(f"Creating station {station_data.station_id} with data: {station_data.dict()}")
+        data = station_data.dict()
+
+        db_station = StationModel(**data)
+        try:
+            self.db.add(db_station)
+            self.db.commit()
+            self.db.refresh(db_station)
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=f"Failed to create station {data['station_id']}: {str(e)}")
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Internal error creating station {data['station_id']}: {str(e)}")
         return db_station
 
     def update_station(self, station_id: str, update_data: StationUpdate) -> StationResponse:
-        station = self.get_station(station_id)
+        #console.info(f"Updating station {station_id} with data: {update_data.dict()}")
+        station = self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
+        data = update_data.dict(exclude_unset=True)
+
         if station:
-            # Update existing station
-            for key, value in update_data.dict(exclude_unset=True).items():
+            for key, value in data.items():
                 if hasattr(station, key):
                     setattr(station, key, value)
             try:
@@ -43,16 +59,14 @@ class StationService:
                 self.db.rollback()
                 raise HTTPException(status_code=500, detail=f"Internal error updating station {station_id}: {str(e)}")
         else:
-            # Create new station if it doesn't exist (upsert behavior)
+            data["station_id"] = station_id
+            data.setdefault("firstname", None)
+            data.setdefault("lastname", None)
+            data.setdefault("email", None)
+            data.setdefault("organization", None)
+            if "created_at" not in data or data["created_at"] is None:
+                data["created_at"] = datetime.now(timezone.utc)
             try:
-                # Ensure station_id is included
-                data = update_data.dict(exclude_unset=True)
-                data["station_id"] = station_id
-                # Set default values for required fields if not provided
-                data.setdefault("firstname", "")
-                data.setdefault("lastname", "")
-                data.setdefault("email", "")
-                data.setdefault("organization", "")
                 station = StationModel(**data)
                 self.db.add(station)
                 self.db.commit()
@@ -64,5 +78,4 @@ class StationService:
                 self.db.rollback()
                 raise HTTPException(status_code=500, detail=f"Internal error creating station {station_id}: {str(e)}")
         
-        return StationResponse.from_orm(station)
-
+        return station

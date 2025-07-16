@@ -73,7 +73,7 @@ class MQTTDatabaseUpdater:
         self.connection_interval = 30
         self.stations_lock = Lock()
         self.sensor_buffer = defaultdict(lambda: {
-            "data": defaultdict(dict),
+            "data": defaultdict(defaultdict),
             "metadata": {}
         })
         self.buffer_lock = Lock()
@@ -170,10 +170,25 @@ class MQTTDatabaseUpdater:
                 if not self.sensor_buffer:
                     continue
                 print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
+                stations_to_remove = []
+                current_time = datetime.now(timezone.utc)
                 for station_id, station_data in list(self.sensor_buffer.items()):
-                    sensor_data = {"data": station_data["data"]}
                     redis_key = f"station:{station_id}"
                     try:
+                        # Check if station is inactive based on last_active timestamp
+                        last_active_str = station_data["metadata"].get("last_active")
+                        if last_active_str:
+                            try:
+                                last_active = datetime.fromisoformat(last_active_str)
+                                time_diff = (current_time - last_active).total_seconds()
+                                if time_diff > self.active_station_timeout:
+                                    stations_to_remove.append(station_id)
+                                    print(f"[info]: Station {station_id} inactive for {time_diff}s, marking for removal from buffer")
+                                    continue
+                            except ValueError:
+                                print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active_str}")
+
+                        sensor_data = {"data": station_data["data"]}
                         existing_redis_data = self.redis_client.hget(redis_key, "data") or "{}"
                         existing_sensor_data = json.loads(existing_redis_data)
                         existing_redis_metadata = self.redis_client.hget(redis_key, "metadata") or "{}"
@@ -181,24 +196,23 @@ class MQTTDatabaseUpdater:
 
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
-                        model_names =[ "ai/gemma3n", ]#"ai/deepseek-r1-distill-llama", "ai/phi4, "ai/qwen3", "ai/mistral","]
+                        model_names = ["ai/gemma3n"]
                         model_summaries = {}
                         if merged_sensor_data:
                             for model_name in model_names:
                                 summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, model_name)
                                 if summary:
-                                    model_summaries[f"{model_name}"] = summary
-                        #update buffer
-                        self.sensor_buffer[station_id]["data"] = merged_sensor_data
+                                    model_summaries[model_name] = summary
+                        # Update buffer with merged data to keep it up-to-date
+                        self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
                             'model_summaries': json.dumps(model_summaries),
-                            'latitude': str(station_data["metadata"].get('latitude', self.redis_client.hget(redis_key, 'latitude') or '39.9784')),
-                            'longitude': str(station_data["metadata"].get('longitude', self.redis_client.hget(redis_key, 'longitude') or '-105.2749')),
-                            'last_active': station_data["metadata"].get('last_active', get_current_timestamp())
-
+                            'latitude': str(merged_metadata.get('latitude', '39.9784')),
+                            'longitude': str(merged_metadata.get('longitude', '-105.2749')),
+                            'altitude': str(merged_metadata.get('altitude', '1624.0'))
                         }
                         self.redis_client.hset(redis_key, mapping=redis_station_data)
                         self.redis_client.expire(redis_key, self.active_station_timeout)
@@ -206,9 +220,13 @@ class MQTTDatabaseUpdater:
 
                     except (redis.RedisError, json.JSONDecodeError) as e:
                         print(f"[error]: Failed to update Redis for station {station_id}: {e}")
+                        # Keep buffer data intact to maintain up-to-date info
 
-                 
-
+                # Remove stations not in Redis or inactive from buffer
+                for station_id in stations_to_remove:
+                    del self.sensor_buffer[station_id]
+                    print(f"[info]: Removed station {station_id} from buffer")
+                    
     def on_message(self, client, userdata, message):
         try:
             payload = message.payload.decode('utf-8')
@@ -225,8 +243,6 @@ class MQTTDatabaseUpdater:
                 return
 
             timestamp = get_current_timestamp()
-            data['timestamp'] = timestamp
-
             if data.get('type') == 'station_info':
                 self.handle_station_info(station_id, data, timestamp)
             else:
@@ -235,12 +251,25 @@ class MQTTDatabaseUpdater:
         except json.JSONDecodeError as e:
             print(f"[error]: Failed to decode MQTT payload: {e}")
         except Exception as e:
-            print(f"[error]: Failed to process message: {e}")
+            print(f"[error]: Failed to process message for sensor {data.get('sensor', 'unknown')}: {type(e).__name__}: {str(e)}")
 
     def handle_station_info(self, station_id: str, station_data: Dict[str, Any], timestamp: str):
-        station_data['last_active'] = station_data.get('timestamp', timestamp)
+        # Convert last_active to ISO8601 datetime string
+        # Convert timestamp to ISO8601 and use for last_active and created_at
+        ts_raw = station_data.get('timestamp', timestamp)
+        ts_iso = ts_raw
+        if isinstance(ts_raw, (int, float)):
+            ts_st = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
+            ts_iso = ts_st.isoformat()
+        station_data['last_active'] = ts_iso
+        station_data['created_at'] = ts_iso
+        # Remove fields not in Station schema
         station_data.pop('timestamp', None)
+        station_data.pop('type', None)
+        station_data.pop('target_id', None)
+        station_data.pop('allow_relay', None)
         print(f"[info]: Processing station_info for {station_id}")
+        print(station_data)
 
         try:
             response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
@@ -279,12 +308,16 @@ class MQTTDatabaseUpdater:
         reading_value = str(data.get('reading_value', ''))
         measurement = data.get('measurement', '')
         sensor = data.get('sensor', 'unknown')
-
+        ts_raw = data.get('timestamp', timestamp)
+        ts_iso = ts_raw
+        if isinstance(ts_raw, (int, float)):
+            ts_st = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
+            ts_iso = ts_st.isoformat()
+        
         with self.buffer_lock:
-            redis_key = f"station:{station_id}"
             if measurement not in ['latitude', 'longitude', 'altitude']:
                 self.sensor_buffer[station_id]["data"][sensor][measurement] = reading_value
-                self.sensor_buffer[station_id]["metadata"]['last_active'] = data.get("timestamp", timestamp)
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = ts_iso
                 if data.get('target_id'):
                     self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
                 if data.get('rssi'):
@@ -296,18 +329,18 @@ class MQTTDatabaseUpdater:
                     self.sensor_buffer[station_id]["metadata"]['altitude'] = reading_value
                 else:
                     self.sensor_buffer[station_id]["metadata"]['longitude'] = reading_value
-                self.sensor_buffer[station_id]["metadata"]['last_active'] = data.get("timestamp", timestamp)
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = ts_iso
                 if data.get('target_id'):
                     self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
                 if data.get('rssi'):
                     self.sensor_buffer[station_id]["metadata"]['rssi'] = str(data.get('rssi'))
 
         if measurement not in ['latitude', 'longitude', 'altitude']:
-            redis_key = f"station:{station_id}"
             latitude = self.sensor_buffer[station_id]["metadata"].get('latitude', None)
             longitude = self.sensor_buffer[station_id]["metadata"].get('longitude', None)
             altitude = self.sensor_buffer[station_id]["metadata"].get('altitude', None)
             if not latitude or not longitude or not altitude:
+                print(f"[warn]: Missing lat/lon/alt for station {station_id}, cannot create reading")
                 return
             reading_payload = {
                 "station_id": station_id,
@@ -319,7 +352,7 @@ class MQTTDatabaseUpdater:
                 "latitude": latitude,
                 "longitude": longitude,
                 "altitude": altitude,
-                "timestamp": data.get("timestamp", timestamp),
+                "timestamp": ts_iso,
                 "rssi": data.get('rssi', 0)
             }
 
@@ -344,8 +377,11 @@ class MQTTDatabaseUpdater:
                     "station_id": station_id,
                     **self.sensor_buffer[station_id]["metadata"],
                 }
-                if "target_id" in station_payload:
-                    station_payload.pop("target_id")
+                station_payload['last_active'] = data.get("timestamp", timestamp)
+                station_payload.pop('timestamp', None)
+                station_payload.pop('target_id', None)
+                station_payload.pop('type', None)
+                station_payload.pop('allow_relay', None)
                 response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json=station_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Updated station {station_id} latitude/longitude in Postgres")

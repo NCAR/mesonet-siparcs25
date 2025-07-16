@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional
 from datetime import datetime
 
@@ -13,7 +13,7 @@ class ReadingCreate(BaseModel):
     latitude: float
     longitude: float
     altitude: float
-    timestamp: Optional[datetime] = None  # Match table's timestamp field
+    timestamp: Optional[datetime] = None
 
 
 class ReadingResponse(ReadingCreate):
@@ -21,4 +21,7 @@ class ReadingResponse(ReadingCreate):
     timestamp: Optional[datetime]
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # Enable ORM compatibility
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None  # Serialize datetime to ISO 8601
+        }
