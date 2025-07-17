@@ -15,7 +15,7 @@ class StationModel(Base):
     organization = Column(String(50), nullable=True)
     last_active = Column(TIMESTAMP(timezone=True), nullable=True)  # Store as timestamptz
     created_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Store as timestamptz
-    email = Column(String(255), ForeignKey("users.email"), nullable=False)
+    email = Column(String(255), nullable=False)
 
     readings = relationship("ReadingModel", back_populates="station")
-    user = relationship("UserModel", back_populates="stations")
+    # user = relationship("UserModel", back_populates="stations")

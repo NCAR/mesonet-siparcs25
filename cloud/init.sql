@@ -15,8 +15,9 @@ CREATE TABLE IF NOT EXISTS stations (
     email VARCHAR(50),
     organization VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    FOREIGN KEY (email) REFERENCES users(email)
+    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    email VARCHAR(50)
+    -- FOREIGN KEY (email) REFERENCES users(email)
 );
 
 -- Create the readings table referencing stations
