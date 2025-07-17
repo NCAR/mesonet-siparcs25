@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter
 from utils.session import Session
 from utils.config import Config
@@ -9,8 +10,8 @@ config = Config()
 
 # Generate metabase session
 def get_mb():
-    email = config.metabase["admin_data"]["email"]
-    password = config.metabase["admin_data"]["password"]
+    email = os.getenv("MB_ADMIN_EMAIL")
+    password = os.getenv("MB_ADMIN_PASS")
     metabase_base_url = config.metabase["base_url"]
     session = Session(logger, metabase_base_url)
     session.create(email, password)

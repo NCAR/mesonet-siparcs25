@@ -12,7 +12,6 @@ class StationModel(Base):
     altitude = Column(Float, nullable=True)
     firstname = Column(String(50), nullable=True)
     lastname = Column(String(50), nullable=True)
-    email = Column(String(50), nullable=True)
     organization = Column(String(50), nullable=True)
     last_active = Column(TIMESTAMP(timezone=True), nullable=True)  # Store as timestamptz
     created_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Store as timestamptz

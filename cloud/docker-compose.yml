@@ -161,7 +161,7 @@ services:
     build:
       context: ./services/metabase
     container_name: orch_mb
-    hostname: orchestrate_metabase
+    hostname: metabase_orch
     env_file:
       - .env
     ports:

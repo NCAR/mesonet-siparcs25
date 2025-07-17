@@ -39,7 +39,7 @@ class StationService:
             if existing_station:
                 return StationResponse.model_validate(existing_station)
 
-            db_station = StationModel(**station_data.model_dump(), timestamp=datetime.utcnow())
+            db_station = StationModel(**station_data.model_dump())
             self.db.add(db_station)
             await self.db.commit()
             await self.db.refresh(db_station)

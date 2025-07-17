@@ -32,11 +32,17 @@ class Application:
 
     def __initialize(self, config) -> InitComponents:
         db_name = os.getenv("ORCH_DB_NAME")
+        admin_email = os.getenv("MB_ADMIN_EMAIL")
+        admin_password = os.getenv("MB_ADMIN_PASS")
+
         db_payload = config.metabase["database"]
         db_service_url = config.database_api["base_url"]
-        admin_data = config.metabase["admin_data"]
+        admin_data: dict = config.metabase["admin_data"]
         mb_config = config.metabase["config"]
         mb_settings = config.metabase["settings"]
+
+        admin_data.setdefault("email", admin_email)
+        admin_data.setdefault("password", admin_password)
 
         self.metabase = MetabaseService(session=self.session, logger=console, db_name=db_name, db_payload=db_payload)
         mb_db_id = self.metabase.connect(admin_data, mb_config) or 0

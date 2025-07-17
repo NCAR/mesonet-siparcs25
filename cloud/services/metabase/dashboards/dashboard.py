@@ -64,7 +64,7 @@ class Dashboard(ODM):
             .set_attr("id", dash_id) \
             .set_attr("card_id", card_id) \
             .set_attr("col", col) \
-            .set_attr("row", row if row else len(dashcards)) \
+            .set_attr("row", row if row else len(dashcards) or 1) \
             .set_attr("size_x", size_x) \
             .set_attr("size_y", size_y) \
             .build()

@@ -21,6 +21,7 @@ class User(ODM):
         return token
 
     async def get_users(self) -> list:
+        self.console.warning("user service")
         res = await self.get_all_async(path="user")
         res_data = res.get("data").get("data", [])
         if res_data:

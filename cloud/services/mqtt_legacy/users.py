@@ -10,7 +10,6 @@ class UsersService:
         self.mb_url = mb_url
 
     async def get(self, url: str) -> List[MetabaseUserRes]:
-        url = url if url.endswith('/') else url + '/'
         return await request.get_all(url)
     
     async def add(self, url: str, payload: MetabaseUserPayload) -> MetabaseUserRes:

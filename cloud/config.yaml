@@ -22,10 +22,10 @@ metabase:
   admin_data:
     first_name: Isaac
     last_name: Oppong-Baah
-    email: admin@admin.edu
-    password: "@siparcs25"
   config:
     site_name: IoTwx MB
+  settings:
+    site_url: localhost:3000
   database:
     name: iotwx_db
     engine: postgres
@@ -40,6 +40,7 @@ metabase:
     is_on_demand: false
     cache_ttl: null
   base_url: http://metabase:3000/api
+  orch_url: http://metabase_orch:8001/metabase # This should correspond to the service name
 thingsboard:
   broker_ip: "thingsboard-ce"
   broker_port: 1883  
