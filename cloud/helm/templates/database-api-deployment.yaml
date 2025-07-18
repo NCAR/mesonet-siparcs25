@@ -32,9 +32,11 @@ spec:
         - name: ORCH_DB_PASS
           value: temppostgrespw
         - name: ORCH_DB_NAME
-          value: postgres
+          value: iotwx_db
         - name: ORCH_DB_HOST
           value: postgres
+        - name: ORCH_DB_PORT
+          value: "5432"
         volumeMounts:
         - name: logger-volume
           mountPath: /cloud/services/database_api/logger.py
