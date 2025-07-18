@@ -48,6 +48,7 @@ data:
         is_on_demand: false
         cache_ttl: null
       base_url: http://metabase:3000/api
+      orch_url: http://orch-mb:8001
     thingsboard:
       broker_ip: "thingsboard-ce"
       broker_port: 1883  
