@@ -31,6 +31,8 @@ spec:
           value: postgres
         - name: POSTGRES_PASSWORD
           value: temppostgrespw
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data
@@ -44,4 +46,3 @@ spec:
       - name: postgres-init
         configMap:
           name: {{ .Values.postgres.config.name }}
-        
