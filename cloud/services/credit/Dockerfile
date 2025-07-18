@@ -52,8 +52,8 @@ RUN conda run -n ${ENV_NAME} pip install -e .
 WORKDIR /cloud/services/credit
 
 # Make sure script is executable
-COPY scripts/init_credit.sh ./scripts/credit.sh
-RUN chmod +x ./scripts/credit.sh
+COPY scripts/init_credit.sh ./scripts/init_credit.sh
+RUN chmod +x ./scripts/init_credit.sh
 
 # Default startup command
 CMD ["/bin/bash", "./scripts/init_credit.sh"]
