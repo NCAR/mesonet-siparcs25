@@ -30,7 +30,7 @@ spec:
         - name: APP_MODULE
           value: map_app:app
         - name: APP_PORT
-          value: 5001
+          value: "5001"
         - name: GUNICORN_WORKERS
           value: "5"
         - name: GUNICORN_TIMEOUT
@@ -40,7 +40,7 @@ spec:
         - name: REDIS_HOST
           value: redis
         - name: REDIS_PORT
-          value: 6379
+          value: "6379"
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml
