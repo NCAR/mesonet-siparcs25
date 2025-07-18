@@ -9,6 +9,8 @@ data:
   init.sql: |
     CREATE DATABASE metabase;
     CREATE DATABASE iotwx_db;
+    CREATE DATABASE thingsboard;
+    
     -- Connect to iotwx_db before creating tables
     \c iotwx_db;
 
