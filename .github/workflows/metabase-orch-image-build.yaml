@@ -39,10 +39,10 @@ jobs:
           password: ${{ secrets.HARBOR_SECRET }}
       - name: Build image
         run: |
-          docker buildx build --push -f cloud/services/metabase/Dockerfile -t hub.k8s.ucar.edu/mesonet/metabase:${{ steps.date.outputs.date }} cloud/services/metabase/.
+          docker buildx build --push -f cloud/services/metabase/Dockerfile -t hub.k8s.ucar.edu/mesonet/metabase-orch:${{ steps.date.outputs.date }} cloud/services/metabase/.
       - name: Update Helm chart with new image
         run: |
-          sed -i "/metabase:/,/^[a-zA-Z]/ s|image: .*|image: hub.k8s.ucar.edu/mesonet/metabase:${{ steps.date.outputs.date }}|" cloud/helm/values.yaml
+          sed -i "/metabase-orch:/,/^[a-zA-Z]/ s|image: .*|image: hub.k8s.ucar.edu/mesonet/metabase-orch:${{ steps.date.outputs.date }}|" cloud/helm/values.yaml
       - name: Push changes to GitHub
         run: |
           git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
