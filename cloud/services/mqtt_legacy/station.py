@@ -49,19 +49,23 @@ class StationService:
     async def add_default_stations(self):
         await self.__add_station(self.stations_data)
 
-    async def add_new_station(self, station_id, admin_data=None):
+    async def add_new_station(self, station_id, admin_data={}):
         station_data = Payload() \
             .reset() \
             .set_attr("station_id", station_id) \
             .set_attr("firstname", admin_data.get("first_name", "")) \
             .set_attr("lastname", admin_data.get("last_name", "")) \
-            .set_attr("email", admin_data.get("email")) \
+            .set_attr("email", os.getenv("MB_ADMIN_EMAIL", "")) \
+            .set_attr("altitude", 0.0) \
+            .set_attr("organization", "NCAR") \
+            .set_attr("device", "") \
             .set_attr("latitude", 40.01499) \
             .set_attr("longitude", -105.27055) \
             .build()
         
         # Add the station
         url = f"{self.db_url}/api/stations/"
+        self.console.warning(station_data)
         station_res = await request.insert(url, station_data)
         station_id = station_res.get('station_id')
         self.console.log(f"Station added/refreshed with ID: {station_id}")

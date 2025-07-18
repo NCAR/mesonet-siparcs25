@@ -51,10 +51,3 @@ class ReadingService:
                 self.reading["longitude"] = station.get("longitude")
                 break
         return self.reading
-
-    def is_mesonet_station(self, decoded_reading):
-        try:
-            reading = json.loads(decoded_reading[0])
-            return reading.get("type") in ("sensor_data", "station_info")
-        except (ValueError, TypeError):
-            return False

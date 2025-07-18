@@ -33,9 +33,6 @@ class OrchestrateData:
     async def on_message(self, msg):
         decoded = msg.payload.decode().strip().split('\n')
 
-        if self.reading_service.is_mesonet_station(decoded):
-            return
-
         stations = await self.station_service.get_stations()
         if not stations:
             self.console.error("No stations found. Cannot process readings.")

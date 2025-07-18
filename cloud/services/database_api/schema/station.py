@@ -17,7 +17,6 @@ class Station(BaseModel):
 class StationCreate(Station):
     station_id: str
 
-
 class StationUpdate(Station):
     station_id: Optional[str] = None
 
