@@ -16,7 +16,6 @@ class ReadingCreate(BaseModel):
     timestamp: Optional[datetime] = None
 
 class ReadingResponse(ReadingCreate):
-    id: int
     timestamp: Optional[datetime]
 
     class Config:

@@ -54,7 +54,9 @@ class StationService:
 
     async def update_station(self, station_id: str, update_data: StationUpdate) -> StationResponse:
         #console.info(f"Updating station {station_id} with data: {update_data.dict()}")
-        station = self.db.query(StationModel).filter(StationModel.station_id == station_id).first()
+
+        result = await self.db.execute(select(StationModel).where(StationModel.station_id == update_data.station_id))
+        station = result.scalar_one_or_none()
         data = update_data.dict(exclude_unset=True)
 
         if station:
@@ -90,4 +92,4 @@ class StationService:
                 self.db.rollback()
                 raise HTTPException(status_code=500, detail=f"Internal error creating station {station_id}: {str(e)}")
         
-        return station
+        return StationResponse.model_validate(station)

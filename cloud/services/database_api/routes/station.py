@@ -34,7 +34,7 @@ async def create_station(data: StationCreate, db: AsyncSession = Depends(get_db_
 @router.put("/{station_id}", response_model=StationResponse)
 async def update_station(station_id: str, data: StationUpdate, db: AsyncSession = Depends(get_db_async)):
     service = StationService(db)
-    updated = service.update_station(station_id, data)
+    updated = await service.update_station(station_id, data)
     if not updated:
         raise HTTPException(status_code=404, detail="Station not found")
     return updated
