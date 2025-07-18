@@ -35,7 +35,7 @@ spec:
           value: iotwx_db
         - name: ORCH_DB_HOST
           value: postgres
-        - name: ORCH_DB_PORT
+        - name: POSTGRES_PORT
           value: "5432"
         volumeMounts:
         - name: logger-volume
