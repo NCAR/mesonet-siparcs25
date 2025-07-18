@@ -53,14 +53,18 @@ class StationService:
         station_data = Payload() \
             .reset() \
             .set_attr("station_id", station_id) \
-            .set_attr("first_name", admin_data.get("first_name", "")) \
-            .set_attr("last_name", admin_data.get("last_name", "")) \
+            .set_attr("firstname", admin_data.get("first_name", "")) \
+            .set_attr("lastname", admin_data.get("last_name", "")) \
             .set_attr("email", admin_data.get("email")) \
             .set_attr("latitude", 40.01499) \
             .set_attr("longitude", -105.27055) \
             .build()
-
-        await self.__add_station([station_data])
+        
+        # Add the station
+        url = f"{self.db_url}/api/stations/"
+        station_res = await request.insert(url, station_data)
+        station_id = station_res.get('station_id')
+        self.console.log(f"Station added/refreshed with ID: {station_id}")
 
     async def get_stations(self):
         url = f"{self.db_url}/api/stations/"

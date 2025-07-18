@@ -16,6 +16,6 @@ class ReadingModel(Base):
     timestamp = Column(TIMESTAMP(timezone=True), nullable=True, server_default=func.now())
     longitude = Column(Float, nullable=False)  # Changed to non-nullable to match ReadingCreate
     latitude = Column(Float, nullable=False)  # Changed to non-nullable to match ReadingCreate
-    altitude = Column(Float, nullable=False)  # Changed to non-nullable to match ReadingCreate
+    altitude = Column(Float, nullable=True)
     
     station = relationship("StationModel", back_populates="readings")
