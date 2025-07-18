@@ -17,10 +17,12 @@ class Station(BaseModel):
 class StationCreate(Station):
     station_id: str
 
-class StationUpdate(Station):
-    pass
 
-class StationResponse(StationCreate):
+class StationUpdate(Station):
+    station_id: Optional[str] = None
+
+class StationResponse(Station):
+    station_id: str
     class Config:
         from_attributes = True  # Enable ORM compatibility for SQLAlchemy
         json_encoders = {

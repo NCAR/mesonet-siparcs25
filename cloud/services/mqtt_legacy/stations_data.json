@@ -3,40 +3,40 @@
     "station_id": "D65417536",
     "latitude": 40.01499,
     "longitude": -105.27055,
-    "first_name": "Admin 1",
-    "last_name": "Sur",
+    "firstname": "Admin 1",
+    "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu"
   },
   {
     "station_id": "puebloccsw_test",
     "latitude": 40.03420,
     "longitude": -105.28000,
-    "first_name": "Admin 1",
-    "last_name": "Sur",
+    "firstname": "Admin 1",
+    "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu"
   },
   {
     "station_id": "wyofw003",
     "latitude": 40.00600,
     "longitude": -105.26300,
-    "first_name": "Admin 1",
-    "last_name": "Sur",
+    "firstname": "Admin 1",
+    "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu"
   },
   {
     "station_id": "neon000",
     "latitude": 40.02600,
     "longitude": -105.26800,
-    "first_name": "Admin 2",
-    "last_name": "Mon",
+    "firstname": "Admin 2",
+    "lastname": "Mon",
     "email": "oppongbaahisaac@yahoo.com"
   },
   {
     "station_id": "broomfield_test",
     "latitude": 40.04600,
     "longitude": -105.27300,
-    "first_name": "Admin 2",
-    "last_name": "Mon",
+    "firstname": "Admin 2",
+    "lastname": "Mon",
     "email": "oppongbaahisaac@yahoo.com"
   }
 ]

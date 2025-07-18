@@ -266,6 +266,7 @@ class MQTTDatabaseUpdater:
         station_data.pop('allow_relay', None)
         print(f"[info]: Processing station_info for {station_id}")
         print(station_data)
+        
 
         try:
             response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
@@ -363,16 +364,16 @@ class MQTTDatabaseUpdater:
             }
 
             try:
+                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json={"station_id": station_id,"last_active": data.get("timestamp", timestamp)}, headers={"Content-Type": "application/json"}, timeout=5)
+                if response.status_code == 200:
+                    print(f"[info]: Updated station {station_id} last_active in Postgres")
+                else:
+                    print(f"[error]: Failed to update station {station_id} last_active in Postgres: {response.status_code} {response.text}")
                 response = requests.post(READING_ENDPOINT, json=reading_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
                 else:
                     print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.status_code} {response.text}")
-                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json={"last_active": data.get("timestamp", timestamp)}, headers={"Content-Type": "application/json"}, timeout=5)
-                if response.status_code == 200:
-                    print(f"[info]: Updated station {station_id} last_active in Postgres")
-                else:
-                    print(f"[error]: Failed to update station {station_id} last_active in Postgres: {response.status_code} {response.text}")
  
             except requests.RequestException as e:
                 print(f"[error]: Failed to communicate with Postgres for reading {station_id}: {e}")
