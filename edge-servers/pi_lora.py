@@ -8,14 +8,11 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.client import CallbackAPIVersion
 import json
 import time
+import random  # Added for random delay
 from datetime import datetime, timezone
-from threading import Lock
+from threading import Lock, Thread
 import psutil
 import math
-
-# Global constants
-PONG_COUNT = 3  # Number of pong responses per ping
-PONG_DELAY = 1.0  # Seconds between pong responses
 
 def get_pi_serial():
     """Retrieve the Raspberry Pi's unique serial number from /proc/cpuinfo."""
@@ -65,31 +62,34 @@ class MQTTClientWrapper:
     def __init__(self, config):
         """Initialize MQTT client with configuration parameters."""
         # MQTT configuration
-        self.broker = config.get('mqtt', {}).get('broker_ip', 'localhost')  # MQTT broker IP
-        self.port = config.get('mqtt', {}).get('broker_port', 1883)  # MQTT broker port
-        self.edge_id = get_pi_serial() or config.get('radio', {}).get('edge_id', 'default_pi')  # Pi's unique ID
-        self.msg_topic_template = config.get('mqtt', {}).get('msg_topic_template', 'iotwx/{station_id}')  # MQTT topic format
+        self.broker = config.get('mqtt', {}).get('broker_ip', 'localhost')
+        self.port = config.get('mqtt', {}).get('broker_port', 1883)
+        self.edge_id = get_pi_serial() or config.get('radio', {}).get('edge_id', 'default_pi')
+        self.msg_topic_template = config.get('mqtt', {}).get('msg_topic_template', 'iotwx/{station_id}')
+        
+        # Get timing parameters from config with defaults
+        self.pong_duration = config.get('radio', {}).get('pong_duration', 3.0)  # seconds
+        self.pong_initial_delay_max = config.get('radio', {}).get('pong_initial_delay_max', 0.5)  # seconds, max initial delay
+        
         # Radio load parameters
-        self.overload_threshold = config.get('radio', {}).get('overload_threshold', 0.85)  # Max load before refusing pongs
-        self.station_midpoint = config.get('radio', {}).get('pi_station_midpoint', 5)  # Midpoint for station load sigmoid
-        self.station_steepness = config.get('radio', {}).get('pi_station_steepness', 1)  # Steepness for station load sigmoid
-        self.cpu_weight = config.get('radio', {}).get('pi_cpu_weight', 0.4)  # Weight for CPU load
-        self.mem_weight = config.get('radio', {}).get('pi_mem_weight', 0.3)  # Weight for memory load
-        self.station_weight = config.get('radio', {}).get('pi_station_weight', 0.3)  # Weight for station count load
-        self.keep_alive_interval = config.get('radio', {}).get('keep_alive_interval', 30000) / 1000  # Keep-alive interval (seconds)
+        self.overload_threshold = config.get('radio', {}).get('overload_threshold', 0.85)
+        self.station_midpoint = config.get('radio', {}).get('pi_station_midpoint', 5)
+        self.station_steepness = config.get('radio', {}).get('pi_station_steepness', 1)
+        self.cpu_weight = config.get('radio', {}).get('pi_cpu_weight', 0.4)
+        self.mem_weight = config.get('radio', {}).get('pi_mem_weight', 0.3)
+        self.station_weight = config.get('radio', {}).get('pi_station_weight', 0.3)
+        
         # State variables
         self.client = None
         self.connected = False
         self.last_connection_attempt = 0
-        self.connection_interval = 30  # Seconds between connection attempts
+        self.connection_interval = 30
         self.radio = None
-        self.assigned_stations = set()  # Set of stations assigned to this Pi
-        self.stations_lock = Lock()  # Thread-safe lock for assigned_stations
-        self.load = 0.0  # Current Pi load
-        self.last_load_update = 0  # Timestamp of last load update
-        self.last_keep_alive = 0  # Timestamp of last keep-alive
-        self.station_info_timestamps = {}  # Tracks station info receipt times
-        self.gps_timestamps = {}  # Tracks GPS data receipt times
+        self.radio_lock = Lock()  # Lock for thread-safe radio access
+        self.load = 0.0
+        self.last_load_update = 0
+        self.station_count = 0  # Track number of unique stations for load calculation
+        
         self.initialize_client()
 
     def initialize_client(self):
@@ -108,20 +108,16 @@ class MQTTClientWrapper:
         print("[info]: Radio assigned to MQTT client")
 
     def update_load(self):
-        """Calculate Pi's load based on CPU, memory, and assigned stations."""
+        """Calculate Pi's load based on CPU, memory, and number of unique stations."""
         if time.time() - self.last_load_update >= 30:
             try:
-                cpu = psutil.cpu_percent() / 100.0  # CPU usage (0.0 to 1.0)
-                mem = psutil.virtual_memory().percent / 100.0  # Memory usage (0.0 to 1.0)
-                with self.stations_lock:
-                    station_count = len(self.assigned_stations)  # Number of assigned stations
-                # Sigmoid function for station load
-                station_load = 1.0 / (1.0 + math.exp(-self.station_steepness * (station_count - self.station_midpoint)))
-                # Weighted sum of loads
+                cpu = psutil.cpu_percent() / 100.0
+                mem = psutil.virtual_memory().percent / 100.0
+                station_load = 1.0 / (1.0 + math.exp(-self.station_steepness * (self.station_count - self.station_midpoint)))
                 self.load = self.cpu_weight * cpu + self.mem_weight * mem + self.station_weight * station_load
                 self.last_load_update = time.time()
                 print(f"[info]: Pi load: {self.load:.2f} (CPU: {cpu:.2f}, Mem: {mem:.2f}, "
-                      f"Stations: {station_count}, Station Load: {station_load:.2f})")
+                      f"Stations: {self.station_count}, Station Load: {station_load:.2f})")
             except Exception as e:
                 print(f"[error]: Failed to update load: {e}")
                 self.load = 0.0
@@ -176,95 +172,104 @@ class MQTTClientWrapper:
         except Exception as e:
             print(f"[error]: Failed to start MQTT loop: {e}")
 
-    def send_keep_alive(self):
-        """Send keep-alive packets to assigned stations."""
-        if time.time() - self.last_keep_alive >= self.keep_alive_interval:
-            with self.stations_lock:
-                stations = list(self.assigned_stations)
-            for station_id in stations:
-                # LoRa keep-alive packet (using shortened field names for Arduino compatibility)
-                lora_keep_alive = {
-                    'sid': self.edge_id,      # Station ID: Pi's unique ID (serial or config)
-                    't': 'C',                 # Type: 'C' for keep_alive
-                    'to': station_id          # Target ID: Station to receive keep-alive
-                }
+    def send_pongs(self, station_id, edge_id, load, rssi):
+        """Send pongs to a station for configured duration in a separate thread."""
+        # Add random initial delay to reduce collision risk
+        initial_delay = random.uniform(0, self.pong_initial_delay_max)
+        print(f"[info]: Delaying pong response to {station_id} by {initial_delay:.3f} seconds")
+        time.sleep(initial_delay)
+        
+        pong = {
+            'sid': edge_id,
+            't': 'B',
+            'ty': '1',
+            'l': load,
+            'rssi': rssi,
+            'rc': 0,
+            'to': station_id
+        }
+        start_time = time.time()
+        pong_count = 0
+        while time.time() - start_time < self.pong_duration:
+            with self.radio_lock:
                 if self.radio:
                     try:
-                        self.radio.send(bytes(json.dumps(lora_keep_alive), 'utf-8'))
-                        print(f"[info]: Sent keep-alive to {station_id}: {lora_keep_alive}")
+                        self.radio.send(bytes(json.dumps(pong), 'utf-8'))
+                        pong_count += 1
+                        print(f"[info]: Sent pong {pong_count} to {station_id}: {pong}")
                     except Exception as e:
-                        print(f"[error]: Failed to send keep-alive to {station_id}: {e}")
-                else:
-                    print(f"[warn]: Radio not initialized, cannot send keep-alive to {station_id}")
-            self.last_keep_alive = time.time()
+                        print(f"[error]: Failed to send pong {pong_count+1} to {station_id}: {e}")
+            time.sleep(0.01)  # Short sleep to prevent overwhelming the radio
+        print(f"[info]: Sent {pong_count} pongs to {station_id} over {self.pong_duration} seconds")
 
 def map_packet_fields(packet_data):
     """Map shortened Arduino packet fields to full names for MQTT publishing."""
-    # Mapping of shortened field names to full names
     field_map = {
-        'sid': 'station_id',        # 16-char hex ID
-        't': 'type',                # Packet type (A, B, C, D, S, d)
-        'ty': 'device_type',        # Device type (1=Pi, 2=station)
-        'l': 'load',                # Station load (0.0 to 1.0)
-        'rssi': 'ping_rssi',        # Received signal strength
-        'rc': 'relay_count',        # Number of hops to Pi
-        'to': 'target_id',          # Target station ID
-        'r': 'allow_relay',         # Boolean, allows relaying
-        's': 'sensor',              # Sensor name (e.g., bme680)
-        'm': 'measurement',         # Measurement type (e.g., temperature)
-        'd': 'reading_value',       # Measurement value
-        'ts': 'timestamp',          # ISO 8601 timestamp (may be empty)
-        'fn': 'firstname',          # First name for station_info
-        'ln': 'lastname',           # Last name for station_info
-        'e': 'email',               # Email for station_info
-        'o': 'organization',        # Organization for station_info
-        'lat': 'latitude',          # Latitude for station_info
-        'lon': 'longitude',         # Longitude for station_info
-        'C02': 'co2 Concentration', # C02 Concentration(ppm)
-        'rh': 'relative humidity',  # Relative Humidity(%)
-        'tmp': 'temperature',       # Temperature(C)
-        'pre': 'pressure',          # Pressure(hPa)
-        'gr': 'gas resistance',     # Gas Resistance(KOhms)
-        'al': 'altitude',           # altitude(m)
-        'uvs': 'uv light',          # UV Light
-        'als': 'ambient light',     # Ambient Light
-	 # PMSA003I measurements
-        'pm0': 'pm10standard',
-        'pm1': 'pm25standard',
-        'pm2': 'pm100standard',
-        'pm3': 'pm10env',
-        'pm4': 'pm25env',
-        'pm5': 'pm100env',
-        'pm6': 'partcount03um',
-        'pm7': 'partcount05um',
-        'pm8': 'partcount10um',
-        'pm9': 'partcount25um',
-        'pm10': 'partcount50um',
-        'pm11': 'partcount100um',
- }
-    # Map type codes to full type names
+        'sid': 'station_id',
+        'de': 'device',
+        't': 'type',
+        'ty': 'device_type',
+        'l': 'load',
+        'rssi': 'ping_rssi',
+        'rc': 'relay_count',
+        'to': 'target_id',
+        'r': 'allow_relay',
+        's': 'sensor',
+        'm': 'measurement',
+        'd': 'reading_value',
+        'ts': 'timestamp',
+        'fn': 'firstname',
+        'ln': 'lastname',
+        'e': 'email',
+        'o': 'organization',
+        'lat': 'latitude',
+        'lon': 'longitude',
+        'C02': 'co2_concentration',
+        'rh': 'relative_humidity',
+        'tmp': 'temperature',
+        'pre': 'pressure',
+        'uvs': 'uv_light',
+        'als': 'ambient_light',
+        'pm0': 'pm10_standard',
+        'pm1': 'pm25_standard',
+        'pm2': 'pm100_standard',
+        'pm3': 'pm10_env',
+        'pm4': 'pm25_env',
+        'pm5': 'pm100_env',
+        'pm6': 'partcount_03um',
+        'pm7': 'partcount_05um',
+        'pm8': 'partcount_10um',
+        'pm9': 'partcount_25um',
+        'pm10': 'partcount_50um',
+        'pm11': 'partcount_100um',
+        'ra': 'rainfall_accumulated',
+        're': 'rainfall_event',
+        'rt': 'rainfall_total',
+        'ri': 'rain_intensity',
+        'gr': 'gas_resistance',
+        'al': 'altitude',
+        'p': 'sensor_protocol',
+        'se': 'serial',
+        'i2': 'i2c'
+    }
     type_map = {
         'A': 'ping',
         'B': 'pong',
-        'C': 'keep_alive',
-        'D': 'disconnect',
         'E': 'station_info',
         'F': 'sensor_data'
     }
-    # Create new dictionary with full field names
     mapped_packet = {}
     for short_field, value in packet_data.items():
-        full_field = field_map.get(short_field, short_field)  # Fallback to original if not mapped
-        value = field_map.get(value,value)
+        full_field = field_map.get(short_field, short_field)
+        full_value = field_map.get(value, value)
         if full_field == 'type':
-            mapped_packet[full_field] = type_map.get(value, value)  # Map type code
+            mapped_packet[full_field] = type_map.get(value, value)
         else:
-            mapped_packet[full_field] = value
+            mapped_packet[full_field] = full_value
     return mapped_packet
 
 def main():
     """Main function to initialize and run the LoRa-to-MQTT gateway."""
-    # Initialize I2C for OLED display
     try:
         i2c = busio.I2C(board.SCL, board.SDA)
         print("[info]: I2C initialized")
@@ -272,7 +277,6 @@ def main():
         print(f"[error]: Failed to initialize I2C: {e}")
         return
 
-    # Load configuration
     try:
         with open("pi_config.json") as f:
             config = json.load(f)
@@ -281,21 +285,17 @@ def main():
         print(f"[error]: Failed to load pi_config.json: {e}")
         return
 
-    # Get Pi's unique ID
     edge_id = get_pi_serial() or config.get('radio', {}).get('edge_id', 'default_pi')
     print(f"[info]: Using edge_id: {edge_id}")
 
-    # Initialize MQTT client
     mqtt_client = MQTTClientWrapper(config)
     mqtt_client.loop()
     mqtt_client.connect()
 
-    # Initialize OLED display
     display = initialize_led(i2c)
     if not display:
         print("[warn]: LED display initialization failed, continuing without display")
 
-    # Initialize LoRa radio
     radio = initialize_radio()
     if not radio:
         print("[error]: Radio initialization failed, exiting")
@@ -304,7 +304,6 @@ def main():
             display.show()
         return
 
-    # Assign radio to MQTT client
     mqtt_client.set_radio(radio)
     if display:
         display.fill(0)
@@ -315,15 +314,18 @@ def main():
 
     print("[info]: Waiting for LoRa packets...")
 
+    recent_stations = set()  # Track unique stations for load calculation
+    last_debug_log = 0
     while True:
-        # Reconnect to MQTT broker if needed
         if not mqtt_client.connected:
             mqtt_client.connect()
 
-        # Send keep-alive packets to stations
-        mqtt_client.send_keep_alive()
+        # Periodic debug log to confirm service is running (every 10 seconds)
+        current_time = time.time()
+        if current_time - last_debug_log >= 10:
+            print(f"[debug]: Main loop running, MQTT connected: {mqtt_client.connected}, Station count: {mqtt_client.station_count}")
+            last_debug_log = current_time
 
-        # Receive LoRa packets
         packet = radio.receive(timeout=config.get('radio', {}).get('rcv_timeout', 0.5))
         if packet is not None:
             try:
@@ -331,100 +333,51 @@ def main():
                 packet_data = json.loads(msg)
                 print(f"[info]: Received LoRa packet: {msg}")
 
-                # Validate station_id
                 station_id = packet_data.get('sid')
                 if not isinstance(station_id, str) or not station_id:
                     print(f"[warn]: Invalid or missing sid in packet: {msg}")
                     continue
 
-                # Handle ping packets
+
                 if packet_data.get('t') == 'A':
                     mqtt_client.update_load()
                     if mqtt_client.load > mqtt_client.overload_threshold:
                         print(f"[warn]: Load too high ({mqtt_client.load:.2f}), refusing pong response")
                         continue
-                    # Prepare pong packet (using shortened fields)
-                    pong = {
-                        'sid': edge_id,       # Station ID: Pi's unique ID
-                        't': 'B',             # Type: 'B' for pong
-                        'ty': '1',            # Device type: '1' for Pi
-                        'l': mqtt_client.load, # Load: Pi's current load
-                        'rssi': radio.last_rssi if hasattr(radio, 'last_rssi') else 0, # RSSI of ping
-                        'rc': 0,              # Relay count: 0 for direct Pi response
-                        'to': station_id      # Target ID: Station that sent ping
-                    }
-                    # Send three pongs with delays
-                    for i in range(PONG_COUNT):
-                        try:
-                            radio.send(bytes(json.dumps(pong), 'utf-8'))
-                            print(f"[info]: Sent pong {i+1}/{PONG_COUNT} to {station_id}: {pong}")
-                            if i < PONG_COUNT - 1:
-                                start_time = time.time()
-                                while time.time() - start_time < PONG_DELAY:
-                                    # Process packets during pong delay
-                                    sub_packet = radio.receive(timeout=0.1)
-                                    if sub_packet is not None:
-                                        try:
-                                            sub_msg = sub_packet.decode('utf-8')
-                                            sub_data = json.loads(sub_msg)
-                                            sub_station_id = sub_data.get('sid')
-                                            if not sub_station_id or not isinstance(sub_station_id, str):
-                                                print(f"[warn]: Invalid sid in sub-packet: {sub_msg}")
-                                                continue
-                                            print(f"[info]: Received packet during pong delay from {sub_station_id}: {sub_msg}")
-                                            if sub_data.get('t') in ['C', 'D']:
-                                                print(f"[info]: Ignored {sub_data.get('t')} message from {sub_station_id}")
-                                                continue
-                                            to_edge_id = sub_data.get('to')
-                                            if to_edge_id == edge_id:
-                                                with mqtt_client.stations_lock:
-                                                    if sub_station_id not in mqtt_client.assigned_stations:
-                                                        mqtt_client.assigned_stations.add(sub_station_id)
-                                                        print(f"[info]: Added station {sub_station_id} to assigned stations")
-                                            elif to_edge_id and to_edge_id != edge_id:
-                                                print(f"[info]: Dropping message for {sub_station_id} addressed to {to_edge_id}")
-                                                continue
-                                            # Map fields for MQTT
-                                            lora_msg = map_packet_fields(sub_data)
-                                            lora_msg['rssi'] = radio.last_rssi if hasattr(radio, 'last_rssi') else 0
-                                            if 'timestamp' not in lora_msg or not lora_msg['timestamp']:
-                                                lora_msg['timestamp'] = datetime.now(timezone.utc).isoformat()
-                                            msg_topic = mqtt_client.msg_topic_template.format(station_id=sub_station_id)
-                                            if mqtt_client.publish(msg_topic, json.dumps(lora_msg)):
-                                                print(f"[info]: Forwarded message for {sub_station_id} to {msg_topic}: {lora_msg}")
-                                            else:
-                                                print(f"[error]: Failed to forward message for {sub_station_id} to {msg_topic}")
-                                        except Exception as e:
-                                            print(f"[error]: Error processing packet during pong delay: {e}")
-                        except Exception as e:
-                            print(f"[error]: Failed to send pong {i+1}/{PONG_COUNT} to {station_id}: {e}")
+                    # Start a thread to send pongs non-blocking
+                    pong_thread = Thread(
+                        target=mqtt_client.send_pongs,
+                        args=(station_id, edge_id, mqtt_client.load, radio.last_rssi if hasattr(radio, 'last_rssi') else 0),
+                        daemon=True
+                    )
+                    pong_thread.start()
                     continue
 
-                # Ignore keep_alive and disconnect messages
+                # Ignore C and D packets
                 if packet_data.get('t') in ['C', 'D']:
-                    type_name = 'keep_alive' if packet_data.get('t') == 'C' else 'disconnect'
-                    print(f"[info]: Ignored {type_name} message from {station_id}")
+                    print(f"[info]: Ignored {packet_data.get('t')} packet from {station_id}")
                     continue
 
-                # Update assigned stations if packet is addressed to this Pi
+                # Track station for load calculation
+                recent_stations.add(station_id)
+                mqtt_client.station_count = len(recent_stations)
+
+                # Process E and F packets only if addressed to this Pi
                 to_edge_id = packet_data.get('to')
-                if to_edge_id == edge_id:
-                    with mqtt_client.stations_lock:
-                        if station_id not in mqtt_client.assigned_stations:
-                            mqtt_client.assigned_stations.add(station_id)
-                            print(f"[info]: Added station {station_id} to assigned stations")
-                elif to_edge_id and to_edge_id != edge_id:
-                    print(f"[info]: Dropping message for {station_id} addressed to {to_edge_id} (not {edge_id})")
+                if to_edge_id and to_edge_id != edge_id and station_id in recent_stations and to_edge_id not in recent_stations:
+                    print(f"[info]: Packet from {station_id} addressed to {to_edge_id}, removing from recent stations")
+                    recent_stations.discard(station_id)
+                    mqtt_client.station_count = len(recent_stations)
+                    continue
+                if to_edge_id and to_edge_id != edge_id:
+                    print(f"[info]: Ignored packet from {station_id} addressed to {to_edge_id}")
                     continue
 
-                # Map fields to full names for MQTT
                 lora_msg = map_packet_fields(packet_data)
-                # Add RSSI and timestamp if needed
                 lora_msg['rssi'] = radio.last_rssi if hasattr(radio, 'last_rssi') else 0
                 if 'timestamp' not in lora_msg or not lora_msg['timestamp']:
                     lora_msg['timestamp'] = datetime.now(timezone.utc).isoformat()
 
-                # Publish to MQTT
                 msg_topic = mqtt_client.msg_topic_template.format(station_id=station_id)
                 if mqtt_client.publish(msg_topic, json.dumps(lora_msg)):
                     print(f"[info]: Forwarded message for {station_id} to {msg_topic}: {lora_msg}")
