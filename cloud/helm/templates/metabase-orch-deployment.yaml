@@ -27,6 +27,18 @@ spec:
         ports:
         - containerPort: {{ .Values.metabaseorch.container.port }}
         env:
+        - name: MB_DB_TYPE
+          value: postgres
+        - name: MB_DB_DBNAME
+          value: postgres
+        - name: MB_DB_PORT
+          value: "5432"
+        - name: MB_DB_USER
+          value: postgres
+        - name: MB_DB_PASS
+          value: temppostgrespw
+        - name: MB_DB_HOST
+          value: postgres
         - name: DB_USER
           value: postgres
         - name: DB_PASS
