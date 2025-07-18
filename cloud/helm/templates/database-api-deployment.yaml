@@ -27,13 +27,13 @@ spec:
         ports:
         - containerPort: {{ .Values.databaseapi.container.port }}
         env:
-        - name: DB_USER
+        - name: ORCH_DB_USER
           value: postgres
-        - name: DB_PASS
+        - name: ORCH_DB_PASS
           value: temppostgrespw
-        - name: DB_NAME
+        - name: ORCH_DB_NAME
           value: postgres
-        - name: DB_HOST
+        - name: ORCH_DB_HOST
           value: postgres
         volumeMounts:
         - name: logger-volume
