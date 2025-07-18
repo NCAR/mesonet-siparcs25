@@ -369,6 +369,9 @@ def main():
                     recent_stations.discard(station_id)
                     mqtt_client.station_count = len(recent_stations)
                     continue
+                if to_edge_id and to_edge_id != edge_id:
+                    print(f"[info]: Ignored packet from {station_id} addressed to {to_edge_id}")
+                    continue
 
                 lora_msg = map_packet_fields(packet_data)
                 lora_msg['rssi'] = radio.last_rssi if hasattr(radio, 'last_rssi') else 0

@@ -312,7 +312,7 @@ bool load_config() {
   config.score_relay_decay = doc["radio"]["score_relay_decay"] | 1.0f;
   config.pong_timeout = doc["radio"]["pong_timeout"] | 10000UL;
   ping_min_interval = config.pong_timeout + 5000UL;
-  config.keep_alive_timeout = doc["radio"]["keep_alive_timeout"] | 90000UL;
+  config.keep_alive_timeout = doc["radio"]["keep_alive_timeout"] | 900000UL;
   config.latitude = doc["station_info"]["latitude"] | 0.0;
   config.longitude = doc["station_info"]["longitude"] | 0.0;
   config.altitude = doc["station_info"]["altitude"] | 0.0;
@@ -570,46 +570,66 @@ void select_best_target() {
     Serial.println(F("[warn]: No pongs received, broadcasting without target"));
     return;
   }
-  float best_score = -1.0;
-  char best_id[17] = {0};
-  bool best_is_pi = false;
-  uint8_t best_relay_count = 255;
+
+  float best_pi_score = -1.0;
+  char best_pi_id[17] = {0};
+  uint8_t best_pi_relay_count = 255;
+  float best_station_score = -1.0;
+  char best_station_id[17] = {0};
+  uint8_t best_station_relay_count = 255;
+
+  // Evaluate all pongs
   for (uint8_t i = 0; i < pong_count; i++) {
     float norm_rssi = (pongs[i].rssi + 120.0f) / 70.0;
     norm_rssi = constrain(norm_rssi, 0.0, 1.0);
-    float type_bonus = 0.0;
+    float type_bonus = (strcmp(pongs[i].type, "1") == 0) ? 1.0 : 0.0; // Bonus for Pi
     float relay_penalty = exp(-config.score_relay_decay * pongs[i].relay_count);
-    float score = config.score_rssi_weight * norm_rssi + config.score_load_weight * (1.0 - pongs[i].load) +
-                  config.score_type_weight * type_bonus + config.score_relay_weight * relay_penalty;
+    float score = config.score_rssi_weight * norm_rssi +
+                  config.score_load_weight * (1.0 - pongs[i].load) +
+                  config.score_type_weight * type_bonus +
+                  config.score_relay_weight * relay_penalty;
+    
     Serial.print(F("[info]: Pong from ")); Serial.print(pongs[i].id);
     Serial.print(F(" (")); Serial.print(pongs[i].type); Serial.print(F(")"));
     Serial.print(F(", RSSI: ")); Serial.print(pongs[i].rssi);
     Serial.print(F(", Load: ")); Serial.print(pongs[i].load);
     Serial.print(F(", Relay Count: ")); Serial.print(pongs[i].relay_count);
     Serial.print(F(", Score: ")); Serial.println(score);
-    if (score > best_score) {
-      best_score = score;
-      strlcpy(best_id, pongs[i].id, sizeof(best_id));
-      best_is_pi = false;
-      best_relay_count = pongs[i].relay_count;
+
+    // Track best Pi and best station separately
+    if (strcmp(pongs[i].type, "1") == 0) { // Pi
+      if (score > best_pi_score) {
+        best_pi_score = score;
+        strlcpy(best_pi_id, pongs[i].id, sizeof(best_pi_id));
+        best_pi_relay_count = pongs[i].relay_count;
+      }
+    } else { // Station
+      if (score > best_station_score) {
+        best_station_score = score;
+        strlcpy(best_station_id, pongs[i].id, sizeof(best_station_id));
+        best_station_relay_count = pongs[i].relay_count;
+      }
     }
   }
-  if (best_id[0]) {
-    bool target_changed = strcmp(target_id, best_id) != 0;
-    strlcpy(target_id, best_id, sizeof(target_id));
+
+  // Choose the best Pi if available; otherwise, choose the best station
+  bool target_changed = false;
+  if (best_pi_id[0]) { // Pi available
+    target_changed = strcmp(target_id, best_pi_id) != 0;
+    strlcpy(target_id, best_pi_id, sizeof(target_id));
     has_pi_path = true;
-    target_relay_count = best_relay_count;
-    relay_count = best_relay_count + 1;
-    last_keep_alive_received = millis();
-    Serial.print(F("[info]: Selected target: ")); Serial.print(target_id);
+    target_relay_count = best_pi_relay_count;
+    relay_count = best_pi_relay_count + 1;
+    Serial.print(F("[info]: Selected Pi target: ")); Serial.print(target_id);
     Serial.print(F(", Relay Count: ")); Serial.print(relay_count); Serial.println(F(")"));
-    if (target_changed) {
-      station_info_index = 0;
-      last_station_info_sent = millis() - config.station_info_interval - 1;
-      mutex_exit(&state_mutex);
-      start_station_info();
-      mutex_enter_blocking(&state_mutex);
-    }
+  } else if (best_station_id[0]) { // No Pi, fall back to station
+    target_changed = strcmp(target_id, best_station_id) != 0;
+    strlcpy(target_id, best_station_id, sizeof(target_id));
+    has_pi_path = true; // Stations can still have a path to Pi
+    target_relay_count = best_station_relay_count;
+    relay_count = best_station_relay_count + 1;
+    Serial.print(F("[info]: Selected station target: ")); Serial.print(target_id);
+    Serial.print(F(", Relay Count: ")); Serial.print(relay_count); Serial.println(F(")"));
   } else {
     target_id[0] = '\0';
     has_pi_path = false;
@@ -618,6 +638,14 @@ void select_best_target() {
     send_disconnect();
     Serial.println(F("[warn]: No valid target selected"));
     return;
+  }
+
+  if (target_changed) {
+    station_info_index = 0;
+    last_station_info_sent = millis() - config.station_info_interval - 1;
+    mutex_exit(&state_mutex);
+    start_station_info();
+    mutex_enter_blocking(&state_mutex);
   }
   mutex_exit(&state_mutex);
 }
