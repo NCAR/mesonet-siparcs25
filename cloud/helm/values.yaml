@@ -83,7 +83,7 @@ mqttlistener:
   name: mqtt-listener
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:v1
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-18.20
     memory: 2Gi
     cpu: 2
 pgadmin:
