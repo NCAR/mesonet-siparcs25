@@ -32,7 +32,7 @@ spec:
         - name: MB_DB_DBNAME
           value: postgres
         - name: MB_DB_PORT
-          value: 5432
+          value: "5432"
         - name: MB_DB_USER
           value: postgres
         - name: MB_DB_PASS

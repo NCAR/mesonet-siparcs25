@@ -28,4 +28,4 @@ spec:
         - containerPort: {{ .Values.modelservice.container.port }}
         env:
         - name: APP_PORT
-          value: 5000
+          value: "5000"
