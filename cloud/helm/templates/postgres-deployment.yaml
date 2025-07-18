@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ .Values.postgres.name }}
   namespace: {{ .Release.Namespace }}
@@ -7,7 +7,8 @@ metadata:
     app: {{ .Values.postgres.name }}
     group: {{ .Values.app.group }}
 spec:
-  replicas: {{ .Values.postgres.replicaCount }}
+  serviceName: {{ .Values.postgres.name }}
+  replicas: 1 
   selector:
     matchLabels:
       app: {{ .Values.postgres.name }}
@@ -40,9 +41,15 @@ spec:
           mountPath: /docker-entrypoint-initdb.d/init.sql
           subPath: init.sql
       volumes:
-      - name: postgres-data
-        persistentVolumeClaim:
-          claimName: {{ .Values.postgres.volume.name }}
       - name: postgres-init
         configMap:
           name: {{ .Values.postgres.config.name }}
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: ceph-kubepv
+      resources:
+        requests:
+          storage: {{ .Values.postgres.volume.size }}
