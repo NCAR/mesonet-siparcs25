@@ -14,7 +14,7 @@ on:
       - cirrus
 
 permissions:
-  contents: read
+  contents: write
 
 # Define the actions that are going to take place as part of this workflow    
 jobs:
