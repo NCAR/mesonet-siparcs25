@@ -28,9 +28,9 @@ spec:
         - containerPort: {{ .Values.postgres.container.port }}
         env:
         - name: POSTGRES_DB
-          value: 5000
+          value: postgres
         - name: POSTGRES_PASSWORD
-          value: 5000
+          value: temppostgrespw
         volumeMounts:
         - name: postgres-data
           mountPath: /var/lib/postgresql/data

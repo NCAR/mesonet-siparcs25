@@ -28,6 +28,6 @@ spec:
         - containerPort: {{ .Values.pgadmin.container.port }}
         env:
         - name: PGADMIN_DEFAULT_EMAIL
-          value: 5000
+          value: "ncote@ucar.edu"
         - name: PGADMIN_DEFAULT_PASSWORD
-          value: 5000
+          value: temppostgrespw

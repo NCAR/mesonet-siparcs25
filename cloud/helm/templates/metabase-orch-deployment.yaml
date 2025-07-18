@@ -30,7 +30,7 @@ spec:
         - name: DB_USER
           value: postgres
         - name: DB_PASS
-          value: postgres
+          value: temppostgrespw
         - name: DB_NAME
           value: postgres
         - name: DB_HOST

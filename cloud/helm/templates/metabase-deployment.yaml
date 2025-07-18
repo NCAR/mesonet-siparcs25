@@ -32,10 +32,10 @@ spec:
         - name: MB_DB_DBNAME
           value: postgres
         - name: MB_DB_PORT
-          value: postgres
+          value: 5432
         - name: MB_DB_USER
           value: postgres
         - name: MB_DB_PASS
-          value: redis
+          value: temppostgrespw
         - name: MB_DB_HOST
-          value: 6379
+          value: postgres

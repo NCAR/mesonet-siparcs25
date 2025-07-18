@@ -32,6 +32,6 @@ spec:
         {{- end }}
         env:
         - name: TB_SERVICE_ID
-          value: 5000
+          value: "tb-node-0"
         - name: SPRING_DATASOURCE_URL
-          value: 5000
+          value: "jdbc:postgresql://postgres:5432/thingsboard"
