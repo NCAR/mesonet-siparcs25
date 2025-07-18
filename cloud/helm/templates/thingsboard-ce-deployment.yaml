@@ -35,3 +35,11 @@ spec:
           value: "tb-node-0"
         - name: SPRING_DATASOURCE_URL
           value: "jdbc:postgresql://postgres:5432/thingsboard"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "temppostgrespw"
+        - name: DATABASE_TS_TYPE
+          value: "sql"
+        - name: SPRING_DRIVER_CLASS_NAME
+          value: "org.postgresql.Driver"
