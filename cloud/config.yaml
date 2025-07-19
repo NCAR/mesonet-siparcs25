@@ -1,0 +1,57 @@
+mqtt:
+  host: "iotwx.ucar.edu"
+  host2: "iotwx.ucar.edu"
+  port: 1883
+  msg_topic: "sensors/#"
+  topics:
+    - "/test/topic"
+    - "ncar/iotwx/wy/fremountco/wyofw003"
+    - "ncar/iotwx/co/broomfield/broomfield_test"
+    - "ncar/iotwx/co/lewis/puebloccsw_test"
+    - "ncar/iotwx/co/rmnp/neon000"
+    - "ncar/iotwx/co/niwot/neon001"
+database_api:
+  base_url: http://database_api:8000
+map:
+  host: localhost
+  port: 5001
+redis:
+  host: redis
+  port: 6379
+station:
+  active_station_timeout: 150
+  batch_interval: 60
+model_service:
+  base_url: http://model_service:5002
+  model_name: ai/gemma3n:4B-Q4_K_M
+metabase:
+  admin_data:
+    first_name: Isaac
+    last_name: Oppong-Baah
+  config:
+    site_name: IoTwx MB
+  settings:
+    site_url: localhost:3000
+  database:
+    name: iotwx_db
+    engine: postgres
+    details:
+      host: ${MB_DB_HOST}
+      port: ${MB_DB_PORT}
+      dbname: ${ORCH_DB_NAME}
+      user: ${MB_DB_USER}
+      password: ${MB_DB_PASS}
+      ssl: false
+    is_full_sync: true
+    is_on_demand: false
+    cache_ttl: null
+  base_url: http://metabase:3000/api
+  orch_url: http://metabase_orch:8001/metabase # This should correspond to the service name
+thingsboard:
+  broker_ip: "thingsboard-ce"
+  broker_port: 1883  
+  api_url: "http://thingsboard-ce:8080"
+  username: "tenant@thingsboard.org"
+  password: "tenant"  # Replace with your tenant admin password
+  default_device_type: "GPS_Station"  # New: Define a type for your dynamic devices
+  dashboard_name: "Dynamic Station Dashboard"  # New: Name for the dashboard

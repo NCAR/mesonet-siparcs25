@@ -1,0 +1,132 @@
+log: True
+save_path: "/glade/work/$USER/repos/global/miles-credit/results/ONEdegTest/echo/"
+
+pbs:
+  jobs: 30
+  tasks_per_worker: 1
+  gpus_per_node: 1
+  bash: [
+      "source ~/.bashrc", 
+      "conda activate holodec"
+        ]
+  batch:
+    N: "echo-vit"
+    l: ["select=1:ncpus=8:ngpus=1:mem=128GB:cpu_type=milan", "walltime=12:00:00", "gpu_type=a100"]
+    A: "NAML0001"
+    q: "casper"
+    o: "out"
+    e: "out"
+    
+optuna:
+  storage: "study.db"
+  study_name: "gwm"
+  storage_type: "sqlite"
+  objective: "/glade/u/home/schreck/schreck/repos/global/miles-credit/applications/train.py"
+  direction: "maximize"
+  metric: "valid_acc"
+  n_trials: 1000
+  gpu: True
+  sampler:
+    type: "TPESampler"
+    n_startup_trials: 150
+  parameters:
+    trainer:learning_rate:
+      type: "loguniform"
+      settings:
+        name: "learning_rate"
+        low: 1.0e-06
+        high: 1.0e-02
+    trainer:weight_decay:
+      type: "loguniform"
+      settings:
+        name: "weight_decay"
+        low: 1.0e-12
+        high: 1.0e-02
+    model:vq_decay:
+      type: "float"
+      settings:
+        name: "vq_decay"
+        low: 0.0
+        high: 1.0
+    model:vq_commitment_weight:
+      type: "float"
+      settings:
+        name: "vq_commitment_weight"
+        low: 0.0
+        high: 1.0
+    model:dropout:
+      type: "float"
+      settings:
+        name: "dropout"
+        low: 0.0
+        high: 0.9
+    model:token_dropout:
+      type: "float"
+      settings:
+        name: "token_dropout"
+        low: 0.0
+        high: 0.9
+    model:dim:
+      type: "int"
+      settings:
+        name: "dim"
+        low: 64
+        high: 256
+        step: 64
+    model:dim_head:
+      type: "int"
+      settings:
+        name: "dim_head"
+        low: 64
+        high: 256
+        step: 64
+    model:heads:
+      type: "int"
+      settings:
+        name: "heads"
+        low: 1
+        high: 32
+    model:vq_codebook_size:
+      type: "int"
+      settings:
+        name: "vq_codebook_size"
+        low: 64
+        high: 1024
+        step: 64
+    model:num_register_tokens:
+      type: "int"
+      settings:
+        name: "num_register_tokens"
+        low: 0
+        high: 16
+    # model:mlp_dim:
+    #   type: "int"
+    #   settings:
+    #     name: "mlp_dim"
+    #     low: 64
+    #     high: 256
+    #     step: 64
+    model:depth:
+      type: "int"
+      settings:
+        name: "depth"
+        low: 1
+        high: 16
+    loss:training_loss:
+      type: "categorical"
+      settings:
+        name: "training_loss"
+        choices: ["mae", "mse", "huber", "logcosh", "xtanh", "xsigmoid", "msle"]
+    loss:spectral_wavenum_init:
+      type: "int"
+      settings:
+        name: "spectral_wavenum_init"
+        low: 0
+        high: 50
+    loss:spectral_lambda_reg:
+      type: "loguniform"
+      settings:
+        name: "spectral_lambda_reg"
+        low: 1.0e-06
+        high: 1.0e-00
+    
