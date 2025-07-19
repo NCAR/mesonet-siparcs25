@@ -6,7 +6,8 @@
     "firstname": "Admin 1",
     "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu",
-    "organization": "NCAR"
+    "organization": "NCAR",
+    "device": "adafruit RP2040"
   },
   {
     "station_id": "puebloccsw_test",
@@ -15,7 +16,8 @@
     "firstname": "Admin 1",
     "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu",
-    "organization": "NCAR"
+    "organization": "NCAR",
+    "device": "m5atom ESP32"
   },
   {
     "station_id": "wyofw003",
@@ -24,7 +26,8 @@
     "firstname": "Admin 1",
     "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu",
-    "organization": "NCAR"
+    "organization": "NCAR",
+    "device": "m5atom ESP32"
   },
   {
     "station_id": "neon000",
@@ -33,7 +36,8 @@
     "firstname": "Admin 2",
     "lastname": "Mon",
     "email": "oppongbaahisaac@yahoo.com",
-    "organization": "NCAR"
+    "organization": "NCAR",
+    "device": "m5atom ESP32"
   },
   {
     "station_id": "broomfield_test",
@@ -42,7 +46,8 @@
     "firstname": "Admin 2",
     "lastname": "Mon",
     "email": "oppongbaahisaac@yahoo.com",
-    "organization": "NCAR"
+    "organization": "NCAR",
+    "device": "m5atom ESP32"
   },
   {
     "station_id": "neon001",
@@ -51,6 +56,7 @@
     "firstname": "Admin 2",
     "lastname": "Mon",
     "email": "oppongbaahisaac@yahoo.com",
-    "organization": "NCAR"
+    "organization": "NCAR",
+    "device": "m5atom ESP32"
   }
 ]

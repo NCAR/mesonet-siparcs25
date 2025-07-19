@@ -15,11 +15,7 @@ class Req:
     async def insert(path: str, data):
         path = path if path.endswith('/') else path + '/'
         async with httpx.AsyncClient() as client:
-            res = await client.post(
-                path,
-                json=data,
-                headers=headers
-            )
+            res = await client.post(path, json=data, headers=headers)
 
             if not (200 <= res.status_code < 300):
                 return res.raise_for_status()
@@ -30,6 +26,15 @@ class Req:
         path = path if path.endswith('/') else path + '/'
         async with httpx.AsyncClient() as client:
             res = await client.get(path, headers=headers)
+
+            if not (200 <= res.status_code < 300):
+                res.raise_for_status()
+            return res.json()
+        
+    @staticmethod
+    async def update_one(path: str, data: dict):
+        async with httpx.AsyncClient() as client:
+            res = await client.put(path, json=data, headers=headers)
 
             if not (200 <= res.status_code < 300):
                 res.raise_for_status()
