@@ -5,6 +5,7 @@ from logger import CustomLogger
 from users import UsersService
 from groups import GroupService
 from frontend import FrontendService
+from datetime import datetime, timezone
 
 class StationService:
     def __init__(self, logger: CustomLogger, db_url: str, mb_url: str):
@@ -24,12 +25,18 @@ class StationService:
     async def __add_or_update_station(self, url: str, station: dict) -> None:
         console = self.console
 
+        # Add created_at and last_active fields
+        now = datetime.now(timezone.utc)
+        station = {**station, "created_at": now.isoformat(), "last_active": now.isoformat()}
+
         # Add the station
         station_res: dict = await request.insert(url, station)
         station_id = station_res.get("station_id")
 
-        filtered_station_res = {k: v for k, v in station_res.items() if v is not None}
-        if not (filtered_station_res == station):
+        filtered_station_res = {k: v for k, v in station_res.items() if v is not None and k not in ["created_at", "last_active"]}
+        filtered_station = {k: v for k, v in station.items() if v is not None and k not in ["created_at", "last_active"]}
+
+        if not (filtered_station_res == filtered_station):
             # Update the satation if necessary
             console.debug(f"Updating station: {station_id}")
             station_res: dict = await request.update_one(path=f"{url}/{station_id}", data=station)
