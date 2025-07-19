@@ -1,5 +1,4 @@
 import paho.mqtt.client as mqtt
-from paho.mqtt.client import CallbackAPIVersion
 import json
 import time
 from datetime import datetime, timezone
@@ -8,7 +7,11 @@ import redis
 import yaml
 from typing import Dict, Any
 from threading import Lock, Thread
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
+logger = logging.getLogger(__name__)
 # Configuration
 CONFIG_FILE = "/cloud/config.yaml"
 
@@ -22,7 +25,7 @@ except Exception as e:
 
 # Validate required fields
 required_fields = {
-    'mqtt': ['host', 'port', 'msg_topic'],
+    'mqtt': ['host2', 'port', 'msg_topic'],
     'database_api': ['base_url'],
     'redis': ['host', 'port'],
     'station': ['active_station_timeout', 'batch_interval'],
@@ -38,7 +41,7 @@ for section, fields in required_fields.items():
             exit(1)
 
 # Configuration parameters
-MQTT_BROKER = config['mqtt']['host']
+MQTT_BROKER = config['mqtt']['host2']
 MQTT_PORT = config['mqtt']['port']
 MQTT_TOPIC = config['mqtt']['msg_topic']
 API_BASE_URL = config['database_api']['base_url']
@@ -108,9 +111,9 @@ class MQTTDatabaseUpdater:
             exit(1)
 
     def initialize_client(self):
-        self.client = mqtt.Client(CallbackAPIVersion.VERSION2, client_id="db_updater")
+        self.client = mqtt.Client(client_id="db_updater")
         self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
+        #self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
 
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
@@ -123,7 +126,7 @@ class MQTTDatabaseUpdater:
             print(f"[warn]: Connection failed: {reason_code}")
             self.connected = False
 
-    def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties=None):
+    def on_disconnect(self,client, userdata, reason_code, properties=None):
         print(f"[warn]: Disconnected from MQTT broker, reason_code={reason_code}")
         self.connected = False
 
@@ -402,19 +405,26 @@ class MQTTDatabaseUpdater:
         if not self.connected and (current_time - self.last_connection_attempt >= self.connection_interval):
             try:
                 print(f"[info]: Attempting to connect to {self.broker}:{self.port}")
-                self.client.connect(self.broker, self.port, 120)
+                self.client.connect(self.broker, self.port, 60)
                 self.last_connection_attempt = current_time
             except Exception as e:
                 print(f"[error]: Failed to connect to broker: {e}")
                 self.last_connection_attempt = current_time
 
     def start(self):
+        """Start the gateway."""
+        logger.info("Starting ThingsBoard MQTT Gateway...")
+        self.client.connect(self.broker, self.port, 60)
         self.client.loop_start()
-        while True:
-            if not self.connected:
-                self.connect()
-            time.sleep(1)
-
+        logger.info("Gateway is running. Waiting for MQTT messages...")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("KeyboardInterrupt detected. Shutting down...")
+            self.client.loop_stop()
+            self.client.disconnect()
+            logger.info("MQTT client stopped.")
 def main():
     updater = MQTTDatabaseUpdater(
         MQTT_BROKER,

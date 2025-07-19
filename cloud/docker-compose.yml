@@ -127,12 +127,29 @@ services:
       start_period: 5s
       timeout: 5s
 
+  mosquitto:
+    container_name: mosquitto
+    restart: always
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD", "nc", "-z", "mosquitto", "1883"]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+      timeout: 5s
+
   mqtt_listener:
     build:
       context: ./services/mqtt_listener
     container_name: mqtt_listener
     hostname: mqtt_listener
     depends_on:
+      mosquitto:
+        condition: service_healthy
       database_api:
         condition: service_healthy
       redis:
