@@ -1,9 +1,11 @@
 mqtt:
-  host: iotwx.ucar.edu
+  host: "iotwx.ucar.edu"
+  host2: "iotwx.ucar.edu"
   port: 1883
-  msg_topic: sensors/#
+  msg_topic: "sensors/#"
   topics:
     - "#"
+
 database_api:
   base_url: http://database_api:8000
 map:

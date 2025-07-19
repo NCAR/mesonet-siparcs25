@@ -26,7 +26,7 @@ except Exception as e:
 
 # Validate required fields
 required_fields = {
-    'mqtt': ['host', 'port', 'msg_topic'],
+    'mqtt': ['host2', 'port', 'msg_topic'],
     'thingsboard': ['api_url', 'username', 'password', 'dashboard_name', 'default_device_type']
 }
 for section, fields in required_fields.items():
@@ -39,7 +39,7 @@ for section, fields in required_fields.items():
             exit(1)
 
 # Configuration parameters
-MQTT_BROKER = config['mqtt']['host']
+MQTT_BROKER = config['mqtt']['host2']
 MQTT_PORT = int(config['mqtt']['port'])
 MQTT_TOPIC = config['mqtt']['msg_topic']
 THINGSBOARD_API_URL = config['thingsboard']['api_url']
