@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class ReadingCreate(BaseModel):
     rssi: Optional[int] = None
     latitude: float
     longitude: float
-    altitude: float
+    altitude: Optional[float] = None
     timestamp: Optional[datetime] = None
 
 class ReadingResponse(ReadingCreate):

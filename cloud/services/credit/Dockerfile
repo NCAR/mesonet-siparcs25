@@ -25,7 +25,6 @@ WORKDIR /cloud/services/credit
 
 # Copy static and service files
 COPY scripts ./scripts
-# COPY static_data ./static_data
 COPY model.yml ./model.yml
 
 # Copy project repository
@@ -46,14 +45,15 @@ WORKDIR /cloud/services/credit/miles-credit
 RUN conda env create -n ${ENV_NAME} -f ${ENV_FILE}
 
 # Install pysteps and your package
-RUN conda run -n ${ENV_NAME} pip install git+https://github.com/pySTEPS/pysteps
+# RUN conda run -n ${ENV_NAME} pip install git+https://github.com/pySTEPS/pysteps
 RUN conda run -n ${ENV_NAME} pip install -e .
 
 # Switch back to main service directory
 WORKDIR /cloud/services/credit
 
 # Make sure script is executable
-RUN chmod +x ./scripts/credit.sh
+COPY scripts/init_credit.sh ./scripts/init_credit.sh
+RUN chmod +x ./scripts/init_credit.sh
 
 # Default startup command
-CMD ["./scripts/init_credit.sh"]
+CMD ["/bin/bash", "./scripts/init_credit.sh"]

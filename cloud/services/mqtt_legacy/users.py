@@ -74,10 +74,9 @@ class UsersService:
         
         user_data = Payload() \
             .reset() \
-            .set_attr("first_name", station_data.get("first_name")) \
-            .set_attr("last_name", station_data.get("last_name")) \
+            .set_attr("first_name", station_data.get("firstname")) \
+            .set_attr("last_name", station_data.get("lastname")) \
             .set_attr("email", station_data.get("email")) \
-            .set_attr("password", "@siparcs255") \
             .build()
         
         user_res: MetabaseUserRes = await self.add(mb_url, payload=user_data)

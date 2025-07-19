@@ -4,8 +4,12 @@ mqtt:
   port: 1883
   msg_topic: "sensors/#"
   topics:
-    - "#"
-
+    - "/test/topic"
+    - "ncar/iotwx/wy/fremountco/wyofw003"
+    - "ncar/iotwx/co/broomfield/broomfield_test"
+    - "ncar/iotwx/co/lewis/puebloccsw_test"
+    - "ncar/iotwx/co/rmnp/neon000"
+    - "ncar/iotwx/co/niwot/neon001"
 database_api:
   base_url: http://database_api:8000
 map:

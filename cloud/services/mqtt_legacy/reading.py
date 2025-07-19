@@ -27,10 +27,10 @@ class ReadingService:
                 case "m":
                     self.reading["reading_value"] = float(value.strip())
                 case "rssi":
-                    self.reading["signal_strength"] = float(value.strip())
+                    self.reading["rssi"] = float(value.strip())
                 case "device":
                     device, station_id = utils_ftn.parse_device(value.strip())
-                    self.reading["device"] = device
+                    self.reading["altitude"] = 0.0
                     self.reading["station_id"] = station_id
                 case "sensor":
                     protocol, model, measurement = utils_ftn.pass_sensor(value.strip())
@@ -51,10 +51,3 @@ class ReadingService:
                 self.reading["longitude"] = station.get("longitude")
                 break
         return self.reading
-
-    def is_mesonet_station(self, decoded_reading):
-        try:
-            reading = json.loads(decoded_reading[0])
-            return reading.get("type") in ("sensor_data", "station_info")
-        except (ValueError, TypeError):
-            return False
