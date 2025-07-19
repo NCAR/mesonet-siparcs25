@@ -64,13 +64,13 @@ class StationService:
                 if hasattr(station, key):
                     setattr(station, key, value)
             try:
-                self.db.commit()
-                self.db.refresh(station)
+                await self.db.commit()
+                await self.db.refresh(station)
             except IntegrityError as e:
-                self.db.rollback()
+                await self.db.rollback()
                 raise HTTPException(status_code=400, detail=f"Failed to update station {station_id}: {str(e)}")
             except Exception as e:
-                self.db.rollback()
+                await self.db.rollback()
                 raise HTTPException(status_code=500, detail=f"Internal error updating station {station_id}: {str(e)}")
         else:
             data["station_id"] = station_id
@@ -86,10 +86,10 @@ class StationService:
                 await self.db.commit()
                 await self.db.refresh(station)
             except IntegrityError as e:
-                self.db.rollback()
+                await self.db.rollback()
                 raise HTTPException(status_code=400, detail=f"Failed to create station {station_id}: {str(e)}")
             except Exception as e:
-                self.db.rollback()
+                await self.db.rollback()
                 raise HTTPException(status_code=500, detail=f"Internal error creating station {station_id}: {str(e)}")
         
         return StationResponse.model_validate(station)

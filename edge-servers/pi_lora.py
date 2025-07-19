@@ -354,7 +354,7 @@ def main():
                     continue
 
                 # Ignore C and D packets
-                if packet_data.get('t') in ['C', 'D']:
+                if packet_data.get('t') in ['B', 'C', 'D']:
                     print(f"[info]: Ignored {packet_data.get('t')} packet from {station_id}")
                     continue
 
