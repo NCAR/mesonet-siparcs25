@@ -83,8 +83,8 @@ class StationService:
             try:
                 station = StationModel(**data)
                 self.db.add(station)
-                self.db.commit()
-                self.db.refresh(station)
+                await self.db.commit()
+                await self.db.refresh(station)
             except IntegrityError as e:
                 self.db.rollback()
                 raise HTTPException(status_code=400, detail=f"Failed to create station {station_id}: {str(e)}")
