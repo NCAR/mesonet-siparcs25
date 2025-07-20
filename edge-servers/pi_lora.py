@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 from paho.mqtt.client import CallbackAPIVersion
 import json
 import time
-import random  # Added for random delay
+import random
 from datetime import datetime, timezone
 from threading import Lock, Thread
 import psutil
@@ -30,9 +30,9 @@ def get_pi_serial():
 def initialize_led(i2c):
     """Initialize the SSD1306 OLED display over I2C."""
     try:
-        reset_pin = DigitalInOut(board.D4)  # Reset pin for display
+        reset_pin = DigitalInOut(board.D4)
         display = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c, reset=reset_pin)
-        display.fill(0)  # Clear display
+        display.fill(0)
         display.show()
         print("[info]: SSD1306 OLED display initialized")
         return display
@@ -43,14 +43,14 @@ def initialize_led(i2c):
 def initialize_radio(freq=915.0, power=23):
     """Initialize the RFM9x LoRa radio with specified frequency and power."""
     try:
-        CS = digitalio.DigitalInOut(board.CE1)  # Chip select pin
-        RESET = digitalio.DigitalInOut(board.D25)  # Reset pin
-        spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)  # SPI interface
+        CS = digitalio.DigitalInOut(board.CE1)
+        RESET = digitalio.DigitalInOut(board.D25)
+        spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
         rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, freq)
-        rfm9x.tx_power = power  # Transmit power (dBm)
-        rfm9x.spreading_factor = 7  # SF7, matches Arduino's Bw125Cr45Sf128
-        rfm9x.signal_bandwidth = 125000  # 125 kHz bandwidth
-        rfm9x.coding_rate = 5  # 4/5 coding rate
+        rfm9x.tx_power = power
+        rfm9x.spreading_factor = 7
+        rfm9x.signal_bandwidth = 125000
+        rfm9x.coding_rate = 5
         print(f"[info]: Radio initialized - Frequency: {freq} MHz, Spreading Factor: {rfm9x.spreading_factor}, "
               f"Bandwidth: {rfm9x.signal_bandwidth} Hz, Coding Rate: {rfm9x.coding_rate}/8, Tx Power: {power} dBm")
         return rfm9x
@@ -61,35 +61,27 @@ def initialize_radio(freq=915.0, power=23):
 class MQTTClientWrapper:
     def __init__(self, config):
         """Initialize MQTT client with configuration parameters."""
-        # MQTT configuration
         self.broker = config.get('mqtt', {}).get('broker_ip', 'localhost')
         self.port = config.get('mqtt', {}).get('broker_port', 1883)
         self.edge_id = get_pi_serial() or config.get('radio', {}).get('edge_id', 'default_pi')
         self.msg_topic_template = config.get('mqtt', {}).get('msg_topic_template', 'iotwx/{station_id}')
-        
-        # Get timing parameters from config with defaults
-        self.pong_duration = config.get('radio', {}).get('pong_duration', 3.0)  # seconds
-        self.pong_initial_delay_max = config.get('radio', {}).get('pong_initial_delay_max', 0.5)  # seconds, max initial delay
-        
-        # Radio load parameters
+        self.pong_duration = config.get('radio', {}).get('pong_duration', 3.0)
+        self.pong_initial_delay_max = config.get('radio', {}).get('pong_initial_delay_max', 0.5)
         self.overload_threshold = config.get('radio', {}).get('overload_threshold', 0.85)
         self.station_midpoint = config.get('radio', {}).get('pi_station_midpoint', 5)
         self.station_steepness = config.get('radio', {}).get('pi_station_steepness', 1)
         self.cpu_weight = config.get('radio', {}).get('pi_cpu_weight', 0.4)
         self.mem_weight = config.get('radio', {}).get('pi_mem_weight', 0.3)
         self.station_weight = config.get('radio', {}).get('pi_station_weight', 0.3)
-        
-        # State variables
         self.client = None
         self.connected = False
         self.last_connection_attempt = 0
         self.connection_interval = 30
         self.radio = None
-        self.radio_lock = Lock()  # Lock for thread-safe radio access
+        self.radio_lock = Lock()
         self.load = 0.0
         self.last_load_update = 0
-        self.station_count = 0  # Track number of unique stations for load calculation
-        
+        self.station_count = 0
         self.initialize_client()
 
     def initialize_client(self):
@@ -173,8 +165,11 @@ class MQTTClientWrapper:
             print(f"[error]: Failed to start MQTT loop: {e}")
 
     def send_pongs(self, station_id, edge_id, load, rssi):
-        """Send pongs to a station for configured duration in a separate thread."""
-        # Add random initial delay to reduce collision risk
+        """Send pongs to a station for configured duration in a separate thread if MQTT is connected."""
+        if not self.connected:
+            print(f"[info]: Not sending pongs to {station_id} - MQTT not connected")
+            return
+        
         initial_delay = random.uniform(0, self.pong_initial_delay_max)
         print(f"[info]: Delaying pong response to {station_id} by {initial_delay:.3f} seconds")
         time.sleep(initial_delay)
@@ -199,7 +194,7 @@ class MQTTClientWrapper:
                         print(f"[info]: Sent pong {pong_count} to {station_id}: {pong}")
                     except Exception as e:
                         print(f"[error]: Failed to send pong {pong_count+1} to {station_id}: {e}")
-            time.sleep(0.01)  # Short sleep to prevent overwhelming the radio
+            time.sleep(0.01)
         print(f"[info]: Sent {pong_count} pongs to {station_id} over {self.pong_duration} seconds")
 
 def map_packet_fields(packet_data):
@@ -242,7 +237,7 @@ def map_packet_fields(packet_data):
         'pm9': 'partcount_25um',
         'pm10': 'partcount_50um',
         'pm11': 'partcount_100um',
-        'ra': 'rainfall_accumulated',
+        'ra': 'rainfall_accumulated(24h)',
         're': 'rainfall_event',
         'rt': 'rainfall_total',
         'ri': 'rain_intensity',
@@ -314,13 +309,12 @@ def main():
 
     print("[info]: Waiting for LoRa packets...")
 
-    recent_stations = set()  # Track unique stations for load calculation
+    recent_stations = set()
     last_debug_log = 0
     while True:
         if not mqtt_client.connected:
             mqtt_client.connect()
 
-        # Periodic debug log to confirm service is running (every 10 seconds)
         current_time = time.time()
         if current_time - last_debug_log >= 10:
             print(f"[debug]: Main loop running, MQTT connected: {mqtt_client.connected}, Station count: {mqtt_client.station_count}")
@@ -338,31 +332,26 @@ def main():
                     print(f"[warn]: Invalid or missing sid in packet: {msg}")
                     continue
 
-
                 if packet_data.get('t') == 'A':
                     mqtt_client.update_load()
                     if mqtt_client.load > mqtt_client.overload_threshold:
                         print(f"[warn]: Load too high ({mqtt_client.load:.2f}), refusing pong response")
                         continue
-                    # Start a thread to send pongs non-blocking
-                    pong_thread = Thread(
-                        target=mqtt_client.send_pongs,
-                        args=(station_id, edge_id, mqtt_client.load, radio.last_rssi if hasattr(radio, 'last_rssi') else 0),
-                        daemon=True
-                    )
-                    pong_thread.start()
+                    if mqtt_client.connected:
+                        pong_thread = Thread(
+                            target=mqtt_client.send_pongs,
+                            args=(station_id, edge_id, mqtt_client.load, radio.last_rssi if hasattr(radio, 'last_rssi') else 0),
+                            daemon=True
+                        )
+                        pong_thread.start()
+                    else:
+                        print(f"[info]: Not sending pongs to {station_id} - MQTT not connected")
                     continue
 
-                # Ignore C and D packets
                 if packet_data.get('t') in ['B', 'C', 'D']:
                     print(f"[info]: Ignored {packet_data.get('t')} packet from {station_id}")
                     continue
 
-                # Track station for load calculation
-                recent_stations.add(station_id)
-                mqtt_client.station_count = len(recent_stations)
-
-                # Process E and F packets only if addressed to this Pi
                 to_edge_id = packet_data.get('to')
                 if to_edge_id and to_edge_id != edge_id and station_id in recent_stations and to_edge_id not in recent_stations:
                     print(f"[info]: Packet from {station_id} addressed to {to_edge_id}, removing from recent stations")
@@ -372,6 +361,9 @@ def main():
                 if to_edge_id and to_edge_id != edge_id:
                     print(f"[info]: Ignored packet from {station_id} addressed to {to_edge_id}")
                     continue
+
+                recent_stations.add(station_id)
+                mqtt_client.station_count = len(recent_stations)
 
                 lora_msg = map_packet_fields(packet_data)
                 lora_msg['rssi'] = radio.last_rssi if hasattr(radio, 'last_rssi') else 0

@@ -36,6 +36,7 @@
 #define RG15_TX_PIN 0
 #define CONTINUOUS_TX_DURATION 6000 // 6 seconds for continuous transmission
 #define CONTINUOUS_PONG_DELAY_MAX 1500 //1.5 seconds for random pong max delay
+#define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
 
 
 
@@ -78,7 +79,7 @@ struct Config {
   float score_relay_weight;
   float score_relay_decay;
   uint32_t pong_timeout;
-  uint32_t keep_alive_timeout;
+  uint32_t connect_timeout;
   float latitude;
   float longitude;
   float altitude;
@@ -110,10 +111,13 @@ uint32_t last_ping_attempt = 0;
 char device_id[17] = {0};
 char target_id[17] = {0};
 bool has_pi_path = false;
+bool can_ping = true;
+bool can_select = false;
 uint8_t relay_count = 0;
 uint8_t target_relay_count = 0;
 uint32_t last_broadcast = 0;
-uint32_t last_keep_alive_received = 0;
+uint32_t last_connect = 0;
+uint32_t last_sensor_transmit = 0;
 bool waiting_for_pongs = false;
 uint32_t pong_start_time = 0;
 uint32_t last_station_info_sent = 0;
@@ -130,10 +134,10 @@ bool pm25aqi_connected = false;
 bool pa1010d_connected = false;
 bool gps_connected = false;
 bool scd40_connected = false;
+String gps_module;
 double latitude;
 double longitude;
 double altitude;
-String gps_timestamp;
 Dependent dependents[20];
 uint8_t dependent_count = 0;
 Pong pongs[20];
@@ -145,7 +149,12 @@ uint32_t last_packet_time = 0;
 uint32_t last_blink_time = 0;
 uint8_t station_info_index = 0;
 uint32_t continuous_pong_start = 0;
-uint32_t ping_min_interval = 15000UL;
+uint32_t last_rg15_acc_reset = -RG15_ACC_INTERVAL-1; // Track last reset time for RG15 accumulated rainfall
+float rg15_acc_mm = 0.0;
+float rg15_event_acc_mm = 0.0;
+float rg15_total_acc_mm = 0.0;
+float rg15_r_int_mm = 0.0;
+bool rg15_data_valid = false;
 
 // --- Threading and Synchronization ---
 mutex_t state_mutex;
@@ -192,7 +201,7 @@ void mutex_safe_update_target(const char* new_target, bool new_has_pi_path, uint
   strlcpy(target_id, new_target, sizeof(target_id));
   has_pi_path = new_has_pi_path;
   relay_count = new_relay_count;
-  last_keep_alive_received = millis();
+  last_connect = millis();
   mutex_exit(&state_mutex);
 }
 
@@ -245,7 +254,7 @@ void handle_blink_led() {
 }
 
 String get_gps_timestamp() {
-  if (!pa1010d_connected) return gps_timestamp;
+  if (!pa1010d_connected || strcmp(gps_module.c_str(),"pa1010d")) return String();
   while (sparkfun_GPS.available()) {
     gps.encode(sparkfun_GPS.read());
   }
@@ -254,9 +263,9 @@ String get_gps_timestamp() {
     snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02dZ",
              gps.date.year(), gps.date.month(), gps.date.day(),
              gps.time.hour(), gps.time.minute(), gps.time.second());
-    gps_timestamp = String(buf);
+    return String(buf);
   }
-  return gps_timestamp;
+  return String();
 }
 
 void update_station_load() {
@@ -311,8 +320,8 @@ bool load_config() {
   config.score_relay_weight = doc["radio"]["score_relay_weight"] | 0.1f;
   config.score_relay_decay = doc["radio"]["score_relay_decay"] | 1.0f;
   config.pong_timeout = doc["radio"]["pong_timeout"] | 10000UL;
-  ping_min_interval = config.pong_timeout + 5000UL;
-  config.keep_alive_timeout = doc["radio"]["keep_alive_timeout"] | 900000UL;
+  //  ping_min_interval = config.pong_timeout + 5000UL;
+  config.connect_timeout = doc["radio"]["connect_timeout"] | 900000UL;
   config.latitude = doc["station_info"]["latitude"] | 0.0;
   config.longitude = doc["station_info"]["longitude"] | 0.0;
   config.altitude = doc["station_info"]["altitude"] | 0.0;
@@ -359,9 +368,8 @@ void add_common_json_fields(JsonDocument& doc, const String& timestamp, const ch
   doc["m"] = measurement;
   doc["d"] = data;
   doc["p"] = protocol;
+  doc["to"] = target_id;
   mutex_enter_blocking(&state_mutex);
-  if (target_id[0]) doc["to"] = target_id;
-  doc["r"] = !target_id[0];
   mutex_exit(&state_mutex);
 }
 
@@ -378,12 +386,14 @@ void start_ping() {
   }
   mutex_safe_set_waiting_for_pongs(true);
   mutex_enter_blocking(&state_mutex);
+  can_ping = false;
   pong_count = 0;
   mutex_exit(&state_mutex);
   rfm95_send(packet);
   mutex_enter_blocking(&state_mutex);
   pong_start_time = millis();
   last_ping_attempt = millis();
+  can_select = true;
   mutex_exit(&state_mutex);
   Serial.println(F("[info]: Sent ping, waiting for pongs"));
 }
@@ -501,7 +511,7 @@ void handle_station_info() {
   doc["lat"] = latitude;
   doc["lon"] = longitude;
   doc["al"] = altitude;
-  if (target_id[0]) doc["to"] = target_id;
+  //if (target_id[0]) doc["to"] = target_id;
   String gps_timestamp = get_gps_timestamp();
   if (!gps_timestamp.isEmpty()) doc["ts"] = gps_timestamp;
   mutex_exit(&state_mutex);
@@ -561,16 +571,6 @@ void send_disconnect() {
 void select_best_target() {
   mutex_enter_blocking(&state_mutex);
   Serial.println(F("[debug]: Selecting best target"));
-  if (!pong_count) {
-    target_id[0] = '\0';
-    has_pi_path = false;
-    relay_count = 0;
-    mutex_exit(&state_mutex);
-    send_disconnect();
-    Serial.println(F("[warn]: No pongs received, broadcasting without target"));
-    return;
-  }
-
   float best_pi_score = -1.0;
   char best_pi_id[17] = {0};
   uint8_t best_pi_relay_count = 255;
@@ -642,11 +642,16 @@ void select_best_target() {
 
   if (target_changed) {
     station_info_index = 0;
+    last_connect = millis();
     last_station_info_sent = millis() - config.station_info_interval - 1;
+    last_sensor_transmit=-config.sensor_transmit_delay-1;
     mutex_exit(&state_mutex);
     start_station_info();
-    mutex_enter_blocking(&state_mutex);
+    
   }
+  mutex_enter_blocking(&state_mutex);
+  can_ping = true;
+  can_select = false;
   mutex_exit(&state_mutex);
 }
 
@@ -750,38 +755,38 @@ void core1_entry() {
           mutex_exit(&state_mutex);
           handle_continuous_pong();
         } else if (doc["t"] == "B" && mutex_safe_get_waiting_for_pongs()) {
-          mutex_safe_update_pong(station_id, doc["ty"] | "2", doc["l"] | 0.0f, doc["rssi"] | 0, doc["rc"] | 0);
-          Serial.println(F("[info]: Stored pong"));
+            mutex_safe_update_pong(station_id, doc["ty"] | "2", doc["l"] | 0.0f, doc["rssi"] | 0, doc["rc"] | 0);
+            Serial.println(F("[info]: Stored pong"));
         } else if (doc["t"] == "D" && !strcmp(doc["to"] | "", device_id)) {
-          mutex_safe_clear_target();
-          send_disconnect();
-          Serial.println(F("[info]: Received disconnect, cleared target and sent disconnect to dependents"));
-          start_ping();
+            mutex_safe_clear_target();
+            send_disconnect();
+            Serial.println(F("[info]: Received disconnect, cleared target and sent disconnect to dependents"));
+            start_ping();
         } else if (doc["t"] == "F" && !strcmp(doc["to"] | "", device_id)) {
-          add_dependent(station_id);
-          mutex_enter_blocking(&state_mutex);
-          if (target_id[0] && station_load <= config.overload_threshold) {
-            doc["to"] = target_id;
-            char packet[255];
-            if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
-              mutex_exit(&state_mutex);
-              Serial.println(F("[error]: Relay packet buffer overflow"));
+            add_dependent(station_id);
+            mutex_enter_blocking(&state_mutex);
+            if (target_id[0] && station_load <= config.overload_threshold) {
+              doc["to"] = target_id;
+              char packet[255];
+              if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+                mutex_exit(&state_mutex);
+                Serial.println(F("[error]: Relay packet buffer overflow"));
+              } else {
+                mutex_exit(&state_mutex);
+                rfm95_send(packet);
+                active_relays++;
+                Serial.println(F("[info]: Relayed type F packet"));
+              }
             } else {
               mutex_exit(&state_mutex);
-              rfm95_send(packet);
-              active_relays++;
-              Serial.println(F("[info]: Relayed type F packet"));
             }
-          } else {
-            mutex_exit(&state_mutex);
-          }
         } 
       }
       mutex_exit(&radio_mutex);
     }
     
     mutex_enter_blocking(&state_mutex);
-    if (waiting_for_pongs && pong_count > 0 && millis() - pong_start_time >= config.pong_timeout) {
+    if (waiting_for_pongs && can_select && pong_count > 0 && millis() - pong_start_time >= config.pong_timeout) {
       waiting_for_pongs = false;
       mutex_exit(&state_mutex);
       select_best_target();
@@ -1126,7 +1131,8 @@ bool gps_measure_transmit() {
   if (config.fixed_deployment && millis() - last_gps_sent < config.gps_fixed_interval) return false;
   Serial.println(F("[debug]: Enter gps_measure_transmit"));
   bool has_valid_data = false;
-  String gps_module = "default";
+  mutex_enter_blocking(&state_mutex);
+  gps_module = "default";
   if (pa1010d_connected) {
     while (sparkfun_GPS.available()) {
       gps.encode(sparkfun_GPS.read());
@@ -1138,6 +1144,7 @@ bool gps_measure_transmit() {
       gps_module = "pa1010d";
     }
   }
+  mutex_exit(&state_mutex);
   if (!has_valid_data) Serial.println(F("[info]: Using last recorded GPS coordinates"));
   String timestamp = get_gps_timestamp();
   StaticJsonDocument<96> doc;
@@ -1190,12 +1197,6 @@ bool scd40_measure_transmit() {
   Serial.println(F("[debug]: Exit scd40_measure_transmit"));
   return true;
 }
-
-float rg15_acc_mm = 0.0;
-float rg15_event_acc_mm = 0.0;
-float rg15_total_acc_mm = 0.0;
-float rg15_r_int_mm = 0.0;
-bool rg15_data_valid = false;
 
 void rg15_init_nonblocking() {
   static bool init_started = false;
@@ -1271,7 +1272,6 @@ bool parse_rg15_response(String response) {
   rg15_data_valid = (acc_pos != -1 || event_pos != -1 || total_pos != -1 || rint_pos != -1);
   return rg15_data_valid;
 }
-
 bool rg15_measure_transmit() {
   if (!has_pi_path) {
     Serial.println(F("[warn]: No Pi path, skipping RG15 transmit"));
@@ -1339,16 +1339,22 @@ bool rg15_measure_transmit() {
   return true;
 }
 
-void rg15_reset_counters() {
+void rg15_reset_counters(bool acc_only) {
+  Serial.println(F("[debug]: Resetting RG15 counters"));
   if (!rg15_connected) {
-    Serial.println(F("[warn]: RG15 not connected, cannot reset"));
+    Serial.println(F("[error]: RG15 not connected, cannot reset counters"));
     return;
   }
-  Serial.println(F("[debug]: Resetting RG15 counters"));
-  Serial1.println("O");
+  rg15Serial.write("O\r\n"); // Reset accumulated counter
   delay(100);
-  Serial1.println("K");
-  delay(100);
+  if (!acc_only) {
+    rg15Serial.write("K\r\n"); // Reset event counter (only if acc_only is false)
+    delay(100);
+  }
+  rg15_acc_mm = 0.0;
+  rg15_event_acc_mm = 0.0;
+  rg15_data_valid = false;
+  Serial.println(F("[info]: RG15 counters reset"));
 }
 
 // --- Setup and Loop ---
@@ -1387,7 +1393,9 @@ void setup() {
     sprintf(&device_id[i * 2], "%.2X", UniqueID[i]);
   }
   Serial.print(F("[info]: device_id ==> ")); Serial.println(device_id);
+  mutex_enter_blocking(&state_mutex);
   pa1010d_connected = pa1010d_gps_init();
+  mutex_exit(&state_mutex);
   if (pa1010d_connected) {
     active_sensors++;
     Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
@@ -1418,61 +1426,67 @@ void loop() {
   handle_continuous_pong();
   handle_station_info();
   mutex_enter_blocking(&state_mutex);
-  if (target_id[0] && millis() - last_keep_alive_received >= config.keep_alive_timeout) {
+  if (target_id[0] && millis() - last_connect >= config.connect_timeout) {
     Serial.println(F("[warn]: Keep-alive timeout, clearing target"));
     target_id[0] = '\0';
     has_pi_path = false;
     relay_count = 0;
     mutex_exit(&state_mutex);
-    send_disconnect();
   } else {
     mutex_exit(&state_mutex);
   }
-  if (!target_id[0] && millis() - last_ping_attempt >= ping_min_interval) {
+  if (!target_id[0] && can_ping) {
     start_ping();
   }
   start_station_info();
-  static uint32_t last_sensor_transmit = 0;
   if (millis() - last_sensor_transmit < config.sensor_transmit_delay) return;
+   // New: Reset RG15 accumulated rainfall counter every 24 hours
+  mutex_enter_blocking(&state_mutex);
+  if (rg15_connected && millis() - last_rg15_acc_reset >= RG15_ACC_INTERVAL) {
+    Serial.println(F("[info]: 24-hour interval reached, resetting RG15 accumulated rainfall counter"));
+    rg15_reset_counters(true); // Reset only accumulated counter
+    last_rg15_acc_reset = millis();
+  }
+  mutex_exit(&state_mutex);
   last_sensor_transmit = millis();
   update_station_load();
   bool transmit_ok;
   Serial.print(F("[info]: Transmitting sensors: "));
+  Serial.print(F("Si7021 "));
   if (si7021_connected && (transmit_ok = si7021_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("Si7021 "));
   }
+  Serial.print(F("BME680 "));
   if (bme680_connected && (transmit_ok = bme680_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("BME680 "));
   }
+  Serial.print(F("TMP117 "));
   if (tmp117_connected && (transmit_ok = tmp117_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("TMP117 "));
   }
+  Serial.print(F("LTR390 "));
   if (ltr390_connected && (transmit_ok = ltr390_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("LTR390 "));
   }
+  Serial.print(F("PM25AQI "));
   if (pm25aqi_connected && (transmit_ok = pm25aqi_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("PM25AQI "));
   }
+  Serial.print(F("PA1010D "));
   if (pa1010d_connected && (transmit_ok = gps_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("PA1010D "));
   }
+  Serial.print(F("SCD40 "));
   if (scd40_connected && (transmit_ok = scd40_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("SCD40 "));
   }
+  Serial.print(F("RG15 "));
   if (rg15_connected && (transmit_ok = rg15_measure_transmit())) {
     start_blink_led();
-    Serial.print(F("RG15 "));
   }
   if (!(si7021_connected || bme680_connected || tmp117_connected || ltr390_connected ||
         pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected)) {
-    Serial.print(F("None"));
+    Serial.print(F("None Connected"));
   }
   Serial.println();
 }
