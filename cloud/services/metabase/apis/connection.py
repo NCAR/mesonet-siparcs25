@@ -10,8 +10,8 @@ config = Config()
 
 # Generate metabase session
 def get_mb():
-    email = os.getenv("MB_ADMIN_EMAIL")
-    password = os.getenv("MB_ADMIN_PASS")
+    email = config.metabase["admin_data"].get("email", "")
+    password = config.metabase["admin_data"].get("password", "")
     metabase_base_url = config.metabase["base_url"]
     session = Session(logger, metabase_base_url)
     session.create(email, password)

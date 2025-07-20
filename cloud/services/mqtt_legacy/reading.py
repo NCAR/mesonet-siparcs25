@@ -1,11 +1,10 @@
-import json
-from utils import utils_ftn, request
+from utils import utils_ftn, request, Config
 from logger import CustomLogger
 
 class ReadingService:
-    def __init__(self, logger: CustomLogger, bd_url: str):
+    def __init__(self, logger: CustomLogger, config: Config):
         self.console = logger
-        self.db_uri = f"{bd_url}/api/readings/"
+        self.db_uri = f"{config.database_api['base_url']}/api/readings/"
         self.reading = {}
 
     def get_station_id(self, decoded_data):

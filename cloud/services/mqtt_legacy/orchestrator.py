@@ -1,17 +1,19 @@
 from asyncio_mqtt import Client, MqttError
+from utils.config import Config
 from logger import CustomLogger
 from reading import ReadingService
 from station import StationService
 
 class OrchestrateData:
-    def __init__(self, logger: CustomLogger, db_uri: str, mb_url: str, topics: list[str], ip: str, port=1883, admin_data=None):
+    def __init__(self, logger: CustomLogger, config: Config):
         self.console = logger
-        self.topics = topics
-        self.ip = ip
-        self.port = port
-        self.admin_data = admin_data
-        self.reading_service = ReadingService(logger, db_uri)
-        self.station_service = StationService(logger, db_uri, mb_url)
+        self.topics = config.mqtt["topics"]
+        self.host = config.mqtt["host"]
+        self.port = config.mqtt["port"]
+        self.db_uri = config.database_api["base_url"]
+        self.admin_data = config.metabase["admin_data"]
+        self.reading_service = ReadingService(logger, config)
+        self.station_service = StationService(logger, config)
 
     async def initialize(self):
         self.console.log("Initializing default stations...")
@@ -19,7 +21,7 @@ class OrchestrateData:
 
     async def listen_and_store_readings(self):
         try:
-            async with Client(self.ip, self.port) as client:
+            async with Client(self.host, self.port) as client:
                 async with client.messages() as messages:
                     for topic in self.topics:
                         await client.subscribe(topic)

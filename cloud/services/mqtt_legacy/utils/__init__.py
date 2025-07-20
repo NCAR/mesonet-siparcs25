@@ -4,6 +4,7 @@ from datetime import datetime
 from .req import request
 from .payload import Payload
 from .decorators import premium
+from .config import Config
 
 from logger import CustomLogger
 console = CustomLogger()

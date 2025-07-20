@@ -32,8 +32,8 @@ class Application:
 
     def __initialize(self, config) -> InitComponents:
         db_name = os.getenv("ORCH_DB_NAME")
-        admin_email = os.getenv("MB_ADMIN_EMAIL")
-        admin_password = os.getenv("MB_ADMIN_PASS")
+        admin_email = config.metabase["admin_data"].get("email", "")
+        admin_password = config.metabase["admin_data"].get("password", "")
 
         db_payload = config.metabase["database"]
         db_service_url = config.database_api["base_url"]
