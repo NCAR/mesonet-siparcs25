@@ -1,4 +1,4 @@
-from sqlalchemy import TIMESTAMP, Column, ForeignKey, Integer, String, Float
+from sqlalchemy import TIMESTAMP, Column, String, Float
 from sqlalchemy.orm import relationship
 from database.connection import Base
 
@@ -15,7 +15,7 @@ class StationModel(Base):
     organization = Column(String(50), nullable=True)
     last_active = Column(TIMESTAMP(timezone=True), nullable=True)  # Store as timestamptz
     created_at = Column(TIMESTAMP(timezone=True), nullable=True)  # Store as timestamptz
-    email = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True)
 
     readings = relationship("ReadingModel", back_populates="station")
     # user = relationship("UserModel", back_populates="stations")
