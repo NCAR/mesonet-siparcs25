@@ -93,7 +93,7 @@ pgadmin:
     image: dpage/pgadmin4
     memory: 2Gi
     cpu: 2
-    port: 8888
+    port: 80
   tls:
     fqdn: pgadmin.mesonet.k8s.ucar.edu
     secretName: pgadmin-tls-cert
