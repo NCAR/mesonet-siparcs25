@@ -5,9 +5,6 @@ from models.reading import ReadingModel
 from schema.reading import ReadingCreate, ReadingResponse
 from typing import List
 from sqlalchemy.exc import IntegrityError
-from logger import CustomLogger
-
-console = CustomLogger()
 
 class ReadingService:
     def __init__(self, db: AsyncSession):

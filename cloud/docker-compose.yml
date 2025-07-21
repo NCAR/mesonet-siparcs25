@@ -118,7 +118,6 @@ services:
       DB_NAME: ${ORCH_DB_NAME}
       DB_HOST: ${ORCH_DB_HOST}
     volumes:
-      - ./services/logger.py:/cloud/services/database_api/logger.py
       - ./logs:/cloud/logs
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")'"]
@@ -156,6 +155,7 @@ services:
         condition: service_started
     volumes:
       - ./config.yaml:/cloud/config.yaml
+      - ./services/logger.py:/cloud/services/mqtt_listener/logger.py
 
   mqtt_legacy_orch:
     build:

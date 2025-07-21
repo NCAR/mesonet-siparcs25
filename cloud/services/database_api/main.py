@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.connection import Base, async_engine
 from routes import station, reading, user
-from logger import CustomLogger
 
 app = FastAPI(
     title="IoTwx",
@@ -10,7 +9,6 @@ app = FastAPI(
     version="0.0.1",
     docs_url="/api/docs"
 )
-console = CustomLogger(name="database_logs", log_dir="/cloud/logs")
 
 async def init_db():
     async with async_engine.begin() as conn:
@@ -30,7 +28,7 @@ async def on_startup():
 
 @app.get("/health")
 def health():
-    console.log("Health check pinged.")
+    print("Health check pinged.")
     return {"status": "ok"}
 
 app.include_router(station.router)

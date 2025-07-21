@@ -7,9 +7,6 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime, timezone
-from logger import CustomLogger
-
-console = CustomLogger()
 
 class StationService:
     def __init__(self, db: AsyncSession):
@@ -53,8 +50,6 @@ class StationService:
             raise HTTPException(status_code=500, detail=f"Internal error creating station {station_data['station_id']}: {str(e)}")
 
     async def update_station(self, station_id: str, update_data: StationUpdate) -> StationResponse:
-        #console.info(f"Updating station {station_id} with data: {update_data.dict()}")
-
         result = await self.db.execute(select(StationModel).where(StationModel.station_id == update_data.station_id))
         station = result.scalar_one_or_none()
         data = update_data.dict(exclude_unset=True)
