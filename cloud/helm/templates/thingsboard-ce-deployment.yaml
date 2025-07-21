@@ -43,3 +43,7 @@ spec:
           value: "sql"
         - name: SPRING_DRIVER_CLASS_NAME
           value: "org.postgresql.Driver"
+        - name: INSTALL_TB
+          value: "true"
+        - name: LOAD_DEMO
+          value: "false"
