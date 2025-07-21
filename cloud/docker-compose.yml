@@ -162,6 +162,8 @@ services:
       context: ./services/mqtt_legacy
     container_name: mqtt_legacy_orch
     hostname: mqtt_legacy
+    env_file:
+      - .env
     depends_on:
       database_api:
         condition: service_healthy

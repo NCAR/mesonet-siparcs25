@@ -1,21 +1,15 @@
 from datetime import datetime
+from typing import Tuple
 
 # They are exported in other files. DO NOT REMOVE
 from .req import request
 from .payload import Payload
 from .decorators import premium
+from .config import Config
 
 from logger import CustomLogger
 console = CustomLogger()
 
-sensor_measurements_map = {
-    "rg15": "Acc Rain",
-    "si7021": "Humidity",
-    "tmp1117": "Temperature",
-    "ltr390": "UV Light",
-    "pmsa003i": "Air Quality",
-    "bme680": "Temperature",
-}
 headers = {"Content-Type": "application/json"}
 
 class Utils:
@@ -30,11 +24,11 @@ class Utils:
             raise ValueError("Device string must be in the format 'platform/chip/station_id'")
 
     @staticmethod
-    def pass_sensor(sensor_str):
+    def pass_sensor(sensor_str: str) -> Tuple[str, str, str]:
         parts = sensor_str.strip().split('/')
         if len(parts) == 4:
             # Format: platform/protocol/model/measurement
-            sensor_protocol = '/'.join(parts[0:2])  # protocol/model
+            sensor_protocol = '/'.join(parts[0:2])
             sensor_model = parts[2]
             measurement_key = parts[3]
         elif len(parts) == 3:
@@ -43,14 +37,12 @@ class Utils:
             sensor_model = parts[1]
             measurement_key = parts[2]
         else:
-            raise ValueError("Sensor string must be in format 'protocol/model/measurement' or 'platform/protocol/model/measurement'")
+            raise ValueError(
+                "Sensor string must be in format 'protocol/model/measurement' "
+                "or 'platform/protocol/model/measurement'"
+            )
 
-        measurement = sensor_measurements_map.get(sensor_model)
-        if not measurement:
-            # if not part of the map, use the provided key
-            measurement = measurement_key
-
-        return sensor_protocol, sensor_model, measurement.lower()
+        return sensor_protocol.strip(), sensor_model.strip(), measurement_key.strip().lower()
     
     @staticmethod
     def parse_unix_time(unix_time, time_zone="local"):

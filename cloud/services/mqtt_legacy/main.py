@@ -3,20 +3,13 @@ import requests
 import asyncio
 from orchestrator import OrchestrateData
 from logger import CustomLogger
+from utils import Config
 
 console = CustomLogger(name="mqtt_logs", log_dir="/cloud/logs")
 
 class Application:
-    def __init__(self, ip, topics, port, db_base_url, mb_orch_url, admin_data=None):
-        self.orchestrator = OrchestrateData(
-            logger=console,
-            mb_url=mb_orch_url,
-            db_uri=db_base_url,
-            topics=topics,
-            ip=ip,
-            port=port,
-            admin_data=admin_data
-        )
+    def __init__(self, config: Config):
+        self.orchestrator = OrchestrateData(logger=console, config=config)
 
     async def run(self):
         await self.orchestrator.initialize()
@@ -25,20 +18,8 @@ class Application:
 if __name__ == "__main__":
     async def main():
         try:
-            with open('/cloud/config.yaml', 'r') as f:
-                config = yaml.safe_load(f)
-
-            if not config:
-                raise ValueError("Configuration file is empty or not properly formatted.")
-
-            host = config["mqtt"]["host"]
-            topics = config["mqtt"]["topics"]
-            port = config["mqtt"]["port"]
-            db_base_url = config["database_api"]["base_url"]
-            mb_orch_url = config["metabase"]["orch_url"]
-            admin_data = config["metabase"]["admin_data"]
-
-            app = Application(host, topics, port, db_base_url, mb_orch_url, admin_data)
+            config = Config()
+            app = Application(config)
             await app.run()
 
         except requests.exceptions.Timeout:

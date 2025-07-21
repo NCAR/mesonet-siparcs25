@@ -28,6 +28,8 @@ metabase:
   admin_data:
     first_name: Isaac
     last_name: Oppong-Baah
+    email: "${MB_ADMIN_EMAIL}"
+    password: "${MB_ADMIN_PASS}"
   config:
     site_name: IoTwx MB
   settings:
