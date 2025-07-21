@@ -7,11 +7,12 @@ metadata:
     group: {{ .Values.app.group }}
 data:
   init.sql: |
+    -- Create databases
     CREATE DATABASE metabase;
     CREATE DATABASE iotwx_db;
     CREATE DATABASE thingsboard;
     
-    -- Connect to iotwx_db before creating tables
+    -- Switch to iotwx_db and create application tables ONLY
     \c iotwx_db;
 
     -- Create the users table first (required for FK in stations)
@@ -54,3 +55,5 @@ data:
         altitude DOUBLE PRECISION,
         FOREIGN KEY (station_id) REFERENCES stations(station_id)
     );
+
+    -- NOTE: thingsboard database is left empty for ThingsBoard to initialize
