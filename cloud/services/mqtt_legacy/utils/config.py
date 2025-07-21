@@ -61,3 +61,7 @@ class Config:
     @property
     def station(self):
         return self.__data["station"]
+    
+    @property
+    def model_service(self):
+        return self.__data["model_service"]

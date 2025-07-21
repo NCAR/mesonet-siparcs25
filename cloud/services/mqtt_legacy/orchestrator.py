@@ -47,7 +47,10 @@ class OrchestrateData:
         else:
             self.console.log(f"Station ID {station_id} found. Proceeding with reading.")
 
+        # Add altitude, latitude and longitude to the reading from the station data since the station is static
         self.reading_service.add_location_to_reading(station_id, stations)
+        self.reading_service.add_altitude_to_reading(station_id, stations)
+
         self.reading_service.parse_reading(decoded)
         posted_reading = await self.reading_service.create_reading()
         self.console.log(f"Reading posted: id={posted_reading.get('station_id')}")

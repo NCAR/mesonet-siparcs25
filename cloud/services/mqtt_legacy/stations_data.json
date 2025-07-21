@@ -27,7 +27,8 @@
     "lastname": "Sur",
     "email": "i.oppong-baah@spartans.nsu.edu",
     "organization": "NCAR",
-    "device": "m5atom ESP32"
+    "device": "m5atom ESP32",
+    "altitude": 1629.675659
   },
   {
     "station_id": "neon000",
@@ -37,7 +38,8 @@
     "lastname": "Mon",
     "email": "oppongbaahisaac@yahoo.com",
     "organization": "NCAR",
-    "device": "m5atom ESP32"
+    "device": "m5atom ESP32",
+    "altitude": 2618.865234
   },
   {
     "station_id": "broomfield_test",

@@ -35,7 +35,7 @@ class StationService:
 
         # Add created_at and last_active fields
         now = datetime.now(timezone.utc)
-        station = {**station, "created_at": now.isoformat(), "last_active": now.isoformat()}
+        station = {**station, "created_at": now.isoformat(), "last_active": now.isoformat(), "altitude": station.get("altitude", 0.0)}
 
         # Add the station
         station_res: dict = await request.insert(url, station)
