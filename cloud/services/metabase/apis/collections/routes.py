@@ -1,6 +1,6 @@
 import requests
 from fastapi import APIRouter, Depends
-from typing import Any, Optional
+from typing import Optional
 from apis.connection import Session, get_mb, logger as console
 from collections_.collection_services import CollectionServices
 from .schema import CollectionCreate, CollectionRes

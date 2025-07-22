@@ -2,8 +2,7 @@
 .venv
 .env
 .vscode
-config.yaml
 logs
-cloud/services/credit/model.yml
 cloud/services/credit/static_data
 cloud/services/credit/credit_run/results/
+__pycache__

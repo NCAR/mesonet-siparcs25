@@ -4,14 +4,17 @@
     "broker_port": 1883,
     "msg_topic_template": "sensors/{station_id}"
   },
+
   "radio": {
+    "edge_id": "default_pi",
+    "rcv_timeout": 0.5,
+    "pong_duration": 3.0,
+    "pong_initial_delay_max": 1.5,
     "overload_threshold": 0.85,
-    "pi_station_midpoint": 20,
-    "pi_station_steepness": 0.2,
-    "pi_cpu_weight": 0.5,
+    "pi_station_midpoint": 5,
+    "pi_station_steepness": 1,
+    "pi_cpu_weight": 0.4,
     "pi_mem_weight": 0.3,
-    "pi_station_weight": 0.2,
-    "keep_alive_interval": 1,
-    "rcv_timeout": 1
+    "pi_station_weight": 0.3
   }
 }

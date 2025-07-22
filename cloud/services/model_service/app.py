@@ -1,9 +1,7 @@
 # app.py
 from flask import Flask, request, jsonify
 from openai import OpenAI
-import time
 import logging
-import os
 
 app = Flask(__name__)
 
@@ -17,8 +15,6 @@ client = OpenAI(
     base_url='http://host.docker.internal:12434/engines/llama.cpp/v1',
     timeout=200,  # Set a timeout for requests  
     )
-
-#
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -56,4 +52,4 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5002)
