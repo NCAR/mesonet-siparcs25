@@ -1,6 +1,9 @@
 # Use the base image image
 FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
 
+# Install compatible versions
+RUN pip install --no-cache-dir "paho-mqtt==1.6.1"
+
 # Copy the necessary files
 COPY . ./services/mqtt_legacy/
 

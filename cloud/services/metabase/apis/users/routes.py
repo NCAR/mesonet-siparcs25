@@ -1,33 +1,17 @@
+import requests
 from typing import List, cast
 from fastapi import APIRouter, Depends
-import requests
 from users.user_services import UserServices
 from utils.session import Session
-from utils.config import Config
-from logger import CustomLogger
 from .schema import UserData, UserResponse
+from apis.connection import get_mb, logger as console, Session
 
-console = CustomLogger(name="metabase_db_logs", log_dir="/cloud/logs")
 router = APIRouter(prefix="/metabase/users", tags=["Users"])
-config = Config()
-
-# Generate metabase session
-def get_mb():
-    email = config.metabase["admin_data"]["email"]
-    password = config.metabase["admin_data"]["password"]
-    metabase_base_url = config.metabase["base_url"]
-    session = Session(console, metabase_base_url)
-    session.create(email, password)
-
-    try:
-        yield session
-
-    finally:
-        session.close()
 
 @router.get("/", response_model=List[UserResponse])
 async def get_users(session: Session = Depends(get_mb)):
     async def __(user: UserServices):
+        console.warning("route")
         return await user.get_all_users()
 
     return await main(session, __)

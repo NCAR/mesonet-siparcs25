@@ -11,4 +11,4 @@ class UserModel(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     # One-to-many relationship: a user has many stations
-    stations = relationship("StationModel", back_populates="user", cascade="all, delete-orphan")
+    # stations = relationship("StationModel", back_populates="user", cascade="all, delete-orphan")

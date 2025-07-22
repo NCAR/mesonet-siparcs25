@@ -89,7 +89,7 @@ def add_pressure_and_geopotential(data):
         xr.Dataset
     """
     sfc_pressure = data["SP"].values.squeeze()
-    sfc_gpt = data["hgtsfc"].values.squeeze() * GRAVITY
+    sfc_gpt = data["Z_GDS4_SFC"].values.squeeze() * GRAVITY
     level_T = data["T"].values.squeeze()
     level_Q = data["Q"].values.squeeze()
     a_coeff = data.attrs["ak"]
@@ -157,12 +157,17 @@ def combine_data(atm_data, sfc_data):
     Returns:
         xr.Dataset
     """
+
+    print(f"combine data before renaming: {atm_data}")
+
     for var in sfc_data.data_vars:
         atm_data[var] = (sfc_data[var].dims, sfc_data[var].values)
 
     for var in atm_data.data_vars:
         if var in gfs_map.keys():
             atm_data = atm_data.rename({var: gfs_map[var]})
+
+    print(f"combine data after renaming: {atm_data}")
 
     data = add_pressure_and_geopotential(atm_data)
 

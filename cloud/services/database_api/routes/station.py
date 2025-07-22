@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from database.connection import get_db_async
 from crud.station import StationService
-from schema.station import StationCreate, StationResponse
+from schema.station import StationCreate, StationUpdate, StationResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
@@ -32,7 +32,7 @@ async def create_station(data: StationCreate, db: AsyncSession = Depends(get_db_
 
 
 @router.put("/{station_id}", response_model=StationResponse)
-async def update_station(station_id: str, data: StationCreate, db: AsyncSession = Depends(get_db_async)):
+async def update_station(station_id: str, data: StationUpdate, db: AsyncSession = Depends(get_db_async)):
     service = StationService(db)
     updated = await service.update_station(station_id, data)
     if not updated:

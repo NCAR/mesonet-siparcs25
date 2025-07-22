@@ -1,16 +1,18 @@
 import paho.mqtt.client as mqtt
-from paho.mqtt.client import CallbackAPIVersion
 import json
 import time
 from datetime import datetime, timezone
 import requests
 import redis
-import os
 import yaml
 from typing import Dict, Any
 from threading import Lock, Thread
-from collections import defaultdict
+import logging
+from users import UsersService
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
+logger = logging.getLogger(__name__)
 # Configuration
 CONFIG_FILE = "/cloud/config.yaml"
 
@@ -24,7 +26,7 @@ except Exception as e:
 
 # Validate required fields
 required_fields = {
-    'mqtt': ['host', 'port', 'msg_topic'],
+    'mqtt': ['host2', 'port', 'msg_topic'],
     'database_api': ['base_url'],
     'redis': ['host', 'port'],
     'station': ['active_station_timeout', 'batch_interval'],
@@ -40,7 +42,7 @@ for section, fields in required_fields.items():
             exit(1)
 
 # Configuration parameters
-MQTT_BROKER = config['mqtt']['host']
+MQTT_BROKER = config['mqtt']['host2']
 MQTT_PORT = config['mqtt']['port']
 MQTT_TOPIC = config['mqtt']['msg_topic']
 API_BASE_URL = config['database_api']['base_url']
@@ -49,15 +51,17 @@ REDIS_PORT = config['redis']['port']
 ACTIVE_STATION_TIMEOUT = config['station']['active_station_timeout']
 BATCH_INTERVAL = config['station']['batch_interval']
 MODEL_SERVICE_URL = config['model_service']['base_url']
+MODEL_SERVICE_MODEL_NAME = config['model_service']['model_name']
 MODEL_ENDPOINT = f"{MODEL_SERVICE_URL}/predict"
 STATION_ENDPOINT = f"{API_BASE_URL}/api/stations"
 READING_ENDPOINT = f"{API_BASE_URL}/api/readings/"
+METABASE_ORCH_URL = config['metabase']['orch_url']
 
 def get_current_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 class MQTTDatabaseUpdater:
-    def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int, batch_interval: int, model_service_url: str):
+    def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int, batch_interval: int, model_service_url: str, metabase_orch_url: str):
         self.broker = broker
         self.port = port
         self.api_base_url = api_base_url
@@ -79,6 +83,7 @@ class MQTTDatabaseUpdater:
         self.test_api_connections()
         self.batch_thread = Thread(target=self.process_batch, daemon=True)
         self.batch_thread.start()
+        self.users = UsersService(api_base_url, metabase_orch_url)
 
     def test_redis_connection(self):
         try:
@@ -109,9 +114,9 @@ class MQTTDatabaseUpdater:
             exit(1)
 
     def initialize_client(self):
-        self.client = mqtt.Client(CallbackAPIVersion.VERSION2, client_id="db_updater")
+        self.client = mqtt.Client(client_id="db_updater")
         self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
+        #self.client.on_disconnect = self.on_disconnect
         self.client.on_message = self.on_message
 
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
@@ -124,7 +129,7 @@ class MQTTDatabaseUpdater:
             print(f"[warn]: Connection failed: {reason_code}")
             self.connected = False
 
-    def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties=None):
+    def on_disconnect(self,client, userdata, reason_code, properties=None):
         print(f"[warn]: Disconnected from MQTT broker, reason_code={reason_code}")
         self.connected = False
 
@@ -167,21 +172,21 @@ class MQTTDatabaseUpdater:
                 if not self.sensor_buffer:
                     continue
                 print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
-                stations_to_remove = []
+                inactive_stations = []
                 current_time = datetime.now(timezone.utc)
                 for station_id, station_data in list(self.sensor_buffer.items()):
                     redis_key = f"station:{station_id}"
                     try:
                         # Check if station is inactive based on last_active timestamp
-                        last_active_str = station_data["metadata"].get("last_active")
+                        last_active_str = station_data["metadata"].get("last_active") 
                         if last_active_str:
                             try:
                                 last_active = datetime.fromisoformat(last_active_str)
                                 time_diff = (current_time - last_active).total_seconds()
                                 if time_diff > self.active_station_timeout:
-                                    stations_to_remove.append(station_id)
-                                    print(f"[info]: Station {station_id} inactive for {time_diff}s, marking for removal from buffer")
-                                    continue
+                                    inactive_stations.append(station_id)
+                                    print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
+                                
                             except ValueError:
                                 print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active_str}")
 
@@ -193,7 +198,7 @@ class MQTTDatabaseUpdater:
 
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
-                        model_names = ["ai/gemma3n"]
+                        model_names = [MODEL_SERVICE_MODEL_NAME]
                         model_summaries = {}
                         if merged_sensor_data:
                             for model_name in model_names:
@@ -203,6 +208,10 @@ class MQTTDatabaseUpdater:
                         # Update buffer with merged data to keep it up-to-date
                         self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
+                        if station_id in inactive_stations:
+                            self.sensor_buffer[station_id]["metadata"]["active"] = False
+                        else:
+                            self.sensor_buffer[station_id]["metadata"]["active"] = True
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
@@ -212,17 +221,14 @@ class MQTTDatabaseUpdater:
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
                         }
                         self.redis_client.hset(redis_key, mapping=redis_station_data)
-                        self.redis_client.expire(redis_key, self.active_station_timeout)
+                        #self.redis_client.expire(redis_key, self.active_station_timeout)
                         print(f"[info]: Updated Redis for station {station_id}: data={merged_sensor_data}, metadata={merged_metadata}, model_summaries={model_summaries}")
 
                     except (redis.RedisError, json.JSONDecodeError) as e:
                         print(f"[error]: Failed to update Redis for station {station_id}: {e}")
                         # Keep buffer data intact to maintain up-to-date info
 
-                # Remove stations not in Redis or inactive from buffer
-                for station_id in stations_to_remove:
-                    del self.sensor_buffer[station_id]
-                    print(f"[info]: Removed station {station_id} from buffer")
+              
                     
     def on_message(self, client, userdata, message):
         try:
@@ -268,6 +274,22 @@ class MQTTDatabaseUpdater:
         print(f"[info]: Processing station_info for {station_id}")
         print(station_data)
 
+        if not station_data.get("email"):
+            print(f"[warn]: No email provided for station {station_id}, skipping user and group creation")
+            return
+
+        # Manage a user at realtime
+        user = self.users.manage(station_data)
+        if not (user and user.get("email")):
+            print("The user already exists in the database.")
+
+        # Manage a group at realtime
+        station_id = station_data.get("station_id", "test")
+        group = self.users.create_group(station_id, user.get("email"))
+        if group:
+            group_name = group.get("name")
+            print(f"Group '{group_name}' has been added successfully")
+        
         try:
             response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
             if response.status_code == 200:
@@ -296,7 +318,7 @@ class MQTTDatabaseUpdater:
                 'altitude': str(station_data.get('altitude', '1624.0')),
             }
             self.redis_client.hset(redis_key, mapping=redis_station_data)
-            self.redis_client.expire(redis_key, self.active_station_timeout)
+            #self.redis_client.expire(redis_key, self.active_station_timeout)
             print(f"[info]: Updated station {station_id} in Redis: {redis_station_data}")
         except redis.RedisError as e:
             print(f"[error]: Failed to update Redis for station {station_id}: {e}")
@@ -364,16 +386,16 @@ class MQTTDatabaseUpdater:
             }
 
             try:
+                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json={"station_id": station_id,"last_active": data.get("timestamp", timestamp)}, headers={"Content-Type": "application/json"}, timeout=5)
+                if response.status_code == 200:
+                    print(f"[info]: Updated station {station_id} last_active in Postgres")
+                else:
+                    print(f"[error]: Failed to update station {station_id} last_active in Postgres: {response.status_code} {response.text}")
                 response = requests.post(READING_ENDPOINT, json=reading_payload, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
                 else:
                     print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.status_code} {response.text}")
-                response = requests.put(f"{STATION_ENDPOINT}/{station_id}", json={"last_active": data.get("timestamp", timestamp)}, headers={"Content-Type": "application/json"}, timeout=5)
-                if response.status_code == 200:
-                    print(f"[info]: Updated station {station_id} last_active in Postgres")
-                else:
-                    print(f"[error]: Failed to update station {station_id} last_active in Postgres: {response.status_code} {response.text}")
  
             except requests.RequestException as e:
                 print(f"[error]: Failed to communicate with Postgres for reading {station_id}: {e}")
@@ -402,19 +424,26 @@ class MQTTDatabaseUpdater:
         if not self.connected and (current_time - self.last_connection_attempt >= self.connection_interval):
             try:
                 print(f"[info]: Attempting to connect to {self.broker}:{self.port}")
-                self.client.connect(self.broker, self.port, 120)
+                self.client.connect(self.broker, self.port, 60)
                 self.last_connection_attempt = current_time
             except Exception as e:
                 print(f"[error]: Failed to connect to broker: {e}")
                 self.last_connection_attempt = current_time
 
     def start(self):
+        """Start the gateway."""
+        logger.info("Starting ThingsBoard MQTT Gateway...")
+        self.client.connect(self.broker, self.port, 60)
         self.client.loop_start()
-        while True:
-            if not self.connected:
-                self.connect()
-            time.sleep(1)
-
+        logger.info("Gateway is running. Waiting for MQTT messages...")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("KeyboardInterrupt detected. Shutting down...")
+            self.client.loop_stop()
+            self.client.disconnect()
+            logger.info("MQTT client stopped.")
 def main():
     updater = MQTTDatabaseUpdater(
         MQTT_BROKER,
@@ -424,7 +453,8 @@ def main():
         REDIS_PORT,
         ACTIVE_STATION_TIMEOUT,
         BATCH_INTERVAL,
-        MODEL_SERVICE_URL
+        MODEL_SERVICE_URL,
+        METABASE_ORCH_URL
     )
     updater.start()
 
