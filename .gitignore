@@ -5,3 +5,4 @@
 logs
 cloud/services/credit/static_data
 cloud/services/credit/credit_run/results/
+__pycache__

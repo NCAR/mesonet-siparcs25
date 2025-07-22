@@ -19,7 +19,7 @@ class Req:
             res = await client.post(path, json=data, headers=headers, timeout=60)
 
             if not (200 <= res.status_code < 300):
-                return res.raise_for_status()
+                res.raise_for_status()
             return res.json()
         
     @staticmethod

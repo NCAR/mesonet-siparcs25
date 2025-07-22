@@ -8,6 +8,7 @@ import yaml
 from typing import Dict, Any
 from threading import Lock, Thread
 import logging
+from users import UsersService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
@@ -54,12 +55,13 @@ MODEL_SERVICE_MODEL_NAME = config['model_service']['model_name']
 MODEL_ENDPOINT = f"{MODEL_SERVICE_URL}/predict"
 STATION_ENDPOINT = f"{API_BASE_URL}/api/stations"
 READING_ENDPOINT = f"{API_BASE_URL}/api/readings/"
+METABASE_ORCH_URL = config['metabase']['orch_url']
 
 def get_current_timestamp():
     return datetime.now(timezone.utc).isoformat()
 
 class MQTTDatabaseUpdater:
-    def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int, batch_interval: int, model_service_url: str):
+    def __init__(self, broker: str, port: int, api_base_url: str, redis_host: str, redis_port: int, active_station_timeout: int, batch_interval: int, model_service_url: str, metabase_orch_url: str):
         self.broker = broker
         self.port = port
         self.api_base_url = api_base_url
@@ -81,6 +83,7 @@ class MQTTDatabaseUpdater:
         self.test_api_connections()
         self.batch_thread = Thread(target=self.process_batch, daemon=True)
         self.batch_thread.start()
+        self.users = UsersService(api_base_url, metabase_orch_url)
 
     def test_redis_connection(self):
         try:
@@ -270,8 +273,23 @@ class MQTTDatabaseUpdater:
         station_data.pop('allow_relay', None)
         print(f"[info]: Processing station_info for {station_id}")
         print(station_data)
-        
 
+        if not station_data.get("email"):
+            print(f"[warn]: No email provided for station {station_id}, skipping user and group creation")
+            return
+
+        # Manage a user at realtime
+        user = self.users.manage(station_data)
+        if not (user and user.get("email")):
+            print("The user already exists in the database.")
+
+        # Manage a group at realtime
+        station_id = station_data.get("station_id", "test")
+        group = self.users.create_group(station_id, user.get("email"))
+        if group:
+            group_name = group.get("name")
+            print(f"Group '{group_name}' has been added successfully")
+        
         try:
             response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
             if response.status_code == 200:
@@ -435,7 +453,8 @@ def main():
         REDIS_PORT,
         ACTIVE_STATION_TIMEOUT,
         BATCH_INTERVAL,
-        MODEL_SERVICE_URL
+        MODEL_SERVICE_URL,
+        METABASE_ORCH_URL
     )
     updater.start()
 
