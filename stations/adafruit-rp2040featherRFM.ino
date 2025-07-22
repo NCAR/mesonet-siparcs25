@@ -113,6 +113,7 @@ char target_id[17] = {0};
 bool has_pi_path = false;
 bool can_ping = true;
 bool can_select = false;
+bool can_transmit = true;
 uint8_t relay_count = 0;
 uint8_t target_relay_count = 0;
 uint32_t last_broadcast = 0;
@@ -455,7 +456,7 @@ void start_continuous_pong() {
     mutex_exit(&state_mutex);
     return;
   }
-  Serial.println(F("[debug]: Starting/Extending continuous pong for 3 seconds"));
+  Serial.println(F("[debug]: Starting/Extending continuous pong for 6 seconds"));
   current_state = SENDING_CONTINUOUS_PONG;
   continuous_pong_start = millis();
   last_packet_time = millis();
@@ -470,12 +471,14 @@ void handle_station_info() {
   }
   if (millis() - last_station_info_sent >= CONTINUOUS_TX_DURATION) {
     Serial.println(F("[info]: Completed continuous station_info transmission"));
+    can_transmit = true;
     current_state = IDLE;
     last_packet_time = millis();
     mutex_exit(&state_mutex);
     return;
   }
   mutex_exit(&state_mutex);
+  
 
   File file = LittleFS.open("/config.json", "r");
   if (!file) {
@@ -486,7 +489,7 @@ void handle_station_info() {
     mutex_exit(&state_mutex);
     return;
   }
-  StaticJsonDocument<256> cfg;
+  StaticJsonDocument<512> cfg;
   DeserializationError error = deserializeJson(cfg, file);
   file.close();
   if (error) {
@@ -539,8 +542,9 @@ void start_station_info() {
     mutex_exit(&state_mutex);
     return;
   }
-  Serial.println(F("[debug]: Starting continuous station_info transmission for 3 seconds"));
+  Serial.println(F("[debug]: Starting continuous station_info transmission for 6 seconds"));
   current_state = SENDING_STATION_INFO;
+  can_transmit = false;
   last_station_info_sent = millis();
   last_packet_time = millis();
   mutex_exit(&state_mutex);
@@ -1424,7 +1428,6 @@ void loop() {
   }
   handle_blink_led();
   handle_continuous_pong();
-  handle_station_info();
   mutex_enter_blocking(&state_mutex);
   if (target_id[0] && millis() - last_connect >= config.connect_timeout) {
     Serial.println(F("[warn]: Keep-alive timeout, clearing target"));
@@ -1439,7 +1442,8 @@ void loop() {
     start_ping();
   }
   start_station_info();
-  if (millis() - last_sensor_transmit < config.sensor_transmit_delay) return;
+  handle_station_info();
+  if (millis() - last_sensor_transmit < config.sensor_transmit_delay || !can_transmit) return;
    // New: Reset RG15 accumulated rainfall counter every 24 hours
   mutex_enter_blocking(&state_mutex);
   if (rg15_connected && millis() - last_rg15_acc_reset >= RG15_ACC_INTERVAL) {
