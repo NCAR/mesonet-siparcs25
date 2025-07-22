@@ -67,7 +67,7 @@ modelservice:
     image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-22.16
     memory: 2Gi
     cpu: 2
-    port: 5000
+    port: 5002
   tls:
     fqdn: model-service.mesonet.k8s.ucar.edu
     secretName: model-service-tls-cert
