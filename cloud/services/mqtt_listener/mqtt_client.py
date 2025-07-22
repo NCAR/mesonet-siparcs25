@@ -169,21 +169,21 @@ class MQTTDatabaseUpdater:
                 if not self.sensor_buffer:
                     continue
                 print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
-                stations_to_remove = []
+                inactive_stations = []
                 current_time = datetime.now(timezone.utc)
                 for station_id, station_data in list(self.sensor_buffer.items()):
                     redis_key = f"station:{station_id}"
                     try:
                         # Check if station is inactive based on last_active timestamp
-                        last_active_str = station_data["metadata"].get("last_active")
+                        last_active_str = station_data["metadata"].get("last_active") 
                         if last_active_str:
                             try:
                                 last_active = datetime.fromisoformat(last_active_str)
                                 time_diff = (current_time - last_active).total_seconds()
                                 if time_diff > self.active_station_timeout:
-                                    stations_to_remove.append(station_id)
-                                    print(f"[info]: Station {station_id} inactive for {time_diff}s, marking for removal from buffer")
-                                    continue
+                                    inactive_stations.append(station_id)
+                                    print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
+                                
                             except ValueError:
                                 print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active_str}")
 
@@ -205,6 +205,10 @@ class MQTTDatabaseUpdater:
                         # Update buffer with merged data to keep it up-to-date
                         self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
+                        if station_id in inactive_stations:
+                            self.sensor_buffer[station_id]["metadata"]["active"] = False
+                        else:
+                            self.sensor_buffer[station_id]["metadata"]["active"] = True
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
@@ -214,17 +218,14 @@ class MQTTDatabaseUpdater:
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
                         }
                         self.redis_client.hset(redis_key, mapping=redis_station_data)
-                        self.redis_client.expire(redis_key, self.active_station_timeout)
+                        #self.redis_client.expire(redis_key, self.active_station_timeout)
                         print(f"[info]: Updated Redis for station {station_id}: data={merged_sensor_data}, metadata={merged_metadata}, model_summaries={model_summaries}")
 
                     except (redis.RedisError, json.JSONDecodeError) as e:
                         print(f"[error]: Failed to update Redis for station {station_id}: {e}")
                         # Keep buffer data intact to maintain up-to-date info
 
-                # Remove stations not in Redis or inactive from buffer
-                for station_id in stations_to_remove:
-                    del self.sensor_buffer[station_id]
-                    print(f"[info]: Removed station {station_id} from buffer")
+              
                     
     def on_message(self, client, userdata, message):
         try:
@@ -299,7 +300,7 @@ class MQTTDatabaseUpdater:
                 'altitude': str(station_data.get('altitude', '1624.0')),
             }
             self.redis_client.hset(redis_key, mapping=redis_station_data)
-            self.redis_client.expire(redis_key, self.active_station_timeout)
+            #self.redis_client.expire(redis_key, self.active_station_timeout)
             print(f"[info]: Updated station {station_id} in Redis: {redis_station_data}")
         except redis.RedisError as e:
             print(f"[error]: Failed to update Redis for station {station_id}: {e}")
