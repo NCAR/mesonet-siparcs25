@@ -181,6 +181,6 @@ thingsboardorch:
   name: thingsboard-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/thingsboard:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/thingsboard:2025-07-22.21
     memory: 2Gi
     cpu: 2
