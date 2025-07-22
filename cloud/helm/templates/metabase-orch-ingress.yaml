@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.metabaseorch.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    group: {{ .Values.app.group }}
+  annotations:
+    cert-manager.io/cluster-issuer: "incommon"
+spec:
+  ingressClassName: nginx-internal
+  tls:
+    - hosts:
+      - {{ .Values.metabaseorch.tls.fqdn }}
+      secretName: {{ .Values.metabaseorch.tls.secretName }}
+  rules:
+  - host: {{ .Values.metabaseorch.tls.fqdn }}
+    http:
+      paths:
+      - path: {{ .Values.metabaseorch.path }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.metabaseorch.name }}
+            port:
+              number: {{ .Values.metabaseorch.container.port }}

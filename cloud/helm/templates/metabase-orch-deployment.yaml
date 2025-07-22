@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.metabaseorch.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.metabaseorch.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.metabaseorch.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.metabaseorch.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.metabaseorch.name }}
+    spec:
+      containers:
+      - name: {{ .Values.metabaseorch.name }}
+        image: {{ .Values.metabaseorch.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.metabaseorch.container.memory }}
+            cpu: {{ .Values.metabaseorch.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.metabaseorch.container.port }}
+        env:
+        - name: MB_DB_TYPE
+          value: postgres
+        - name: MB_DB_DBNAME
+          value: postgres
+        - name: MB_DB_PORT
+          value: "5432"
+        - name: MB_DB_USER
+          value: postgres
+        - name: MB_DB_PASS
+          value: temppostgrespw
+        - name: MB_DB_HOST
+          value: postgres
+        - name: ORCH_DB_USER
+          value: postgres
+        - name: ORCH_DB_PASS
+          value: temppostgrespw
+        - name: ORCH_DB_NAME
+          value: postgres
+        - name: ORCH_DB_HOST
+          value: postgres
+        - name: REDIS_HOST
+          value: redis
+        - name: REDIS_PORT
+          value: "6379"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /cloud/config.yaml
+          subPath: config.yaml
+        - name: logger-volume
+          mountPath: /cloud/services/metabase/logger.py
+          subPath: logger.py
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.app.config.name }}
+      - name: logger-volume
+        configMap:
+            name: {{ .Values.app.logger.name }}

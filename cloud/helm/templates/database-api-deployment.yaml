@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.databaseapi.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.databaseapi.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.databaseapi.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.databaseapi.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.databaseapi.name }}
+    spec:
+      containers:
+      - name: {{ .Values.databaseapi.name }}
+        image: {{ .Values.databaseapi.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.databaseapi.container.memory }}
+            cpu: {{ .Values.databaseapi.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.databaseapi.container.port }}
+        env:
+        - name: ORCH_DB_USER
+          value: postgres
+        - name: ORCH_DB_PASS
+          value: temppostgrespw
+        - name: ORCH_DB_NAME
+          value: iotwx_db
+        - name: ORCH_DB_HOST
+          value: postgres
+        - name: POSTGRES_PORT
+          value: "5432"
+        volumeMounts:
+        - name: logger-volume
+          mountPath: /cloud/services/database_api/logger.py
+          subPath: logger.py
+      volumes:
+      - name: logger-volume
+        configMap:
+          name: {{ .Values.app.logger.name }}

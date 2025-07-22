@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.postgres.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.postgres.name }}
+    group: {{ .Values.app.group }}
+spec:
+  serviceName: {{ .Values.postgres.name }}
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: {{ .Values.postgres.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.postgres.name }}
+    spec:
+      containers:
+      - name: {{ .Values.postgres.name }}
+        image: {{ .Values.postgres.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.postgres.container.memory }}
+            cpu: {{ .Values.postgres.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.postgres.container.port }}
+        env:
+        - name: POSTGRES_DB
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: temppostgrespw
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d/init.sql
+          subPath: init.sql
+      volumes:
+      - name: postgres-init
+        configMap:
+          name: {{ .Values.postgres.config.name }}
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: ceph-kubepv
+      resources:
+        requests:
+          storage: {{ .Values.postgres.volume.size }}
