@@ -64,7 +64,7 @@ modelservice:
   name: model-service
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-22.21
     memory: 2Gi
     cpu: 2
     port: 5002
@@ -83,7 +83,7 @@ mqttlistener:
   name: mqtt-listener
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-22.21
     memory: 2Gi
     cpu: 2
 pgadmin:
@@ -181,6 +181,6 @@ thingsboardorch:
   name: thingsboard-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/thingsboard:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/thingsboard:2025-07-22.21
     memory: 2Gi
     cpu: 2
