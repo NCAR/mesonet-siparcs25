@@ -39,7 +39,7 @@ jobs:
           password: ${{ secrets.HARBOR_SECRET }}
       - name: Build image
         run: |
-          docker buildx build --push -f cloud/services/mqtt_listener/Dockerfile -t hub.k8s.ucar.edu/mesonet/mqtt-listener:${{ steps.date.outputs.date }} cloud/services/mqtt_listener/.
+          cp cloud/logger.py cloud/services/mqtt_listener/ && docker buildx build --push -f cloud/services/mqtt_listener/Dockerfile -t hub.k8s.ucar.edu/mesonet/mqtt-listener:${{ steps.date.outputs.date }} cloud/services/mqtt_listener/.
       - name: Update Helm chart with new image
         run: |
           sed -i "/mqtt-listener:/,/^[a-zA-Z]/ s|image: .*|image: hub.k8s.ucar.edu/mesonet/mqtt-listener:${{ steps.date.outputs.date }}|" cloud/helm/values.yaml
