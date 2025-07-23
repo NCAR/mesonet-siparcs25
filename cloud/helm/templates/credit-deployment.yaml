@@ -17,35 +17,35 @@ spec:
         app: {{ .Values.credit.name }}
     spec:
       containers:
-      - name: {{ .Values.credit.name }}
-        image: {{ .Values.credit.container.image }}
-        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
-        resources:
-          limits:
-            memory: {{ .Values.credit.container.memory }}
-            cpu: {{ .Values.credit.container.cpu }}
-        volumeMounts:
-        - name: config-volume
-          mountPath: /cloud/config.yaml
-          subPath: config.yaml
-        - name: logger-volume
-          mountPath: /cloud/services/credit/logger.py
-          subPath: logger.py
-        - name: static-volume
-            mountPath: /cloud/services/credit/static_data
-        - name: checkpoint-volume
-            mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
-            subPath: model_checkpoint.pt
+        - name: {{ .Values.credit.name }}
+          image: {{ .Values.credit.container.image }}
+          imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+          resources:
+            limits:
+              memory: {{ .Values.credit.container.memory }}
+              cpu: {{ .Values.credit.container.cpu }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /cloud/config.yaml
+              subPath: config.yaml
+            - name: logger-volume
+              mountPath: /cloud/services/credit/logger.py
+              subPath: logger.py
+            - name: static-volume
+              mountPath: /cloud/services/credit/static_data
+            - name: checkpoint-volume
+              mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
+              subPath: model_checkpoint.pt
       volumes:
-      - name: config-volume
-        configMap:
-          name: {{ .Values.app.config.name }}
-      - name: logger-volume
-        configMap:
+        - name: config-volume
+          configMap:
+            name: {{ .Values.app.config.name }}
+        - name: logger-volume
+          configMap:
             name: {{ .Values.app.logger.name }}
-      - name: static-volume
-        persistentVolumeClaim:
-          claimName: {{ .Values.credit.volume.static_data }}
-      - name: checkpoint-volume
-        persistentVolumeClaim:
-          claimName: {{ .Values.credit.volume.checkpoint }}
+        - name: static-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.credit.volume.static_data }}
+        - name: checkpoint-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.credit.volume.checkpoint }}
