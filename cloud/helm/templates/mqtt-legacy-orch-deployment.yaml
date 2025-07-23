@@ -25,10 +25,10 @@ spec:
             memory: {{ .Values.mqttlegacy.container.memory }}
             cpu: {{ .Values.mqttlegacy.container.cpu }}
         env:
-        - name: MB_ADMIN_EMAIL 
-          value: "ncote@ucar.edu"
+        - name: MB_ADMIN_EMAIL
+          value: isaacob@ucar.edu
         - name: MB_ADMIN_PASS
-          value: "tempmbadminpass"
+          value: "@siparcs25"
         - name: MB_DB_TYPE
           value: postgres
         - name: MB_DB_DBNAME
