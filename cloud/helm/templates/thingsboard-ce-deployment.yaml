@@ -91,3 +91,11 @@ spec:
         # Add these for better startup
         - name: TB_QUEUE_TYPE
           value: "in-memory"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /cloud/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.app.config.name }}

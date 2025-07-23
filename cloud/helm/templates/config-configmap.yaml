@@ -28,7 +28,7 @@ data:
       host: redis
       port: 6379
     station:
-      active_station_timeout: 300  # 5 minutes
+      active_station_timeout: 300
       batch_interval: 60
     model_service:
       base_url: http://model-service:5002
@@ -57,13 +57,13 @@ data:
         is_on_demand: false
         cache_ttl: null
       base_url: http://metabase:3000/api
-      orch_url: http://orch-mb:8001/metabase # This should correspond to the service name
+      orch_url: http://orch-mb:8001/metabase
     thingsboard:
       broker_ip: "thingsboard-ce"
       broker_port: 1883  
       api_url: "http://thingsboard-ce:8080"
       username: "tenant@thingsboard.org"
-      password: "tenant"  # Replace with your tenant admin password
-      default_device_type: "GPS_Station"  # New: Define a type for your dynamic devices
-      dashboard_name: "Dynamic Station Dashboard"  # New: Name for the dashboard
+      password: "tenant" 
+      default_device_type: "GPS_Station"
+      dashboard_name: "Dynamic Station Dashboard"
 
