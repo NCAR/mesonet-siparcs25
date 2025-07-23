@@ -76,7 +76,7 @@ mosquitto:
   name: mosquitto
   replicaCount: 1
   container:
-    image: eclipse-mosquitto
+    image: eclipse-mosquitto:latest
     memory: 2Gi
     cpu: 2
     port: 1883
