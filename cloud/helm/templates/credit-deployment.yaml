@@ -47,10 +47,10 @@ spec:
           name: {{ .Values.app.config.name }}
       - name: logger-volume
         configMap:
-            name: {{ .Values.app.logger.name }}
-        - name: static-volume
-          persistentVolumeClaim:
-            claimName: {{ .Values.credit.volume.static_data }}
-        - name: checkpoint-volume
-          persistentVolumeClaim:
-            claimName: {{ .Values.credit.volume.checkpoint }}
+          name: {{ .Values.app.logger.name }}
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: {{ .Values.credit.volume.static_data }}
+      - name: checkpoint-volume
+        persistentVolumeClaim:
+          claimName: {{ .Values.credit.volume.checkpoint }}
