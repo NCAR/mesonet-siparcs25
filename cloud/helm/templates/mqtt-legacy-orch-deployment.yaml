@@ -16,38 +16,6 @@ spec:
       labels:
         app: {{ .Values.mqttlegacy.name }}
     spec:
-      initContainers:
-      - name: migrate-db
-        image: {{ .Values.metabaseorch.container.image }}
-        command: ["python", "manage.py", "migrate"]  # Adjust command as needed
-        env:
-        - name: MB_DB_TYPE
-          value: postgres
-        - name: MB_DB_DBNAME
-          value: postgres
-        - name: MB_DB_PORT
-          value: "5432"
-        - name: MB_DB_USER
-          value: postgres
-        - name: MB_DB_PASS
-          value: temppostgrespw
-        - name: MB_DB_HOST
-          value: postgres
-        - name: ORCH_DB_USER
-          value: postgres
-        - name: ORCH_DB_PASS
-          value: temppostgrespw
-        - name: ORCH_DB_NAME
-          value: postgres
-        - name: ORCH_DB_HOST
-          value: postgres
-        volumeMounts:
-        - name: config-volume
-          mountPath: /cloud/config.yaml
-          subPath: config.yaml
-        - name: logger-volume
-          mountPath: /cloud/services/metabase/logger.py
-          subPath: logger.py
       containers:
       - name: {{ .Values.mqttlegacy.name }}
         image: {{ .Values.mqttlegacy.container.image }}
