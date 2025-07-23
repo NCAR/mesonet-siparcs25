@@ -22,7 +22,7 @@ data:
     database_api:
       base_url: http://database_api:8000
     map:
-      host: map-server
+      host: localhost
       port: 5001
     redis:
       host: redis
@@ -31,16 +31,18 @@ data:
       active_station_timeout: 300  # 5 minutes
       batch_interval: 60
     model_service:
-      base_url: http://model-service:5002
+      base_url: http://model_service:5002
       model_name: ai/gemma3n:4B-Q4_K_M
     metabase:
       admin_data:
         first_name: Isaac
         last_name: Oppong-Baah
-        email: admin@admin.edu
-        password: "@siparcs25"
+        email: "${MB_ADMIN_EMAIL}"
+        password: "${MB_ADMIN_PASS}"
       config:
         site_name: IoTwx MB
+      settings:
+        site_url: localhost:3000
       database:
         name: iotwx_db
         engine: postgres
@@ -55,7 +57,7 @@ data:
         is_on_demand: false
         cache_ttl: null
       base_url: http://metabase:3000/api
-      orch_url: http://orch-mb:8001/metabase
+      orch_url: http://metabase_orch:8001/metabase # This should correspond to the service name
     thingsboard:
       broker_ip: "thingsboard-ce"
       broker_port: 1883  
@@ -64,3 +66,4 @@ data:
       password: "tenant"  # Replace with your tenant admin password
       default_device_type: "GPS_Station"  # New: Define a type for your dynamic devices
       dashboard_name: "Dynamic Station Dashboard"  # New: Name for the dashboard
+

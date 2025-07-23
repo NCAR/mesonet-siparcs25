@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mosquitto.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mosquitto.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.mosquitto.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mosquitto.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mosquitto.name }}
+    spec:
+      containers:
+      - name: {{ .Values.mosquitto.name }}
+        image: {{ .Values.mosquitto.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.mosquitto.container.memory }}
+            cpu: {{ .Values.mosquitto.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.mosquitto.container.port }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /mosquitto/config/mosquitto.conf
+          subPath: mosquitto.conf
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.mosquito.config.name }}
