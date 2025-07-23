@@ -12,9 +12,8 @@ credit:
     image: hub.k8s.ucar.edu/mesonet/credit:2025-07-22.16
     memory: 2Gi
     cpu: 2
-  model:
-    storage: 3Gi
-    storageClassName: default
+  volume:
+    size: 20Gi
     static_data: credit-static-pvc
     checkpoint: credit-checkpoint-pvc
 databaseapi:

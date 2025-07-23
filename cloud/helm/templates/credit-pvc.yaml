@@ -2,24 +2,24 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Values.credit.model.static_data }}
+  name: {{ .Values.credit.volume.static_data }}
 spec:
   accessModes:
     - ReadWriteMany
+  storageClassName: ceph-kubepv
   resources:
     requests:
-      storage: {{ .Values.credit.model.storage }}
-  storageClassName: {{ .Values.credit.mode.storageClassName  }}
+      storage: {{ .Values.credit.volume.size }}
 
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Values.credit.model.checkpoint }}
+  name: {{ .Values.credit.volume.checkpoint }}
 spec:
   accessModes:
     - ReadWriteMany
+  storageClassName: ceph-kubepv
   resources:
     requests:
-      storage: {{ .Values.credit.model.storage }}
-  storageClassName: {{ .Values.credit.model.storageClassName }}
+      storage: {{ .Values.credit.volume.size }}

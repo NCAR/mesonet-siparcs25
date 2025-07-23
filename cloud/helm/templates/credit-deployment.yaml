@@ -46,7 +46,7 @@ spec:
             volumes:
       - name: static-volume
         persistentVolumeClaim:
-          claimName: {{ .Values.credit.model.static_data }}
+          claimName: {{ .Values.credit.volume.static_data }}
       - name: checkpoint-volume
         persistentVolumeClaim:
-          claimName: {{ .Values.credit.model.checkpoint }}
+          claimName: {{ .Values.credit.volume.checkpoint }}
