@@ -33,4 +33,4 @@ spec:
       volumes:
       - name: config-volume
         configMap:
-          name: {{ .Values.mosquito.config.name }}
+          name: {{ .Values.mosquitto.config.name }}
