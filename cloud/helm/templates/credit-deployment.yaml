@@ -32,10 +32,10 @@ spec:
           mountPath: /cloud/services/credit/logger.py
           subPath: logger.py
         - name: campaign
-            mountPath: /cloud/services/credit/static_data
+          mountPath: /cloud/services/credit/static_data
         - name: checkpoint-volume
-            mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
-            subPath: model_checkpoint.pt
+          mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
+          subPath: model_checkpoint.pt
       volumes:
       - name: campaign
         nfs:
