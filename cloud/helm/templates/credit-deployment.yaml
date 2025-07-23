@@ -43,7 +43,6 @@ spec:
       - name: logger-volume
         configMap:
             name: {{ .Values.app.logger.name }}
-            volumes:
       - name: static-volume
         persistentVolumeClaim:
           claimName: {{ .Values.credit.volume.static_data }}
