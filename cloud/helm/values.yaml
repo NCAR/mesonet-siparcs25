@@ -131,7 +131,7 @@ redis:
     port: 6379
   volume:
     name: redis-pv
-    size: 1Gi
+    size: 10Gi
 redisinsight:
   name: redisinsight
   replicaCount: 1
