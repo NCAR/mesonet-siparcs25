@@ -8,24 +8,31 @@ metadata:
 data:
   config.yaml: |
     mqtt:
-      host: iotwx.ucar.edu
+      host: "iotwx.ucar.edu"
+      host2: "iotwx.ucar.edu"
       port: 1883
-      msg_topic: sensors/#
+      msg_topic: "sensors/#"
       topics:
-        - "#"
+        - "/test/topic"
+        - "ncar/iotwx/wy/fremountco/wyofw003"
+        - "ncar/iotwx/co/broomfield/broomfield_test"
+        - "ncar/iotwx/co/lewis/puebloccsw_test"
+        - "ncar/iotwx/co/rmnp/neon000"
+        - "ncar/iotwx/co/niwot/neon001"
     database_api:
-      base_url: http://database-api:8000
+      base_url: http://database_api:8000
     map:
-      host: localhost
+      host: map-server
       port: 5001
     redis:
       host: redis
       port: 6379
     station:
-      active_station_timeout: 150
+      active_station_timeout: 300  # 5 minutes
       batch_interval: 60
     model_service:
-      base_url: http://model-service:5000
+      base_url: http://model-service:5002
+      model_name: ai/gemma3n:4B-Q4_K_M
     metabase:
       admin_data:
         first_name: Isaac
@@ -54,6 +61,6 @@ data:
       broker_port: 1883  
       api_url: "http://thingsboard-ce:8080"
       username: "tenant@thingsboard.org"
-      password: "tenant"
-      default_device_type: "GPS_Station"
-      dashboard_name: "Dynamic Station Dashboard"
+      password: "tenant"  # Replace with your tenant admin password
+      default_device_type: "GPS_Station"  # New: Define a type for your dynamic devices
+      dashboard_name: "Dynamic Station Dashboard"  # New: Name for the dashboard
