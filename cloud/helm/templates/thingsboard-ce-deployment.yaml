@@ -45,7 +45,7 @@ spec:
           value: "org.postgresql.Driver"
         # Don't run installation in main container since initContainer handles it
         - name: INSTALL_TB
-          value: "true"
+          value: "false"
         - name: LOAD_DEMO
           value: "true"
         # Add these for better startup
