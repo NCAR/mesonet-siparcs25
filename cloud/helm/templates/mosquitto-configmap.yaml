@@ -6,6 +6,6 @@ metadata:
   labels:
     group: {{ .Values.app.group }}
 data:
-  config.yaml: |
+  mosquitto.conf: |
     listener 1883
     allow_anonymous true
