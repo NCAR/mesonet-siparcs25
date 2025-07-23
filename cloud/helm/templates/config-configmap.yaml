@@ -20,7 +20,7 @@ data:
         - "ncar/iotwx/co/rmnp/neon000"
         - "ncar/iotwx/co/niwot/neon001"
     database_api:
-      base_url: http://database_api:8000
+      base_url: http://database-api:8000
     map:
       host: localhost
       port: 5001
@@ -31,7 +31,7 @@ data:
       active_station_timeout: 300  # 5 minutes
       batch_interval: 60
     model_service:
-      base_url: http://model_service:5002
+      base_url: http://model-service:5002
       model_name: ai/gemma3n:4B-Q4_K_M
     metabase:
       admin_data:
@@ -57,7 +57,7 @@ data:
         is_on_demand: false
         cache_ttl: null
       base_url: http://metabase:3000/api
-      orch_url: http://metabase_orch:8001/metabase # This should correspond to the service name
+      orch_url: http://metabase-orch:8001/metabase # This should correspond to the service name
     thingsboard:
       broker_ip: "thingsboard-ce"
       broker_port: 1883  
