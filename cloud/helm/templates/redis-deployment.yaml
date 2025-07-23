@@ -35,7 +35,7 @@ spec:
           mountPath: /data
         env:
         - name: SKIP_FIX_PERMS
-          value: 1
+          value: "1"
       volumes:
       - name: redis-data
         persistentVolumeClaim:
