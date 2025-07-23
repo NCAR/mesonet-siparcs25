@@ -8,17 +8,15 @@ save_loc: 'credit_run/results'
 seed: 1000
 
 data:
-    # level_ids: [10, 30, 40, 50, 60, 70, 80, 90, 95, 100, 105, 110, 120, 130, 136, 137]
-    level_ids: [50, 90, 130]
+    level_ids: [10, 30, 40, 50, 60, 70, 80, 90, 95, 100, 105, 110, 120, 130, 136, 137]
     
     # upper-air variables
-    # variables: ['U', 'V', 'T', 'Q', 'Q', 'U500', 'V500', 'T500', 'Z500', 'Q500']
-    variables: ['T']
+    variables: ['U', 'V', 'T', 'Q']
 #    save_loc: '/glade/derecho/scratch/ksha/CREDIT_data/ERA5_mlevel_arXiv/SixHourly_y_TOTAL*'
     save_loc: "credit_run/results/gfs_init_20250714_0000.zarr"
 
     # surface variables
-    surface_variables: ['t2m']
+    surface_variables: ['SP', 't2m', 'V500', 'U500', 'T500', 'Z500', 'Q500']
 #    save_loc_surface_surface: '/glade/derecho/scratch/ksha/CREDIT_data/ERA5_mlevel_arXiv/SixHourly_y_TOTAL*'
     save_loc_surface: "credit_run/results/gfs_init_20250714_0000.zarr"
 
@@ -31,8 +29,8 @@ data:
     save_loc_static: 'static_data/static_norm_20250416.nc'
 
     # mean / std path
-    mean_path: 'services/credit/static_data/mean_6h_1979_2018_16lev_0.25deg.nc'
-    std_path: 'services/credit/static_data/std_residual_6h_1979_2018_16lev_0.25deg.nc'
+    mean_path: 'static_data/mean_6h_1979_2018_16lev_0.25deg.nc'
+    std_path: 'static_data/std_residual_6h_1979_2018_16lev_0.25deg.nc'
 
     # train / validation split
     train_years: [1979, 2018]
@@ -45,8 +43,8 @@ data:
     history_len: 1
     valid_history_len: 1
 
-    forecast_len: 3
-    valid_forecast_len: 3
+    forecast_len: 7
+    valid_forecast_len: 7
 
     one_shot: True
 
@@ -170,7 +168,7 @@ loss:
     
     # use latitude weighting
     use_latitude_weights: True
-    latitude_weights: "services/credit/static_data/LSM_static_variables_ERA5_zhght.nc"
+    latitude_weights: "static_data/LSM_static_variables_ERA5_zhght.nc"
     
     # turn-off variable weighting
     use_variable_weights: False
@@ -182,20 +180,20 @@ predict:
         start_month: 1       # month of the first initialization
         start_day: 1         # day of the first initialization
         start_hours: [0, 12] # hour-of-day for each initialization, 0 for 00Z, 12 for 12Z
-        duration: 5         # number of days to initialize, starting from the (year, mon, day) above
+        duration: 30         # number of days to initialize, starting from the (year, mon, day) above
                              # duration should be divisible by the number of GPUs 
                              # (e.g., duration: 384 for 365-day rollout using 32 GPUs)
-        days: 1              # forecast lead time as days (1 means 24-hour forecast)
+        days: 2              # forecast lead time as days (1 means 24-hour forecast)
 
     realtime:
-        forecast_start_time: "2025-07-21 00:00:00" # change to your init date
-        forecast_end_time: "2025-07-22 00:00:00" # Should be sometime after init date
+        forecast_start_time: "2025-07-14 00:00:00" # change to your init date
+        forecast_end_time: "2025-07-15 00:00:00" # Should be sometime after init date
         forecast_timestep: "6h"
 
     initial_condition_path: 'credit_run/results'
     save_forecast: 'credit_run/results'
-    static_fields: "services/credit/static_data/static_norm_20250416.nc" # Static forcing file.
-    metadata: 'services/credit/miles-credit/credit/metadata/era5.yaml' # Path to metadata for output
+    static_fields: "static_data/static_norm_20250416.nc" # Static forcing file.
+    metadata: 'miles-credit/credit/metadata/era5.yaml' # Path to metadata for output
     # save_vars: ['SP','t2m','V500','U500','T500','Z500','Q500']
     interp_pressure: 
         pressure_levels: [300.0, 500.0, 850.0, 925.0] # in hPa
