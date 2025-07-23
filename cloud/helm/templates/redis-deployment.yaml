@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ .Values.redis.name }}
   namespace: {{ .Release.Namespace }}
@@ -7,8 +7,6 @@ metadata:
     app: {{ .Values.redis.name }}
     group: {{ .Values.app.group }}
 spec:
-  strategy:
-    type: Recreate
   replicas: {{ .Values.redis.replicaCount }}
   selector:
     matchLabels:
