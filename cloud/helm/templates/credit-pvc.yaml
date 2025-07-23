@@ -1,0 +1,25 @@
+# pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.credit.model.static_data }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.credit.model.storage }}
+  storageClassName: {{ .Values.credit.mode.storageClassName  }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.credit.model.checkpoint }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.credit.model.storage }}
+  storageClassName: {{ .Values.credit.model.storageClassName }}
