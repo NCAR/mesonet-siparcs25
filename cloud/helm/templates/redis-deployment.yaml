@@ -20,6 +20,10 @@ spec:
       - name: {{ .Values.redis.name }}
         image: {{ .Values.redis.container.image }}
         imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
         resources:
           limits:
             memory: {{ .Values.redis.container.memory }}
