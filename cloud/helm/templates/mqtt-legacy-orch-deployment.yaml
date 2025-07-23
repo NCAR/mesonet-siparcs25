@@ -41,6 +41,14 @@ spec:
           value: temppostgrespw
         - name: MB_DB_HOST
           value: postgres
+        - name: ORCH_DB_USER
+          value: postgres
+        - name: ORCH_DB_PASS
+          value: temppostgrespw
+        - name: ORCH_DB_NAME
+          value: postgres
+        - name: ORCH_DB_HOST
+          value: postgres
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml
