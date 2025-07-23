@@ -30,7 +30,7 @@ spec:
         - name: MB_DB_TYPE
           value: postgres
         - name: MB_DB_DBNAME
-          value: postgres
+          value: metabase
         - name: MB_DB_PORT
           value: "5432"
         - name: MB_DB_USER
