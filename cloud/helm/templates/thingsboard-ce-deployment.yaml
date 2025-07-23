@@ -16,14 +16,6 @@ spec:
       labels:
         app: {{ .Values.thingsboardce.name }}
     spec:
-      initContainers:
-        env:
-        - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres:5432/thingsboard"
-        - name: SPRING_DATASOURCE_USERNAME
-          value: "postgres"
-        - name: SPRING_DATASOURCE_PASSWORD
-          value: "temppostgrespw"
       containers:
       - name: {{ .Values.thingsboardce.name }}
         image: {{ .Values.thingsboardce.container.image }}
