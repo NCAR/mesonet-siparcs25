@@ -40,7 +40,7 @@ spec:
       - name: campaign
         nfs:
           server: gladedm1.ucar.edu
-          path: /gpfs/csfs1/work/agbeli/mesonet/
+          path: /gpfs/csfs1
           readOnly: true
       - name: config-volume
         configMap:
