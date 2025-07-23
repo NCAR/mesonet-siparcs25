@@ -7,6 +7,8 @@ metadata:
     app: {{ .Values.postgres.name }}
     group: {{ .Values.app.group }}
 spec:
+  strategy:
+    type: Recreate
   serviceName: {{ .Values.postgres.name }}
   replicas: 1 
   selector:
