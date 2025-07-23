@@ -42,7 +42,7 @@ data:
       config:
         site_name: IoTwx MB
       settings:
-        site_url: localhost:3000
+        site_url: metabase:3000
       database:
         name: iotwx_db
         engine: postgres
