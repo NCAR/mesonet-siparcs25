@@ -39,6 +39,10 @@ spec:
           value: temppostgrespw
         - name: MB_DB_HOST
           value: postgres
+        - name: MB_ADMIN_EMAIL
+          value: isaacob@ucar.edu
+        - name: MB_ADMIN_PASS
+          value: "@siparcs25"
         - name: ORCH_DB_USER
           value: postgres
         - name: ORCH_DB_PASS
