@@ -10,8 +10,8 @@ credit:
   replicaCount: 1
   container:
     image: hub.k8s.ucar.edu/mesonet/credit:2025-07-24.01
-    memory: 2Gi
-    cpu: 2
+    memory: 64Gi
+    cpu: 8
   volume:
     size: 20Gi
     static_data: credit-static-pvc
