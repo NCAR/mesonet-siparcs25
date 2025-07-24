@@ -31,7 +31,7 @@ spec:
         - containerPort: {{ .Values.mapserver.container.port }}
         env:
         - name: APP_MODULE
-          value: map_app:app
+          value: map_app:socketio
         - name: APP_PORT
           value: "5001"
         - name: GUNICORN_WORKERS
