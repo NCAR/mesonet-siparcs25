@@ -34,14 +34,13 @@ spec:
           subPath: logger.py
         - name: campaign
           mountPath: /cloud/services/credit/static_data
-        # - name: checkpoint-volume
-        #   mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
-        #   subPath: model_checkpoint.pt
+        - name: campaign
+          mountPath: /cloud/services/credit/credit_run/results
       volumes:
       - name: campaign
         nfs:
           server: gladedm1.ucar.edu
-          path: /gpfs/csfs1
+          path: /gpfs/csfs1/work/agbeli/mesonet
           readOnly: true
       - name: config-volume
         configMap:
@@ -52,6 +51,6 @@ spec:
       # - name: static-volume
       #   persistentVolumeClaim:
       #     claimName: {{ .Values.credit.volume.static_data }}
-      # - name: checkpoint-volume
-      #   persistentVolumeClaim:
-      #     claimName: {{ .Values.credit.volume.checkpoint }}
+      #- name: checkpoint-volume
+      #  persistentVolumeClaim:
+      #    claimName: {{ .Values.credit.volume.checkpoint }}
