@@ -30,7 +30,7 @@ spec:
           sleep 15
           
           echo "Pulling model..."
-          ollama pull gemma3n:4B-Q4_K_M
+          ollama pull gemma3:4b
           
           echo "Model pulled successfully"
           kill $SERVER_PID
