@@ -12,9 +12,9 @@ on:
       - cloud/services/credit/**
     branches:
       - cirrus
-  schedule:
-    # Runs at 00:00, 06:00, 12:00, and 18:00 UTC
-    - cron: '0 0,6,12,18 * * *'
+  # schedule:
+  #   # Runs at 00:00, 06:00, 12:00, and 18:00 UTC
+  #   - cron: '0 0,6,12,18 * * *'
 
 permissions:
   contents: write
@@ -23,7 +23,7 @@ permissions:
 jobs:
   # Name the job(s)
   build-push-base-image:
-    if: github.event_name != 'schedule'  # Don't build image during cron runs
+    # if: github.event_name != 'schedule'  # Don't build image during cron runs
     # Define where the job should run in this case it will be run on the latest ubuntu image
     runs-on: ubuntu-latest
     # Set the steps to take in order
@@ -61,7 +61,7 @@ jobs:
           git push origin ${{ github.ref_name }}
 
   run-credit-container:
-    if: github.event_name == 'schedule'  # Only run on cron jobs
+    # if: github.event_name == 'schedule'  # Only run on cron jobs
     runs-on: ubuntu-latest
     steps:
       - name: Read image tag from values.yaml

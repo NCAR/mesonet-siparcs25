@@ -33,9 +33,9 @@ spec:
           subPath: logger.py
         #- name: campaign
         #  mountPath: /cloud/services/credit/static_data
-        - name: checkpoint-volume
-          mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
-          subPath: model_checkpoint.pt
+        # - name: checkpoint-volume
+        #   mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
+        #   subPath: model_checkpoint.pt
       volumes:
       - name: campaign
         nfs:
@@ -48,9 +48,9 @@ spec:
       - name: logger-volume
         configMap:
           name: {{ .Values.app.logger.name }}
-      - name: static-volume
-        persistentVolumeClaim:
-          claimName: {{ .Values.credit.volume.static_data }}
-      - name: checkpoint-volume
-        persistentVolumeClaim:
-          claimName: {{ .Values.credit.volume.checkpoint }}
+      # - name: static-volume
+      #   persistentVolumeClaim:
+      #     claimName: {{ .Values.credit.volume.static_data }}
+      # - name: checkpoint-volume
+      #   persistentVolumeClaim:
+      #     claimName: {{ .Values.credit.volume.checkpoint }}
