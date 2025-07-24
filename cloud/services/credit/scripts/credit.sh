@@ -1,10 +1,14 @@
 #!/bin/bash
 
 # Fall back if env vars are not provided
+# Set timezone for Denver
+TZ=America/Denver
+
+# Fallback if environment vars are not provided
 ENV_NAME=${ENV_NAME:-credit}
-START_DATE=${START_DATE:-$(date +"%Y-%m-%d 00:00:00")}
-END_DATE=${END_DATE:-$(date -d "+1 day" +"%Y-%m-%d 00:00:00")}
-SAVE_LOC=${SAVE_LOC:-"credit_run/results/gfs_init_$(date +%Y%m%d_%H%M).zarr"}
+START_DATE=${START_DATE:-$(TZ=$TZ date +"%Y-%m-%d 00:00:00")}
+END_DATE=${END_DATE:-$(TZ=$TZ date -d "+1 day" +"%Y-%m-%d 00:00:00")}
+SAVE_LOC=${SAVE_LOC:-"credit_run/results/gfs_init_$(TZ=$TZ date +%Y%m%d_0000).zarr"}
 
 echo "[$(date)] Starting Forecast Pipeline in the environment: $ENV_NAME"
 echo "[$(date)] Forecast window: $START_DATE → $END_DATE"
