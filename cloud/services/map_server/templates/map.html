@@ -186,7 +186,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
   <script>
     const DEFAULT_LATITUDE = 39.9784;
     const DEFAULT_LONGITUDE = -105.2749;
@@ -491,37 +490,8 @@
       }
     }
 
-    function setupSocketHandlers(socket) {
-      socket.on('initial_data', d => {
-        Object.entries(d.stations || {}).forEach(([i, s]) => updateStationMarker(i, s));
-        cleanupStaleMarkers();
-      });
-
-      socket.on('station_update', d => updateStationMarker(d.station_id, d));
-
-      socket.on('station_remove', d => {
-        delete stations[d.station_id];
-        cleanupStaleMarkers();
-      });
-    }
-
     (async () => {
       await fetchInitialData();
-
-      const url = location.hostname === 'localhost'
-        ? 'http://localhost:5001'
-        : `${location.protocol}//${location.host}`;
-
-      const socket = io(url, {
-        transports: ['websocket'],
-        reconnection: true
-      });
-
-      socket.on('connect_error', e => {
-        handleError(`Socket error: ${e.message}`, e);
-      });
-
-      setupSocketHandlers(socket);
 
       setInterval(async () => {
         try {
