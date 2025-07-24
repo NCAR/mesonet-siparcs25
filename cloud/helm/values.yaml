@@ -10,8 +10,8 @@ credit:
   replicaCount: 1
   container:
     image: hub.k8s.ucar.edu/mesonet/credit:2025-07-24.01
-    memory: 2Gi
-    cpu: 2
+    memory: 64Gi
+    cpu: 8
   volume:
     size: 20Gi
     static_data: credit-static-pvc
@@ -32,9 +32,9 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-24.21
-    memory: 2Gi
-    cpu: 2
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-24.22
+    memory: 16Gi
+    cpu: 8
     port: 5001
   tls:
     fqdn: map-server.mesonet.k8s.ucar.edu
