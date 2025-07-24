@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.thingsboardce.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.thingsboardce.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.thingsboardce.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.thingsboardce.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.thingsboardce.name }}
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:16
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h postgres -p 5432 -U postgres; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+      - name: tb-install
+        image: {{ .Values.thingsboardce.container.image }}
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          echo "Starting ThingsBoard installation..."
+          export SPRING_DATASOURCE_URL="jdbc:postgresql://postgres:5432/thingsboard"
+          export SPRING_DATASOURCE_USERNAME="postgres"
+          export SPRING_DATASOURCE_PASSWORD="temppostgrespw"
+          
+          # Clear any existing data first
+          export PGPASSWORD="temppostgrespw"
+          psql -h postgres -U postgres -d postgres -c "DROP DATABASE IF EXISTS thingsboard;"
+          psql -h postgres -U postgres -d postgres -c "CREATE DATABASE thingsboard;"
+          
+          # Run the installation
+          /usr/share/thingsboard/bin/install/install.sh
+          
+          echo "ThingsBoard installation completed successfully!"
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://postgres:5432/thingsboard"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "temppostgrespw"
+      containers:
+      - name: {{ .Values.thingsboardce.name }}
+        image: {{ .Values.thingsboardce.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.thingsboardce.container.memory }}
+            cpu: {{ .Values.thingsboardce.container.cpu }}
+        ports:
+        {{- range .Values.thingsboardce.container.ports }}
+        - name: {{ .name }}
+          containerPort: {{ .containerPort }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        env:
+        - name: TB_SERVICE_ID
+          value: "tb-node-0"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://postgres:5432/thingsboard"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "postgres"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "temppostgrespw"
+        - name: DATABASE_TS_TYPE
+          value: "sql"
+        - name: SPRING_DRIVER_CLASS_NAME
+          value: "org.postgresql.Driver"
+        # Don't run installation in main container since initContainer handles it
+        - name: INSTALL_TB
+          value: "false"
+        - name: LOAD_DEMO
+          value: "false"
+        # Add these for better startup
+        - name: TB_QUEUE_TYPE
+          value: "in-memory"
