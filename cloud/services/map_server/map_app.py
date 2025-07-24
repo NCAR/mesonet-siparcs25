@@ -2,6 +2,7 @@ import yaml
 import time
 import logging
 import json
+import threading
 from flask import Flask, render_template, jsonify, send_from_directory
 from flask_socketio import SocketIO
 import redis
@@ -32,6 +33,35 @@ except RedisError as e:
     app.logger.error(f"Failed to connect to Redis: {e}")
     raise RuntimeError("Redis connection failed")
 
+# Redis pub/sub listener
+def redis_listener():
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe('station_updates')  # Subscribe to a channel for station updates
+    app.logger.info("Subscribed to Redis channel: station_updates")
+    
+    for message in pubsub.listen():
+        if message['type'] == 'message':
+            try:
+                # Fetch updated station data
+                station_keys = sorted(redis_client.keys('station:*'))
+                stations = {}
+                if station_keys:
+                    pipe = redis_client.pipeline()
+                    for key in station_keys:
+                        pipe.hgetall(key)
+                    station_data_list = pipe.execute()
+                    for key, station_data in zip(station_keys, station_data_list):
+                        station_id = key.split(':', 1)[1]
+                        stations[station_id] = station_data
+                
+                # Broadcast update to all connected clients
+                socketio.emit('station_update', {'stations': stations}, namespace='/')
+                app.logger.debug(f"Broadcasted update to clients: {len(stations)} stations")
+            except RedisError as e:
+                app.logger.error(f"Error processing Redis pub/sub message: {e}")
+            except Exception as e:
+                app.logger.error(f"Unexpected error in redis_listener: {e}")
+
 @app.route('/')
 def index():
     return send_from_directory('templates', 'map.html')
@@ -40,18 +70,15 @@ def index():
 def get_stations():
     try:
         start = time.time()
-        # Fetch all station keys
         station_keys = sorted(redis_client.keys('station:*'))
         stations = {}
         if station_keys:
-            # Use pipeline for efficient retrieval
             pipe = redis_client.pipeline()
             for key in station_keys:
                 pipe.hgetall(key)
             station_data_list = pipe.execute()
             for key, station_data in zip(station_keys, station_data_list):
                 station_id = key.split(':', 1)[1]
-                # Include all fields from the hash
                 stations[station_id] = station_data
         delta_time = time.time() - start
         app.logger.debug(f"Fetched {len(stations)} stations from Redis in {delta_time:.3f}s")
@@ -74,20 +101,17 @@ def favicon():
 @socketio.on('connect')
 def handle_connect():
     try:
-        # Fetch all station keys
         station_keys = sorted(redis_client.keys('station:*'))
         stations = {}
         if station_keys:
-            # Use pipeline for efficient retrieval
             pipe = redis_client.pipeline()
             for key in station_keys:
                 pipe.hgetall(key)
             station_data_list = pipe.execute()
             for key, station_data in zip(station_keys, station_data_list):
                 station_id = key.split(':', 1)[1]
-                # Include all fields from the hash
                 stations[station_id] = station_data
-        socketio.emit('initial_data', {'stations': stations})
+        socketio.emit('initial_data', {'stations': stations}, namespace='/')
         app.logger.info("Map client connected")
     except RedisError as e:
         app.logger.error(f"Failed to send initial data from Redis: {e}")
@@ -95,4 +119,7 @@ def handle_connect():
         app.logger.error(f"Unexpected error: {e}")
 
 if __name__ == '__main__':
+    # Start Redis listener in a background thread
+    listener_thread = threading.Thread(target=redis_listener, daemon=True)
+    listener_thread.start()
     socketio.run(app, host='0.0.0.0', port=5001)

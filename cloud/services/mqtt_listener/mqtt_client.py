@@ -221,6 +221,7 @@ class MQTTDatabaseUpdater:
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
                         }
                         self.redis_client.hset(redis_key, mapping=redis_station_data)
+                        self.redis_client.publish('station_updates', 'Stations updated')
                         #self.redis_client.expire(redis_key, self.active_station_timeout)
                         print(f"[info]: Updated Redis for station {station_id}: data={merged_sensor_data}, metadata={merged_metadata}, model_summaries={model_summaries}")
 
@@ -302,6 +303,7 @@ class MQTTDatabaseUpdater:
                 'altitude': str(station_data.get('altitude', '1624.0')),
             }
             self.redis_client.hset(redis_key, mapping=redis_station_data)
+            self.redis_client.publish('station_updates', 'Stations updated')
             #self.redis_client.expire(redis_key, self.active_station_timeout)
             print(f"[info]: Updated station {station_id} in Redis: {redis_station_data}")
         except redis.RedisError as e:
