@@ -75,7 +75,7 @@ def favicon():
 def handle_connect():
     try:
         # Fetch all station keys
-        station_keys = sorted(redis_client.keys('stations:*'))
+        station_keys = sorted(redis_client.keys('station:*'))
         stations = {}
         if station_keys:
             # Use pipeline for efficient retrieval
