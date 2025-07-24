@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.ollama.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.ollama.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.ollama.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.ollama.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.ollama.name }}
+    spec:
+      initContainers:
+      - name: model-puller
+        image: ollama/ollama:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          ollama serve &
+          SERVER_PID=$!
+          
+          # Wait for server to be ready
+          until curl -f http://localhost:11434/api/tags > /dev/null 2>&1; do
+            echo "Waiting for Ollama server..."
+            sleep 2
+          done
+          
+          echo "Pulling model..."
+          ollama pull gemma3n:4B-Q4_K_M
+          
+          echo "Model pulled successfully"
+          kill $SERVER_PID
+        volumeMounts:
+        - name: ollama-data
+          mountPath: /root/.ollama
+      containers:
+      - name: {{ .Values.ollama.name }}
+        image: {{ .Values.ollama.container.image }}
+        ports:
+        - containerPort: {{ .Values.ollama.container.port }}
+        env:
+        - name: OLLAMA_HOST
+          value: "0.0.0.0"
+        volumeMounts:
+        - name: ollama-data
+          mountPath: /root/.ollama
+      volumes:
+      - name: ollama-data
+        persistentVolumeClaim:
+          claimName: {{ .Values.ollama.volume.name }}

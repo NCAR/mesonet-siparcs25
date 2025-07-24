@@ -100,6 +100,15 @@ mqttlistener:
     image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-22.21
     memory: 2Gi
     cpu: 2
+ollama:
+  name: ollama-server
+  replicaCount: 1
+  container:
+    image: ollama/ollama:latest
+    port: 11434
+  volume:
+    name: ollama-pvc
+    size: 10Gi
 pgadmin:
   name: pgadmin4
   replicaCount: 1
