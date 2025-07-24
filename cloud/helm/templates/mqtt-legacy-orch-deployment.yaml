@@ -7,6 +7,7 @@ metadata:
     app: {{ .Values.mqttlegacy.name }}
     group: {{ .Values.app.group }}
 spec:
+  revisionHistoryLimit: 3
   replicas: {{ .Values.mqttlegacy.replicaCount }}
   selector:
     matchLabels:
@@ -24,6 +25,31 @@ spec:
           limits:
             memory: {{ .Values.mqttlegacy.container.memory }}
             cpu: {{ .Values.mqttlegacy.container.cpu }}
+        env:
+        - name: MB_ADMIN_EMAIL
+          value: isaacob@ucar.edu
+        - name: MB_ADMIN_PASS
+          value: "@siparcs25"
+        - name: MB_DB_TYPE
+          value: postgres
+        - name: MB_DB_DBNAME
+          value: metabase
+        - name: MB_DB_PORT
+          value: "5432"
+        - name: MB_DB_USER
+          value: postgres
+        - name: MB_DB_PASS
+          value: temppostgrespw
+        - name: MB_DB_HOST
+          value: postgres
+        - name: ORCH_DB_USER
+          value: postgres
+        - name: ORCH_DB_PASS
+          value: temppostgrespw
+        - name: ORCH_DB_NAME
+          value: iotwx_db
+        - name: ORCH_DB_HOST
+          value: postgres
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml

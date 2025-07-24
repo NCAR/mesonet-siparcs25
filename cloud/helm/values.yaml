@@ -9,9 +9,13 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-24.01
     memory: 2Gi
     cpu: 2
+  volume:
+    size: 20Gi
+    static_data: credit-static-pvc
+    checkpoint: credit-checkpoint-pvc
 databaseapi:
   name: database-api
   replicaCount: 1
@@ -64,7 +68,7 @@ modelservice:
   name: model-service
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-22.21
+    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-24.18
     memory: 2Gi
     cpu: 2
     port: 5002
@@ -72,6 +76,16 @@ modelservice:
     fqdn: model-service.mesonet.k8s.ucar.edu
     secretName: model-service-tls-cert
   path: /
+mosquitto:
+  name: mosquitto
+  replicaCount: 1
+  container:
+    image: eclipse-mosquitto:latest
+    memory: 2Gi
+    cpu: 2
+    port: 1883
+  config:
+    name: mosquitto-conf
 mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
@@ -86,6 +100,15 @@ mqttlistener:
     image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-22.21
     memory: 2Gi
     cpu: 2
+ollama:
+  name: ollama-server
+  replicaCount: 1
+  container:
+    image: ollama/ollama:latest
+    port: 11434
+  volume:
+    name: ollama-pvc
+    size: 10Gi
 pgadmin:
   name: pgadmin4
   replicaCount: 1
@@ -121,7 +144,7 @@ redis:
     port: 6379
   volume:
     name: redis-pv
-    size: 1Gi
+    size: 10Gi
 redisinsight:
   name: redisinsight
   replicaCount: 1

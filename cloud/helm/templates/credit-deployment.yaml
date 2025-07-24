@@ -7,6 +7,7 @@ metadata:
     app: {{ .Values.credit.name }}
     group: {{ .Values.app.group }}
 spec:
+  revisionHistoryLimit: 3
   replicas: {{ .Values.credit.replicaCount }}
   selector:
     matchLabels:
@@ -31,10 +32,26 @@ spec:
         - name: logger-volume
           mountPath: /cloud/services/credit/logger.py
           subPath: logger.py
+        - name: campaign
+          mountPath: /cloud/services/credit/static_data
+        # - name: checkpoint-volume
+        #   mountPath: /cloud/services/credit/credit_run/results/model.checkpoint.pt
+        #   subPath: model_checkpoint.pt
       volumes:
+      - name: campaign
+        nfs:
+          server: gladedm1.ucar.edu
+          path: /gpfs/csfs1
+          readOnly: true
       - name: config-volume
         configMap:
           name: {{ .Values.app.config.name }}
       - name: logger-volume
         configMap:
-            name: {{ .Values.app.logger.name }}
+          name: {{ .Values.app.logger.name }}
+      # - name: static-volume
+      #   persistentVolumeClaim:
+      #     claimName: {{ .Values.credit.volume.static_data }}
+      # - name: checkpoint-volume
+      #   persistentVolumeClaim:
+      #     claimName: {{ .Values.credit.volume.checkpoint }}

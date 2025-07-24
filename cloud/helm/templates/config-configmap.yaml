@@ -20,27 +20,29 @@ data:
         - "ncar/iotwx/co/rmnp/neon000"
         - "ncar/iotwx/co/niwot/neon001"
     database_api:
-      base_url: http://database_api:8000
+      base_url: http://database-api:8000
     map:
-      host: map-server
+      host: localhost
       port: 5001
     redis:
       host: redis
       port: 6379
     station:
-      active_station_timeout: 300  # 5 minutes
+      active_station_timeout: 300
       batch_interval: 60
     model_service:
       base_url: http://model-service:5002
-      model_name: ai/gemma3n:4B-Q4_K_M
+      model_name: gemma3:4b
     metabase:
       admin_data:
         first_name: Isaac
         last_name: Oppong-Baah
-        email: admin@admin.edu
-        password: "@siparcs25"
+        email: "${MB_ADMIN_EMAIL}"
+        password: "${MB_ADMIN_PASS}"
       config:
         site_name: IoTwx MB
+      settings:
+        site_url: metabase:3000
       database:
         name: iotwx_db
         engine: postgres
@@ -61,6 +63,7 @@ data:
       broker_port: 1883  
       api_url: "http://thingsboard-ce:8080"
       username: "tenant@thingsboard.org"
-      password: "tenant"  # Replace with your tenant admin password
-      default_device_type: "GPS_Station"  # New: Define a type for your dynamic devices
-      dashboard_name: "Dynamic Station Dashboard"  # New: Name for the dashboard
+      password: "tenant" 
+      default_device_type: "GPS_Station"
+      dashboard_name: "Dynamic Station Dashboard"
+

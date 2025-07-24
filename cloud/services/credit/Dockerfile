@@ -52,9 +52,12 @@ RUN conda run -n ${ENV_NAME} pip install -e .
 # Switch back to main service directory
 WORKDIR /cloud/services/credit
 
+COPY model.yml ./model.yml
+RUN chmod +x ./model.yml
+
 # Make sure script is executable
-COPY scripts/init_credit.sh ./scripts/init_credit.sh
-RUN chmod +x ./scripts/init_credit.sh
+COPY scripts/credit.sh ./scripts/credit.sh
+RUN chmod +x ./scripts/credit.sh
 
 # Default startup command
-CMD ["/bin/bash", "./scripts/init_credit.sh"]
+CMD ["/bin/bash", "./scripts/credit.sh"]

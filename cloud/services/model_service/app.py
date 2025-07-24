@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Initialize OpenAI client
 client = OpenAI(
     api_key='docker',
-    base_url='http://host.docker.internal:12434/engines/llama.cpp/v1',
+    base_url='http://ollama-service:11434/v1/',
     timeout=200,  # Set a timeout for requests  
     )
 

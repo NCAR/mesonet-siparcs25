@@ -7,6 +7,7 @@ metadata:
     app: {{ .Values.thingsboardce.name }}
     group: {{ .Values.app.group }}
 spec:
+  revisionHistoryLimit: 3
   replicas: {{ .Values.thingsboardce.replicaCount }}
   selector:
     matchLabels:
@@ -16,46 +17,6 @@ spec:
       labels:
         app: {{ .Values.thingsboardce.name }}
     spec:
-      initContainers:
-      - name: wait-for-postgres
-        image: postgres:16
-        command: ["/bin/bash"]
-        args:
-        - -c
-        - |
-          echo "Waiting for PostgreSQL to be ready..."
-          until pg_isready -h postgres -p 5432 -U postgres; do
-            echo "Waiting for postgres..."
-            sleep 2
-          done
-          echo "PostgreSQL is ready!"
-      - name: tb-install
-        image: {{ .Values.thingsboardce.container.image }}
-        command: ["/bin/bash"]
-        args:
-        - -c
-        - |
-          echo "Starting ThingsBoard installation..."
-          export SPRING_DATASOURCE_URL="jdbc:postgresql://postgres:5432/thingsboard"
-          export SPRING_DATASOURCE_USERNAME="postgres"
-          export SPRING_DATASOURCE_PASSWORD="temppostgrespw"
-          
-          # Clear any existing data first
-          export PGPASSWORD="temppostgrespw"
-          psql -h postgres -U postgres -d postgres -c "DROP DATABASE IF EXISTS thingsboard;"
-          psql -h postgres -U postgres -d postgres -c "CREATE DATABASE thingsboard;"
-          
-          # Run the installation
-          /usr/share/thingsboard/bin/install/install.sh
-          
-          echo "ThingsBoard installation completed successfully!"
-        env:
-        - name: SPRING_DATASOURCE_URL
-          value: "jdbc:postgresql://postgres:5432/thingsboard"
-        - name: SPRING_DATASOURCE_USERNAME
-          value: "postgres"
-        - name: SPRING_DATASOURCE_PASSWORD
-          value: "temppostgrespw"
       containers:
       - name: {{ .Values.thingsboardce.name }}
         image: {{ .Values.thingsboardce.container.image }}
@@ -87,7 +48,15 @@ spec:
         - name: INSTALL_TB
           value: "false"
         - name: LOAD_DEMO
-          value: "false"
+          value: "true"
         # Add these for better startup
         - name: TB_QUEUE_TYPE
           value: "in-memory"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /cloud/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.app.config.name }}
