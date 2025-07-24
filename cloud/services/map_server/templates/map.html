@@ -283,10 +283,7 @@
       const mdOpen = expandedSectionsState[stationId]?.metadata;
       html += `<div class="collapsible ${mdOpen ? 'active' : ''}" data-section="metadata">Metadata</div>
                <div class="content ${mdOpen ? 'active' : ''}">
-               <table>
-                 <tr><td>station_id</td><td>${escapeHTML(stationId)}</td></tr>
-                 <tr><td>latitude</td><td>${escapeHTML(stationData.latitude)}</td></tr>
-                 <tr><td>longitude</td><td>${escapeHTML(stationData.longitude)}</td></tr>`;
+               <table>`;
 
       for (const [k, v] of Object.entries(metadata)) {
         html += `<tr><td>${escapeHTML(k)}</td><td>${escapeHTML(v)}</td></tr>`;
