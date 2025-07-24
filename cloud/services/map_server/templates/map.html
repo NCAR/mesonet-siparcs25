@@ -512,7 +512,7 @@
         ? 'http://localhost:5001'
         : `${location.protocol}//${location.host}`;
 
-      const socket = io("http://map-server:5001", {
+      const socket = io(url, {
         transports: ['websocket'],
         reconnection: true
       });

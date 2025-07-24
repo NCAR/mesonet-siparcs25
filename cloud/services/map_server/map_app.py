@@ -9,7 +9,7 @@ from redis.exceptions import RedisError
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'map_secret'
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*", "http://localhost:5001"])
+socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*"])
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s')
 
 # Load config
