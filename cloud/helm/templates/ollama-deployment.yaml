@@ -26,10 +26,8 @@ spec:
           SERVER_PID=$!
           
           # Wait for server to be ready
-          until curl -f http://localhost:11434/api/tags > /dev/null 2>&1; do
-            echo "Waiting for Ollama server..."
-            sleep 2
-          done
+          echo "Waiting for Ollama initialization..."
+          sleep 15
           
           echo "Pulling model..."
           ollama pull gemma3n:4B-Q4_K_M
