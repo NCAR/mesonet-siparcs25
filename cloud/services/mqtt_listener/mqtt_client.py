@@ -221,6 +221,7 @@ class MQTTDatabaseUpdater:
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
                         }
                         self.redis_client.hset(redis_key, mapping=redis_station_data)
+                        self.redis_client.publish('station_updates', 'Stations updated')
                         #self.redis_client.expire(redis_key, self.active_station_timeout)
                         print(f"[info]: Updated Redis for station {station_id}: data={merged_sensor_data}, metadata={merged_metadata}, model_summaries={model_summaries}")
 
@@ -273,22 +274,6 @@ class MQTTDatabaseUpdater:
         station_data.pop('allow_relay', None)
         print(f"[info]: Processing station_info for {station_id}")
         print(station_data)
-
-        if not station_data.get("email"):
-            print(f"[warn]: No email provided for station {station_id}, skipping user and group creation")
-            return
-
-        # Manage a user at realtime
-        user = self.users.manage(station_data)
-        if not (user and user.get("email")):
-            print("The user already exists in the database.")
-
-        # Manage a group at realtime
-        station_id = station_data.get("station_id", "test")
-        group = self.users.create_group(station_id, user.get("email"))
-        if group:
-            group_name = group.get("name")
-            print(f"Group '{group_name}' has been added successfully")
         
         try:
             response = requests.get(f"{STATION_ENDPOINT}/{station_id}", timeout=5)
@@ -318,10 +303,27 @@ class MQTTDatabaseUpdater:
                 'altitude': str(station_data.get('altitude', '1624.0')),
             }
             self.redis_client.hset(redis_key, mapping=redis_station_data)
+            self.redis_client.publish('station_updates', 'Stations updated')
             #self.redis_client.expire(redis_key, self.active_station_timeout)
             print(f"[info]: Updated station {station_id} in Redis: {redis_station_data}")
         except redis.RedisError as e:
             print(f"[error]: Failed to update Redis for station {station_id}: {e}")
+        
+        if not station_data.get("email"):
+            print(f"[warn]: No email provided for station {station_id}, skipping user and group creation")
+            return
+
+        # Manage a user at realtime
+        user = self.users.manage(station_data)
+        if not (user and user.get("email")):
+            print("The user already exists in the database.")
+
+        # Manage a group at realtime
+        station_id = station_data.get("station_id", "test")
+        group = self.users.create_group(station_id, user.get("email"))
+        if group:
+            group_name = group.get("name")
+            print(f"Group '{group_name}' has been added successfully")
 
     def handle_reading(self, station_id: str, data: Dict[str, Any], timestamp: str):
         reading_value = str(data.get('reading_value', ''))

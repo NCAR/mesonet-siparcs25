@@ -192,6 +192,9 @@
     const DEFAULT_LONGITUDE = -105.2749;
     const locale = navigator.language || 'en-US';
 
+    // Initialize SocketIO
+    const socket = io.connect(window.location.origin, { path: '/socket.io' });
+
     const map = L.map('map').setView([DEFAULT_LATITUDE, DEFAULT_LONGITUDE], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -250,7 +253,7 @@
       } catch (e) {
         console.error(`[error] parsing metadata for ${stationId}`, e);
       }
-      const isActive = metadata.active !== false; // Default to true if metadata.active is undefined
+      const isActive = metadata.active !== false;
       return L.divIcon({
         className: 'station-marker',
         html: `<div style="background: ${isActive ? '#228B22' : '#ff0000'};" >${escapeHTML(stationId)}</div>`,
@@ -283,10 +286,7 @@
       const mdOpen = expandedSectionsState[stationId]?.metadata;
       html += `<div class="collapsible ${mdOpen ? 'active' : ''}" data-section="metadata">Metadata</div>
                <div class="content ${mdOpen ? 'active' : ''}">
-               <table>
-                 <tr><td>station_id</td><td>${escapeHTML(stationId)}</td></tr>
-                 <tr><td>latitude</td><td>${escapeHTML(stationData.latitude)}</td></tr>
-                 <tr><td>longitude</td><td>${escapeHTML(stationData.longitude)}</td></tr>`;
+               <table>`;
 
       for (const [k, v] of Object.entries(metadata)) {
         html += `<tr><td>${escapeHTML(k)}</td><td>${escapeHTML(v)}</td></tr>`;
@@ -315,7 +315,7 @@
       html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
                <div class="content ${smOpen ? 'active' : ''}">`;
 
-      if (Object.keys(modelSummaries).length>0) {
+      if (Object.keys(modelSummaries).length > 0) {
         html += `<table>`;
         for (const [k, v] of Object.entries(modelSummaries)) {
           const name = k.replace('summary_', '').replace('ai/', '');
@@ -394,7 +394,6 @@
           existing.setLatLng(newLatLng);
         }
 
-        // Update the marker icon in case metadata.active has changed
         existing.setIcon(createMarkerIcon(stationId, stationData));
 
         const html = createPopupContent(stationId, stationData);
@@ -477,69 +476,42 @@
       });
     }
 
-    async function fetchInitialData() {
+    socket.on('connect', () => {
+      console.log('Connected to SocketIO server');
+      showLoading(true);
+    });
+
+    socket.on('initial_data', (data) => {
+      console.log('Received initial data:', data.stations);
       showLoading(true);
       try {
-        const res = await fetch('/api/stations');
-        if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
         Object.entries(data.stations || {}).forEach(([id, s]) => {
           updateStationMarker(id, s);
         });
         cleanupStaleMarkers();
       } catch (e) {
-        handleError('Failed to load initial station data', e);
+        handleError('Failed to process initial station data', e);
       } finally {
         showLoading(false);
       }
-    }
+    });
 
-    function setupSocketHandlers(socket) {
-      socket.on('initial_data', d => {
-        Object.entries(d.stations || {}).forEach(([i, s]) => updateStationMarker(i, s));
+    socket.on('station_update', (data) => {
+      console.log('Received station update:', data.stations);
+      try {
+        Object.entries(data.stations || {}).forEach(([id, s]) => {
+          updateStationMarker(id, s);
+        });
         cleanupStaleMarkers();
-      });
+      } catch (e) {
+        handleError('Failed to process station update', e);
+      }
+    });
 
-      socket.on('station_update', d => updateStationMarker(d.station_id, d));
-
-      socket.on('station_remove', d => {
-        delete stations[d.station_id];
-        cleanupStaleMarkers();
-      });
-    }
-
-    (async () => {
-      await fetchInitialData();
-
-      const url = location.hostname === 'localhost'
-        ? 'http://localhost:5001'
-        : `${location.protocol}//${location.host}`;
-
-      const socket = io(url, {
-        transports: ['websocket'],
-        reconnection: true
-      });
-
-      socket.on('connect_error', e => {
-        handleError(`Socket error: ${e.message}`, e);
-      });
-
-      setupSocketHandlers(socket);
-
-      setInterval(async () => {
-        try {
-          const res = await fetch('/api/stations');
-          if (!res.ok) throw new Error(res.statusText);
-          const data = await res.json();
-          Object.entries(data.stations || {}).forEach(([id, s]) => updateStationMarker(id, s));
-          cleanupStaleMarkers();
-        } catch (e) {
-          handleError('Failed to refresh station data', e);
-        }
-      }, 60000);
-
-      setInterval(cleanupStaleMarkers, 60000);
-    })();
+    socket.on('disconnect', () => {
+      console.log('Disconnected from SocketIO server');
+      handleError('Lost connection to server', null);
+    });
   </script>
 </body>
 </html>

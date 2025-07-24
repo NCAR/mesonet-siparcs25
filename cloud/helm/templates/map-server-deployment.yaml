@@ -7,6 +7,9 @@ metadata:
     app: {{ .Values.mapserver.name }}
     group: {{ .Values.app.group }}
 spec:
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 3
   replicas: {{ .Values.mapserver.replicaCount }}
   selector:
     matchLabels:

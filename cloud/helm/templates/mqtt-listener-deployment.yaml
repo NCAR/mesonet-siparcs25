@@ -7,6 +7,7 @@ metadata:
     app: {{ .Values.mqttlistener.name }}
     group: {{ .Values.app.group }}
 spec:
+  revisionHistoryLimit: 3
   replicas: {{ .Values.mqttlistener.replicaCount }}
   selector:
     matchLabels:

@@ -32,7 +32,7 @@ data:
       batch_interval: 60
     model_service:
       base_url: http://model-service:5002
-      model_name: ai/gemma3n:4B-Q4_K_M
+      model_name: gemma3:4b
     metabase:
       admin_data:
         first_name: Isaac
