@@ -7,6 +7,7 @@ metadata:
     app: {{ .Values.thingsboardce.name }}
     group: {{ .Values.app.group }}
 spec:
+  revisionHistoryLimit: 3
   replicas: {{ .Values.thingsboardce.replicaCount }}
   selector:
     matchLabels:
