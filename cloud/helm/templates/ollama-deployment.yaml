@@ -7,7 +7,6 @@ metadata:
     app: {{ .Values.ollama.name }}
     group: {{ .Values.app.group }}
 spec:
-  revisionHistoryLimit: 3
   replicas: {{ .Values.ollama.replicaCount }}
   selector:
     matchLabels:
