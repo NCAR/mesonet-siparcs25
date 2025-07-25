@@ -54,7 +54,7 @@ spec:
           cp /campaign/model_checkpoint.pt /checkpoint/
           echo "Model checkpoint copied successfully"
           ls -la /checkpoint/
-          rm /checkpoint/*.zarr
+          rm -r /checkpoint/*.zarr
         volumeMounts:
         - name: campaign
           mountPath: /campaign
