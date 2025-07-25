@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd /cloud/services/credit/credit_run
+
 # Set timezone for Denver
 TZ=America/Denver
 DATE=$(TZ=$TZ date '+%Y-%m-%d %H:%M:%S')
@@ -45,7 +47,7 @@ for HOUR in $(seq 6 6 $TOTAL_HOURS); do
         echo "[$DATE] 🤩 Processing forecast for ${PADDED_HOUR} completed successfully."
 
         echo "[$DATE] Writing processed data to the database..."
-        sed -i "s|results/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T00Z_Forecast/Data/forecast_[0-9]\{3\}|results/${FORECAST_DATE}T00Z_Forecast/Data/forecast_${PADDED_HOUR}|g" write_to_db.py
+        sed -i "s|results/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T00Z_Forecast/Data/.*\.ipynb|results/${FORECAST_DATE}T00Z_Forecast/Data/forecast_${PADDED_HOUR}.xlsx|g" write_to_db.py
         conda run -n "$ENV_NAME" python write_to_db.py
     else
         echo "[$DATE] 😡 Processing forecast failed for ${PADDED_HOUR}."

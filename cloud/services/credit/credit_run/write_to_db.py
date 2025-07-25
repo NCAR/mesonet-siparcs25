@@ -1,6 +1,6 @@
 from logger import CustomLogger
 
-file_path = "results/2025-07-25T00Z_Forecast/Data/credit_run.ipynb"
+file_path = "results/2025-07-25T00Z_Forecast/Data/forecast_000.xlsx"
 
 class CreditToDB:
     def __init__(self):
