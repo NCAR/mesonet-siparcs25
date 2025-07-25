@@ -7,7 +7,10 @@ from flask import Flask, render_template, jsonify, send_from_directory
 from flask_socketio import SocketIO
 import redis
 from redis.exceptions import RedisError
+from gevent import monkey
 
+
+monkey.patch_all()  # must come first to patch standard library for gevent compatibility
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'map_secret'
 socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*"])
