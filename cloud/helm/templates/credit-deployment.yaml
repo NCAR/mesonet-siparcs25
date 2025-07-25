@@ -17,6 +17,10 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
       initContainers:
       - name: copy-static-files
         image: busybox:1.35
@@ -24,7 +28,7 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          sudo chmod -r 777 /static-data
+          chown -R root:root /static-data
           echo "Attempting to create test file..."
           touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
           echo "Copying NetCDF files to static volume..."
@@ -43,7 +47,7 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          sudo chmod -r 777 /checkpoint
+          chown -R root:root /checkpoint
           echo "Attempting to create test file..."
           touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
           echo "Copying model checkpoint to checkpoint volume..."

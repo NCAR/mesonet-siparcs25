@@ -5,8 +5,7 @@ metadata:
   name: {{ .Values.credit.volume.static_data.name }}
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: cephfs
+    - ReadWriteOnce
   resources:
     requests:
       storage: {{ .Values.credit.volume.static_data.size }}
@@ -18,8 +17,7 @@ metadata:
   name: {{ .Values.credit.volume.checkpoint.name }}
 spec:
   accessModes:
-    - ReadWriteMany
-  storageClassName: cephfs
+    - ReadWriteOnce
   resources:
     requests:
       storage: {{ .Values.credit.volume.checkpoint.size }}
