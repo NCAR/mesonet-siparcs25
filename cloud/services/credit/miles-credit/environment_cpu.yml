@@ -11,8 +11,11 @@ dependencies:
   - esmpy
   - xesmf
   - h5netcdf
+  - setuptools
   - pip
+  - wheel
   - pip:
+      - pysteps
       - "torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu"
       - "torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu"
       - llvmlite==0.41.0
