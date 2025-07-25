@@ -44,6 +44,8 @@ jobs:
             --build-arg ENV_FILE=environment_gpu.yml \
             --build-arg FORECAST_DATE=$(TZ=America/Denver date +'%Y-%m-%d') \
             --build-arg FORECAST_DAYS=1 \
+            --cache-from type=registry,ref=hub.k8s.ucar.edu/mesonet/credit:cache \
+            --cache-to type=registry,ref=hub.k8s.ucar.edu/mesonet/credit:cache,image-manifest=true,mode=max \
             cloud/services/credit/.
       - name: Update Helm chart with new image
         run: |
