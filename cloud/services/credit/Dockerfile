@@ -55,12 +55,12 @@ COPY model.yml ./model.yml
 RUN chmod +x ./model.yml
 
 # Make sure script is executable
-COPY scripts/credit.sh ./scripts/credit.sh
+COPY scripts/credit.sh /cloud/services/credit/scripts/credit.sh
 RUN chmod +x ./scripts/credit.sh
 
 # Copy the credit_run directory
-COPY credit_run .
-RUN chmod +x ./credit_run/process.sh
+COPY credit_run /cloud/services/credit/credit_run
+RUN chmod +x /cloud/services/credit/credit_run/process.sh
 
 # Default startup command
 CMD ["/bin/bash", "./scripts/credit.sh"]
