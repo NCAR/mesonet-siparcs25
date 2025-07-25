@@ -39,7 +39,12 @@ jobs:
           password: ${{ secrets.HARBOR_SECRET }}
       - name: Build image
         run: |
-          docker buildx build --push -f cloud/services/credit/Dockerfile -t hub.k8s.ucar.edu/mesonet/credit:${{ steps.date.outputs.date }} cloud/services/credit/.
+          docker buildx build --push -f cloud/services/credit/Dockerfile -t hub.k8s.ucar.edu/mesonet/credit:${{ steps.date.outputs.date }} \
+            --build-arg ARCHITECTURE=x86_64 \
+            --build-arg ENV_FILE=environment_gpu.yml \
+            --build-arg FORECAST_DATE=$(TZ=America/Denver date +'%Y-%m-%d') \
+            --build-arg FORECAST_DAYS=7 \
+            cloud/services/credit/.
       - name: Update Helm chart with new image
         run: |
           sed -i "/credit:/,/^[a-zA-Z]/ s|image: .*|image: hub.k8s.ucar.edu/mesonet/credit:${{ steps.date.outputs.date }}|" cloud/helm/values.yaml

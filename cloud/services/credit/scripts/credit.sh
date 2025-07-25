@@ -37,7 +37,7 @@ if [ $? -eq 0 ]; then
 
     if [ $? -eq 0 ]; then
         echo "[$DATE] Forecast complete. Transforming..."
-        conda run -n "$ENV_NAME" python services/credit/transform_forecast_output.py
+        conda run -n "$ENV_NAME" bash credit_run/process.sh
         echo "[$DATE] Credit is running fine ..."
     else
         echo "[$DATE] Forecast failed."

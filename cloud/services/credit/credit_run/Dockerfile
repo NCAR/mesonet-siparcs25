@@ -16,6 +16,7 @@ WORKDIR /cloud/services/credit/credit_run
 
 # Create the Conda environment and register Jupyter kernel
 RUN conda env create -n ${ENV_NAME} -f ${ENV_FILE} && \
+    conda clean -afy && \
     conda run -n ${ENV_NAME} python -m ipykernel install --user \
       --name ${ENV_NAME} --display-name "CREDIT (processing)"
 

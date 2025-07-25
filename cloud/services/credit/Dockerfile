@@ -7,10 +7,18 @@ ENV ENV_NAME=${ENV_NAME}
 ARG ENV_FILE=environment_cpu.yml
 ENV ENV_FILE=${ENV_FILE}
 
+ARG ARCHITECTURE=aarch64
+ENV ARCHITECTURE=${ARCHITECTURE}
+
+ARG FORECAST_DATE=2024-07-23
+ENV FORECAST_DATE=${FORECAST_DATE}
+
+ARG FORECAST_DAYS=7
+ENV FORECAST_DAYS=${FORECAST_DAYS}
+
 ENV CONDA_DIR=/opt/conda
 ENV PATH=$CONDA_DIR/bin:$PATH
 ENV MINIFORGE_VERSION=23.3.1-0
-ENV ARCHITECTURE=aarch64
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -35,7 +43,10 @@ RUN chmod -R u+w /cloud/services/credit/miles-credit
 WORKDIR /cloud/services/credit/miles-credit
 
 # Use the environment.yml to create the environment
-RUN conda env create -n ${ENV_NAME} -f ${ENV_FILE}
+RUN conda env create -n ${ENV_NAME} -f ${ENV_FILE} && \
+    conda clean -afy && \
+    conda run -n ${ENV_NAME} python -m ipykernel install --user \
+      --name ${ENV_NAME} --display-name "CREDIT (processing)"
 
 # Activate the conda environment.
 RUN conda run -n ${ENV_NAME} pip install -e .
@@ -49,6 +60,10 @@ RUN chmod +x ./model.yml
 # Make sure script is executable
 COPY scripts/credit.sh ./scripts/credit.sh
 RUN chmod +x ./scripts/credit.sh
+
+# Copy the credit_run directory
+COPY credit_run .
+RUN chmod +x ./credit_run/process.sh
 
 # Default startup command
 CMD ["/bin/bash", "./scripts/credit.sh"]
