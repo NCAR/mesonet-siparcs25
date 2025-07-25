@@ -12,9 +12,6 @@ on:
       - cloud/services/credit/**
     branches:
       - cirrus
-  # schedule:
-  #   # Runs at 00:00, 06:00, 12:00, and 18:00 UTC
-  #   - cron: '0 0,6,12,18 * * *'
 
 permissions:
   contents: write
@@ -23,7 +20,6 @@ permissions:
 jobs:
   # Name the job(s)
   build-push-base-image:
-    # if: github.event_name != 'schedule'  # Don't build image during cron runs
     # Define where the job should run in this case it will be run on the latest ubuntu image
     runs-on: ubuntu-latest
     # Set the steps to take in order
@@ -34,7 +30,7 @@ jobs:
       # Get the date to apply to image tag
       - name: Get current date
         id: date
-        run: echo "date=$(date +'%Y-%m-%d.%H')" >> $GITHUB_OUTPUT
+        run: echo "date=$(date +'%Y-%m-%d.%H.%M')" >> $GITHUB_OUTPUT
       - name: registry login
         uses: docker/login-action@v3
         with:
@@ -43,7 +39,12 @@ jobs:
           password: ${{ secrets.HARBOR_SECRET }}
       - name: Build image
         run: |
-          docker buildx build --push -f cloud/services/credit/Dockerfile -t hub.k8s.ucar.edu/mesonet/credit:${{ steps.date.outputs.date }} cloud/services/credit/.
+          docker buildx build --push -f cloud/services/credit/Dockerfile -t hub.k8s.ucar.edu/mesonet/credit:${{ steps.date.outputs.date }} \
+            --build-arg ARCHITECTURE=x86_64 \
+            --build-arg ENV_FILE=environment_gpu.yml \
+            --build-arg FORECAST_DATE=$(TZ=America/Denver date +'%Y-%m-%d') \
+            --build-arg FORECAST_DAYS=7 \
+            cloud/services/credit/.
       - name: Update Helm chart with new image
         run: |
           sed -i "/credit:/,/^[a-zA-Z]/ s|image: .*|image: hub.k8s.ucar.edu/mesonet/credit:${{ steps.date.outputs.date }}|" cloud/helm/values.yaml
@@ -59,25 +60,3 @@ jobs:
           
           # Push the changes
           git push origin ${{ github.ref_name }}
-
-  run-credit-container:
-    # if: github.event_name == 'schedule'  # Only run on cron jobs
-    runs-on: ubuntu-latest
-    steps:
-      - name: Read image tag from values.yaml
-        id: image_tag
-        run: |
-          IMAGE_LINE=$(grep "credit:" -A 10 cloud/helm/values.yaml | grep "image:" | awk '{print $2}')
-          echo "image_tag=$IMAGE_LINE" >> $GITHUB_OUTPUT
-
-      - name: Run the latest credit container with env vars
-        run: |
-          START_DATE=$(date -u '+%Y-%m-%d 00:00:00')
-          END_DATE=$(date -u -d "+1 day" '+%Y-%m-%d 00:00:00')
-          SAVE_LOC="credit_run/results/forecast_$(date -u '+%Y%m%d_%H%M').zarr"
-
-          docker run --rm \
-            -e START_DATE="$START_DATE" \
-            -e END_DATE="$END_DATE" \
-            -e SAVE_LOC="$SAVE_LOC" \
-            ${{ steps.image_tag.outputs.image_tag }}

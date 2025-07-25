@@ -1,51 +1,41 @@
 name: credit
 channels:
   - conda-forge
+  - defaults
 
 dependencies:
-  - python=3.12
-  - pip
-  - jupyter
-  - numpy
-  - pandas
-  - pyarrow
-  - pyyaml
-  - distributed
-
-## dev and ML ops
-  - pytest
-  - ruff
-  - pre_commit
-  - myst-parser
-
-## Earth sciences and visualization
-  - xarray
-  - netcdf4
-  - zarr
+  - python=3.11
+  - libgcc-ng>=13.2.0
+  - numpy=2.2
+  - esmf
+  - esmpy
   - xesmf
-  - dask
-  - dask-jobqueue
+  - h5netcdf
+  - setuptools
+  - wheel
+  - xarray
   - matplotlib
-  - cartopy
-  - ffmpeg
-
-## ML
-  - scikit-learn
-
+  - papermill
+  - ipykernel
+  - netcdf4
+  - scipy
+  - openpyxl
+  - pip
   - pip:
-    - mpi4py
-    - einops
-    - echo-opt
-    - optuna==3.6.0
-    - bridgescaler
-    - torch 
-    - torchvision 
-    - segmentation-models-pytorch>=0.3.4
-    - torch-harmonics
-    - torch_geometric
-    - haversine
-    - torchsummary
-    - sphinx-autoapi
-    - properscoring
-    - .
-
+      - pysteps
+      - "torch==2.2.2 --index-url https://download.pytorch.org/whl/cu121"
+      - "torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu121"
+      - llvmlite==0.41.0
+      - numba==0.58.0
+      - mpi4py
+      - einops
+      - echo-opt
+      - optuna==3.6.0
+      - bridgescaler
+      - segmentation-models-pytorch>=0.3.4
+      - torch-harmonics
+      - torch_geometric
+      - haversine
+      - torchsummary
+      - sphinx-autoapi
+      - properscoring

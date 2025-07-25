@@ -47,7 +47,7 @@ class Batch:
         ts_iso = (
             datetime.fromtimestamp(ts_raw, tz=timezone.utc).isoformat()
             if isinstance(ts_raw, (int, float))
-            else ts_raw
+            else ts_raw.isoformat()
         )
 
         async with self.buffer_lock:
@@ -96,6 +96,7 @@ class Batch:
                 continue
 
             last_active = readings.get("metadata", {}).get("last_active")
+
             if self.last_processed.get(station_id) == last_active:
                 console.debug(f"Skipping reprocessing for {station_id} (unchanged timestamp)")
                 continue
@@ -109,7 +110,7 @@ class Batch:
                 existing_redis_data = await self.redis_client.hget(redis_key, "data") or "{}"
                 existing_sensor_data = json.loads(existing_redis_data)
 
-                new_metadata = readings.get("metadata", {})
+                new_metadata = {**readings.get("metadata", {}), "last_active": last_active}
                 existing_redis_metadata = await self.redis_client.hget(redis_key, "metadata") or "{}"
                 existing_metadata = json.loads(existing_redis_metadata)
 
@@ -117,7 +118,7 @@ class Batch:
                 merged_metadata = self.__merge_metadata(existing_metadata, new_metadata)
 
                 model_summaries = await self.model.run(station_id, merged_sensor_data) or []
-
+                
                 redis_station_data = {
                     'data': json.dumps(merged_sensor_data),
                     'metadata': json.dumps(merged_metadata),
