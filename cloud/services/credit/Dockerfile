@@ -59,8 +59,11 @@ COPY scripts/credit.sh /cloud/services/credit/scripts/credit.sh
 RUN chmod +x ./scripts/credit.sh
 
 # Copy the credit_run directory
-COPY credit_run /cloud/services/credit/credit_run
+COPY credit_run/process.sh /cloud/services/credit/credit_run/process.sh
 RUN chmod +x /cloud/services/credit/credit_run/process.sh
+COPY credit_run/write_to_db.py /cloud/services/credit/credit_run/write_to_db.py
+RUN chmod +x /cloud/services/credit/credit_run/write_to_db.py
+COPY credit_run/process /cloud/services/credit/credit_run/process
 
 # Default startup command
 CMD ["/bin/bash", "./scripts/credit.sh"]
