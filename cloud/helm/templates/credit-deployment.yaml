@@ -21,6 +21,26 @@ spec:
         fsGroup: 1000
         runAsNonRoot: true
       initContainers:
+      - name: fix-permissions
+        image: busybox:1.35
+        securityContext:
+          runAsUser: 0
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Fixing volume permissions..."
+          chown -R 1000:1000 /static-data
+          chown -R 1000:1000 /checkpoint
+          chmod -R 755 /static-data
+          chmod -R 755 /checkpoint
+          echo "Permissions fixed"
+          ls -la /static-data/
+          ls -la /checkpoint/
+        volumeMounts:
+        - name: static-volume
+          mountPath: /static-data
+        - name: checkpoint-volume
+          mountPath: /checkpoint
       - name: copy-static-files
         image: busybox:1.35
         securityContext:
@@ -30,15 +50,13 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          echo "Checking source permissions..."
-          ls -la /campaign/
-          echo "Checking destination permissions..."
+          echo "Checking destination permissions after fix..."
           ls -la /static-data/
           echo "Copying NetCDF files to static volume..."
           for file in /campaign/*.nc; do
             if [ -r "$file" ]; then
               echo "Copying $(basename "$file")..."
-              cp "$file" /static-data/ || echo "Failed to copy $(basename "$file")"
+              cp "$file" /static-data/ && echo "Successfully copied $(basename "$file")" || echo "Failed to copy $(basename "$file")"
             else
               echo "Cannot read $file"
             fi
@@ -59,14 +77,12 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          echo "Checking source permissions..."
-          ls -la /campaign/
-          echo "Checking destination permissions..."
+          echo "Checking destination permissions after fix..."
           ls -la /checkpoint/
           echo "Copying model checkpoint to checkpoint volume..."
           if [ -r "/campaign/model_checkpoint.pt" ]; then
             echo "Copying model_checkpoint.pt..."
-            cp /campaign/model_checkpoint.pt /checkpoint/ || echo "Failed to copy model_checkpoint.pt"
+            cp /campaign/model_checkpoint.pt /checkpoint/ && echo "Successfully copied model_checkpoint.pt" || echo "Failed to copy model_checkpoint.pt"
           else
             echo "Cannot read /campaign/model_checkpoint.pt"
           fi
