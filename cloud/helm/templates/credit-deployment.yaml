@@ -20,12 +20,29 @@ spec:
       initContainers:
       - name: copy-static-files
         image: busybox:1.35
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
         command: ['sh', '-c']
         args:
         - |
+          echo "Running as user: $(id)"
+          echo "Checking source permissions..."
+          ls -la /campaign/
+          echo "Checking destination permissions..."
+          ls -la /static-data/
           echo "Copying NetCDF files to static volume..."
-          cp /campaign/*.nc /static-data/
-          echo "NetCDF files copied successfully"
+          for file in /campaign/*.nc; do
+            if [ -r "$file" ]; then
+              echo "Copying $(basename "$file")..."
+              cp "$file" /static-data/ || echo "Failed to copy $(basename "$file")"
+            else
+              echo "Cannot read $file"
+            fi
+          done
+          echo "Copy operation completed"
           ls -la /static-data/
         volumeMounts:
         - name: campaign
@@ -34,12 +51,27 @@ spec:
           mountPath: /static-data
       - name: copy-checkpoint
         image: busybox:1.35
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
         command: ['sh', '-c']
         args:
         - |
+          echo "Running as user: $(id)"
+          echo "Checking source permissions..."
+          ls -la /campaign/
+          echo "Checking destination permissions..."
+          ls -la /checkpoint/
           echo "Copying model checkpoint to checkpoint volume..."
-          cp /campaign/model_checkpoint.pt /checkpoint/
-          echo "Model checkpoint copied successfully"
+          if [ -r "/campaign/model_checkpoint.pt" ]; then
+            echo "Copying model_checkpoint.pt..."
+            cp /campaign/model_checkpoint.pt /checkpoint/ || echo "Failed to copy model_checkpoint.pt"
+          else
+            echo "Cannot read /campaign/model_checkpoint.pt"
+          fi
+          echo "Copy operation completed"
           ls -la /checkpoint/
         volumeMounts:
         - name: campaign
