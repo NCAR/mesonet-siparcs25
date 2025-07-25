@@ -196,7 +196,8 @@
     console.log('Client Origin:', window.location.origin);
     const socket = io.connect(window.location.origin, {
       path: '/socket.io',
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      timeout: 10000
     });
     socket.on('connect_error', (error) => {
       console.error('SocketIO Connect Error:', error.message);
