@@ -43,7 +43,7 @@ jobs:
             --build-arg ARCHITECTURE=x86_64 \
             --build-arg ENV_FILE=environment_gpu.yml \
             --build-arg FORECAST_DATE=$(TZ=America/Denver date +'%Y-%m-%d') \
-            --build-arg FORECAST_DAYS=7 \
+            --build-arg FORECAST_DAYS=1 \
             cloud/services/credit/.
       - name: Update Helm chart with new image
         run: |

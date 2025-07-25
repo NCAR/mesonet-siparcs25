@@ -41,6 +41,6 @@ gfs_init.to_zarr(
     join(
         config["predict"]["initial_condition_path"],
         f"gfs_init_{date.strftime('%Y%m%d_%H00')}.zarr",
-        mode="w",
-    )
+    ),
+    mode="w"
 )
