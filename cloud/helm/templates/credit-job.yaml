@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.credit.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.credit.name }}
+    group: {{ .Values.app.group }}
+spec:
+  schedule: "0 0,6,12,18 * * *"  
+  timeZone: "America/Denver"  
+  concurrencyPolicy: Forbid  
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: {{ .Values.credit.name }}
+        spec:
+          restartPolicy: OnFailure 
+          containers:
+          - name: {{ .Values.credit.name }}
+            image: {{ .Values.credit.container.image }}
+            imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+            resources:
+              limits:
+                memory: {{ .Values.credit.container.memory }}
+                cpu: {{ .Values.credit.container.cpu }}
+            volumeMounts:
+            - name: config-volume
+              mountPath: /cloud/config.yaml
+              subPath: config.yaml
+            - name: logger-volume
+              mountPath: /cloud/services/credit/logger.py
+              subPath: logger.py
+            - name: static-volume
+              mountPath: /cloud/services/credit/static_data
+            - name: checkpoint-volume
+              mountPath: /cloud/services/credit/credit_run/results
+          volumes:
+          - name: config-volume
+            configMap:
+              name: {{ .Values.app.config.name }}
+          - name: logger-volume
+            configMap:
+              name: {{ .Values.app.logger.name }}
+          - name: static-volume
+            persistentVolumeClaim:
+              claimName: {{ .Values.credit.volume.static_data.name }}
+          - name: checkpoint-volume
+            persistentVolumeClaim:
+              claimName: {{ .Values.credit.volume.checkpoint.name }}
