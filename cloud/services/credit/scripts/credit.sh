@@ -24,6 +24,7 @@ echo "Updating model.yml..."
 sed -i "s|^ *forecast_start_time:.*|        forecast_start_time: \"$START_DATE\"|" model.yml
 sed -i "s|^ *forecast_end_time:.*|        forecast_end_time: \"$END_DATE\"|" model.yml
 sed -i "s|^\([[:space:]]*save_loc:\).*zarr\"$|\1 \"$SAVE_PATH\"|" model.yml
+sed -i "s|^\([[:space:]]*save_loc_surface:\).*zarr\"$|\1 \"$SAVE_PATH\"|" model.yml
 echo "model.yml updated successfully..."
 
 # Start pipeline
