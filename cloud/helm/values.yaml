@@ -13,9 +13,12 @@ credit:
     memory: 64Gi
     cpu: 8
   volume:
-    size: 20Gi
-    static_data: credit-static-pvc
-    checkpoint: credit-checkpoint-pvc
+    static_data: 
+      size: 20Gi
+      name: credit-static-pvc
+    checkpoint: 
+      name: credit-checkpoint-pvc
+      size: 40Gi
 databaseapi:
   name: database-api
   replicaCount: 1

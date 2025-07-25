@@ -17,6 +17,35 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      initContainers:
+      - name: copy-static-files
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Copying NetCDF files to static volume..."
+          cp /campaign/*.nc /static-data/
+          echo "NetCDF files copied successfully"
+          ls -la /static-data/
+        volumeMounts:
+        - name: campaign
+          mountPath: /campaign
+        - name: static-volume
+          mountPath: /static-data
+      - name: copy-checkpoint
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Copying model checkpoint to checkpoint volume..."
+          cp /campaign/model_checkpoint.pt /checkpoint/
+          echo "Model checkpoint copied successfully"
+          ls -la /checkpoint/
+        volumeMounts:
+        - name: campaign
+          mountPath: /campaign
+        - name: checkpoint-volume
+          mountPath: /checkpoint
       containers:
       - name: {{ .Values.credit.name }}
         image: {{ .Values.credit.container.image }}
@@ -32,10 +61,12 @@ spec:
         - name: logger-volume
           mountPath: /cloud/services/credit/logger.py
           subPath: logger.py
-        - name: campaign
+        - name: static-volume
           mountPath: /cloud/services/credit/static_data
-        - name: campaign
+        - name: checkpoint-volume
           mountPath: /cloud/services/credit/credit_run/results
+        - name: campaign
+          mountPath: /glade/campaign/work/agbeli/mesonet
       volumes:
       - name: campaign
         nfs:
@@ -48,9 +79,9 @@ spec:
       - name: logger-volume
         configMap:
           name: {{ .Values.app.logger.name }}
-      # - name: static-volume
-      #   persistentVolumeClaim:
-      #     claimName: {{ .Values.credit.volume.static_data }}
-      #- name: checkpoint-volume
-      #  persistentVolumeClaim:
-      #    claimName: {{ .Values.credit.volume.checkpoint }}
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: {{ .Values.credit.volume.static_data.name }}
+      - name: checkpoint-volume
+        persistentVolumeClaim:
+          claimName: {{ .Values.credit.volume.checkpoint.name }}
