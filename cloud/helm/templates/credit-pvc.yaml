@@ -6,7 +6,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: ceph-kubepv
+  storageClassName: cephfs
   resources:
     requests:
       storage: {{ .Values.credit.volume.static_data.size }}
@@ -19,7 +19,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: ceph-kubepv
+  storageClassName: cephfs
   resources:
     requests:
       storage: {{ .Values.credit.volume.checkpoint.size }}
