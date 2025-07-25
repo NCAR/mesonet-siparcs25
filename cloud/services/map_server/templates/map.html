@@ -497,6 +497,7 @@
           updateStationMarker(id, s);
         });
         cleanupStaleMarkers();
+        showLoading(false);
       } catch (e) {
         handleError('Failed to process initial station data', e);
       } finally {
