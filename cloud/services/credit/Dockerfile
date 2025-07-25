@@ -21,9 +21,11 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 ENV MINIFORGE_VERSION=23.3.1-0
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ git libproj-dev libgeos-dev libgdal-dev && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    curl git wget bzip2 ca-certificates vim \
+    libglib2.0-0 libxext6 libsm6 libxrender1 \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Miniforge (Conda)
 RUN wget https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-Linux-${ARCHITECTURE}.sh -O /tmp/miniforge.sh && \
