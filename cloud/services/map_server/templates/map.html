@@ -194,11 +194,7 @@
 
     // Initialize SocketIO
     console.log('Client Origin:', window.location.origin);
-    const socket = io.connect(window.location.origin, {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      timeout: 10000
-    });
+    const socket = io("https://map-server.mesonet.k8s.ucar.edu:5001");
     socket.on('connect_error', (error) => {
       console.error('SocketIO Connect Error:', error.message);
     });
