@@ -39,17 +39,20 @@ for HOUR in $(seq 6 6 $TOTAL_HOURS); do
     sed -i "s|results/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T00Z_Forecast/Data/forecast_[0-9]\{3\}|results/${FORECAST_DATE}T00Z_Forecast/Data/forecast_${PADDED_HOUR}|g" process/data.ipynb
 
     echo "[$DATE] Running the notebook..."
-    conda run -n credit papermill process/data.ipynb /cloud/services/credit/credit_run/results/${FORECAST_DATE}T00Z_Forecast/Notebooks/forecast_${PADDED_HOUR}.ipynb
+    conda run -n "$ENV_NAME" papermill process/data.ipynb /cloud/services/credit/credit_run/results/${FORECAST_DATE}T00Z_Forecast/Notebooks/forecast_${PADDED_HOUR}.ipynb
 
     if [ $? -eq 0 ]; then
         echo "[$DATE] 🤩 Processing forecast for ${PADDED_HOUR} completed successfully."
+
+        echo "[$DATE] Writing processed data to the database..."
+        conda run -n "$ENV_NAME" python /cloud/services/credit/credit_run/write_to_db.py
     else
         echo "[$DATE] 😡 Processing forecast failed for ${PADDED_HOUR}."
     fi
 done
 
 # Restore original notebook and clean up
-echo "[$DATE] Restoring original notebook"
+echo "[$DATE] Restoring original notebook."
 cp process/data_template.ipynb process/data.ipynb
 
 echo "[$DATE] Cleaning up template..."
