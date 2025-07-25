@@ -7,6 +7,10 @@ metadata:
     group: {{ .Values.app.group }}
   annotations:
     cert-manager.io/cluster-issuer: "incommon"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "{{ .Values.mapserver.name }}"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
 spec:
   ingressClassName: nginx-external
   tls:
