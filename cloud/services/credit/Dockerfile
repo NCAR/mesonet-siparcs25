@@ -43,7 +43,7 @@ RUN chmod -R u+w /cloud/services/credit/miles-credit
 WORKDIR /cloud/services/credit/miles-credit
 
 # Use the environment.yml to create the environment
-RUN conda env create -n ${ENV_NAME} -f ${ENV_FILE} && \
+RUN conda env create -n ${ENV_NAME} -f ${ENV_FILE}
 
 # Activate the conda environment.
 RUN conda run -n ${ENV_NAME} pip install -e .
