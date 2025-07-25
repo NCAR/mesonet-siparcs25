@@ -24,7 +24,7 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          chmod -r 777 /static-data
+          chmod 777 /static-data
           echo "Attempting to create test file..."
           touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
           echo "Copying NetCDF files to static volume..."
@@ -43,7 +43,7 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          chmod -r 777 /checkpoint
+          chmod 777 /checkpoint
           echo "Attempting to create test file..."
           touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
           echo "Copying model checkpoint to checkpoint volume..."
