@@ -12,7 +12,7 @@ RUN mkdir -p /cloud/services/map_server/templates
 COPY templates/ /cloud/services/map_server/templates/
 
 # Expose dynamic port
-ARG APP_PORT=5000
+ARG APP_PORT=5001
 EXPOSE ${APP_PORT}
 
 # Run Gunicorn with gevent, using environment variables

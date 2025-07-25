@@ -186,7 +186,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.js" integrity="sha512-8BHxHDLsOHx+flIrQ0DrZcea7MkHqRU5GbTHmbdzMRnAaoCIkZ97PqZcXJkKZckMMhqfoeaJE+DNUVuyoQsO3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     const DEFAULT_LATITUDE = 39.9784;
     const DEFAULT_LONGITUDE = -105.2749;
@@ -194,10 +194,9 @@
 
     // Initialize SocketIO
     console.log('Client Origin:', window.location.origin);
-    const socket = io.connect(window.location.origin, {
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      timeout: 10000
+    const socket = io("https://map-server.mesonet.k8s.ucar.edu", {
+      transports: ["websocket", "polling"], // fallback in correct order
+      withCredentials: true
     });
     socket.on('connect_error', (error) => {
       console.error('SocketIO Connect Error:', error.message);
