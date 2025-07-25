@@ -21,8 +21,10 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 ENV MINIFORGE_VERSION=23.3.1-0
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc g++ git libproj-dev libgeos-dev libgdal-dev \
+RUN apt-get update && apt-get install -y \
+    curl git wget bzip2 ca-certificates vim \
+    libglib2.0-0 libxext6 libsm6 libxrender1 \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Miniforge (Conda)
@@ -53,12 +55,12 @@ COPY model.yml ./model.yml
 RUN chmod +x ./model.yml
 
 # Make sure script is executable
-COPY scripts/credit.sh ./scripts/credit.sh
+COPY scripts/credit.sh /cloud/services/credit/scripts/credit.sh
 RUN chmod +x ./scripts/credit.sh
 
 # Copy the credit_run directory
-COPY credit_run .
-RUN chmod +x ./credit_run/process.sh
+COPY credit_run /cloud/services/credit/credit_run
+RUN chmod +x /cloud/services/credit/credit_run/process.sh
 
 # Default startup command
 CMD ["/bin/bash", "./scripts/credit.sh"]

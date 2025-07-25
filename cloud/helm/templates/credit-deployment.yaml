@@ -8,6 +8,8 @@ metadata:
     group: {{ .Values.app.group }}
 spec:
   revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
   replicas: {{ .Values.credit.replicaCount }}
   selector:
     matchLabels:
@@ -17,6 +19,47 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+      - name: copy-static-files
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Running as user: $(id)"
+          chown -R root:root /static-data
+          echo "Attempting to create test file..."
+          touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
+          echo "Copying NetCDF files to static volume..."
+          cp /campaign/*.nc /static-data/
+          echo "NetCDF files copied successfully"
+          ls -la /
+          ls -la /static-data/
+        volumeMounts:
+        - name: campaign
+          mountPath: /campaign
+        - name: static-volume
+          mountPath: /static-data
+      - name: copy-checkpoint
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Running as user: $(id)"
+          chown -R root:root /checkpoint
+          echo "Attempting to create test file..."
+          touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
+          echo "Copying model checkpoint to checkpoint volume..."
+          cp /campaign/model_checkpoint.pt /checkpoint/
+          echo "Model checkpoint copied successfully"
+          ls -la /checkpoint/
+          rm -r /checkpoint/*.zarr
+        volumeMounts:
+        - name: campaign
+          mountPath: /campaign
+        - name: checkpoint-volume
+          mountPath: /checkpoint
       containers:
       - name: {{ .Values.credit.name }}
         image: {{ .Values.credit.container.image }}
@@ -32,10 +75,12 @@ spec:
         - name: logger-volume
           mountPath: /cloud/services/credit/logger.py
           subPath: logger.py
-        - name: campaign
+        - name: static-volume
           mountPath: /cloud/services/credit/static_data
-        - name: campaign
+        - name: checkpoint-volume
           mountPath: /cloud/services/credit/credit_run/results
+        - name: campaign
+          mountPath: /glade/campaign/work/agbeli/mesonet
       volumes:
       - name: campaign
         nfs:
@@ -48,9 +93,9 @@ spec:
       - name: logger-volume
         configMap:
           name: {{ .Values.app.logger.name }}
-      # - name: static-volume
-      #   persistentVolumeClaim:
-      #     claimName: {{ .Values.credit.volume.static_data }}
-      #- name: checkpoint-volume
-      #  persistentVolumeClaim:
-      #    claimName: {{ .Values.credit.volume.checkpoint }}
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: {{ .Values.credit.volume.static_data.name }}
+      - name: checkpoint-volume
+        persistentVolumeClaim:
+          claimName: {{ .Values.credit.volume.checkpoint.name }}
