@@ -24,9 +24,13 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
+          sudo chmod -r 777 /static-data
+          echo "Attempting to create test file..."
+          touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
           echo "Copying NetCDF files to static volume..."
           cp /campaign/*.nc /static-data/
           echo "NetCDF files copied successfully"
+          ls -la /
           ls -la /static-data/
         volumeMounts:
         - name: campaign
@@ -39,6 +43,9 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
+          sudo chmod -r 777 /checkpoint
+          echo "Attempting to create test file..."
+          touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
           echo "Copying model checkpoint to checkpoint volume..."
           cp /campaign/model_checkpoint.pt /checkpoint/
           echo "Model checkpoint copied successfully"
