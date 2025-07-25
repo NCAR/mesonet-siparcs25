@@ -8,6 +8,8 @@ metadata:
     group: {{ .Values.app.group }}
 spec:
   revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
   replicas: {{ .Values.credit.replicaCount }}
   selector:
     matchLabels:
