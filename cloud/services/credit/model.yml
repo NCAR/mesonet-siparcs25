@@ -13,12 +13,12 @@ data:
     # upper-air variables
     variables: ['U', 'V', 'T', 'Q']
 #    save_loc: '/glade/derecho/scratch/ksha/CREDIT_data/ERA5_mlevel_arXiv/SixHourly_y_TOTAL*'
-    save_loc: "credit_run/results/gfs_init_20250714_0000.zarr"
+    save_loc: "credit_run/results/gfs_init_20250723_0000.zarr"
 
     # surface variables
     surface_variables: ['SP', 't2m', 'V500', 'U500', 'T500', 'Z500', 'Q500']
 #    save_loc_surface_surface: '/glade/derecho/scratch/ksha/CREDIT_data/ERA5_mlevel_arXiv/SixHourly_y_TOTAL*'
-    save_loc_surface: "credit_run/results/gfs_init_20250714_0000.zarr"
+    save_loc_surface: "credit_run/results/gfs_init_20250723_0000.zarr"
 
     # dynamic forcing variables
     dynamic_forcing_variables: ['tsi']
@@ -186,8 +186,8 @@ predict:
         days: 2              # forecast lead time as days (1 means 24-hour forecast)
 
     realtime:
-        forecast_start_time: "2025-07-14 00:00:00" # change to your init date
-        forecast_end_time: "2025-07-15 00:00:00" # Should be sometime after init date
+        forecast_start_time: "2025-07-23 00:00:00" # change to your init date
+        forecast_end_time: "2025-07-30 00:00:00" # Should be sometime after init date
         forecast_timestep: "6h"
 
     initial_condition_path: 'credit_run/results'
