@@ -17,6 +17,8 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      securityContext:
+        fsGroup: 1000
       initContainers:
       - name: copy-static-files
         image: busybox:1.35
