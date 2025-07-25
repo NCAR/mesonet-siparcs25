@@ -19,6 +19,7 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      runtimeClassName: nvidia
       securityContext:
         fsGroup: 1000
       initContainers:
@@ -68,6 +69,9 @@ spec:
           limits:
             memory: {{ .Values.credit.container.memory }}
             cpu: {{ .Values.credit.container.cpu }}
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml
