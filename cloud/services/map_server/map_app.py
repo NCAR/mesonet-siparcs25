@@ -13,8 +13,9 @@ from gevent import monkey
 monkey.patch_all()  # must come first to patch standard library for gevent compatibility
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'map_secret'
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*"])
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s')
+# socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*"])
+logging.basicConfig(level=logging.DEBUG)
+socketio = SocketIO(app, logger=True, engineio_logger=True, cors_allowed_origins="*")
 
 # Load config
 with open('/cloud/config.yaml', 'r') as f:
