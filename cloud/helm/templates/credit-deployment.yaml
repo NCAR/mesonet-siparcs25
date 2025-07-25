@@ -17,32 +17,9 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
-      securityContext:
-        fsGroup: 1000
-        runAsNonRoot: true
       initContainers:
-      - name: fix-permissions
-        image: busybox:1.35
-        securityContext:
-          runAsUser: 0
-        command: ['sh', '-c']
-        args:
-        - |
-          echo "Fixing volume permissions..."
-          chown -R 1000:1000 /static-data
-          chown -R 1000:1000 /checkpoint
-          chmod -R 755 /static-data
-          chmod -R 755 /checkpoint
-          echo "Permissions fixed"
-          ls -la /static-data/
-          ls -la /checkpoint/
-        volumeMounts:
-        - name: static-volume
-          mountPath: /static-data
-        - name: checkpoint-volume
-          mountPath: /checkpoint
       - name: copy-static-files
-        image: busybox:1.35
+        image: alpine:3.18
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -50,17 +27,16 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          echo "Checking destination permissions after fix..."
+          echo "Installing rsync..."
+          apk add --no-cache rsync
+          echo "Checking source permissions..."
+          ls -la /campaign/
+          echo "Checking destination permissions..."
           ls -la /static-data/
-          echo "Copying NetCDF files to static volume..."
-          for file in /campaign/*.nc; do
-            if [ -r "$file" ]; then
-              echo "Copying $(basename "$file")..."
-              cp "$file" /static-data/ && echo "Successfully copied $(basename "$file")" || echo "Failed to copy $(basename "$file")"
-            else
-              echo "Cannot read $file"
-            fi
-          done
+          echo "Attempting to create test file..."
+          touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
+          echo "Using rsync to copy NetCDF files..."
+          rsync -av --ignore-errors /campaign/*.nc /static-data/ || echo "Rsync completed with some errors"
           echo "Copy operation completed"
           ls -la /static-data/
         volumeMounts:
@@ -69,7 +45,7 @@ spec:
         - name: static-volume
           mountPath: /static-data
       - name: copy-checkpoint
-        image: busybox:1.35
+        image: alpine:3.18
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -77,15 +53,16 @@ spec:
         args:
         - |
           echo "Running as user: $(id)"
-          echo "Checking destination permissions after fix..."
+          echo "Installing rsync..."
+          apk add --no-cache rsync
+          echo "Checking source permissions..."
+          ls -la /campaign/
+          echo "Checking destination permissions..."
           ls -la /checkpoint/
-          echo "Copying model checkpoint to checkpoint volume..."
-          if [ -r "/campaign/model_checkpoint.pt" ]; then
-            echo "Copying model_checkpoint.pt..."
-            cp /campaign/model_checkpoint.pt /checkpoint/ && echo "Successfully copied model_checkpoint.pt" || echo "Failed to copy model_checkpoint.pt"
-          else
-            echo "Cannot read /campaign/model_checkpoint.pt"
-          fi
+          echo "Attempting to create test file..."
+          touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
+          echo "Using rsync to copy checkpoint..."
+          rsync -av --ignore-errors /campaign/model_checkpoint.pt /checkpoint/ || echo "Rsync completed with some errors"
           echo "Copy operation completed"
           ls -la /checkpoint/
         volumeMounts:
