@@ -266,7 +266,6 @@ class MQTTDatabaseUpdater:
             ts_st = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
             ts_iso = ts_st.isoformat()
         station_data['last_active'] = ts_iso
-        station_data['created_at'] = ts_iso
         # Remove fields not in Station schema
         station_data.pop('timestamp', None)
         station_data.pop('type', None)
@@ -284,6 +283,7 @@ class MQTTDatabaseUpdater:
                 else:
                     print(f"[error]: Failed to update station {station_id} in Postgres: {response.status_code} {response.text}")
             elif response.status_code == 404:
+                station_data['created_at'] = ts_iso
                 response = requests.post(STATION_ENDPOINT, json=station_data, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Created station {station_id} in Postgres")
