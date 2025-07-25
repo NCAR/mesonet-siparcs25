@@ -19,25 +19,14 @@ spec:
     spec:
       initContainers:
       - name: copy-static-files
-        image: alpine:3.18
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
+        image: busybox:1.35
         command: ['sh', '-c']
         args:
         - |
           echo "Running as user: $(id)"
-          echo "Installing rsync..."
-          apk add --no-cache rsync
-          echo "Checking source permissions..."
-          ls -la /campaign/
-          echo "Checking destination permissions..."
-          ls -la /static-data/
-          echo "Attempting to create test file..."
-          touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
-          echo "Using rsync to copy NetCDF files..."
-          rsync -av --ignore-errors /campaign/*.nc /static-data/ || echo "Rsync completed with some errors"
-          echo "Copy operation completed"
+          echo "Copying NetCDF files to static volume..."
+          cp /campaign/*.nc /static-data/
+          echo "NetCDF files copied successfully"
           ls -la /static-data/
         volumeMounts:
         - name: campaign
@@ -45,25 +34,14 @@ spec:
         - name: static-volume
           mountPath: /static-data
       - name: copy-checkpoint
-        image: alpine:3.18
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
+        image: busybox:1.35
         command: ['sh', '-c']
         args:
         - |
           echo "Running as user: $(id)"
-          echo "Installing rsync..."
-          apk add --no-cache rsync
-          echo "Checking source permissions..."
-          ls -la /campaign/
-          echo "Checking destination permissions..."
-          ls -la /checkpoint/
-          echo "Attempting to create test file..."
-          touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
-          echo "Using rsync to copy checkpoint..."
-          rsync -av --ignore-errors /campaign/model_checkpoint.pt /checkpoint/ || echo "Rsync completed with some errors"
-          echo "Copy operation completed"
+          echo "Copying model checkpoint to checkpoint volume..."
+          cp /campaign/model_checkpoint.pt /checkpoint/
+          echo "Model checkpoint copied successfully"
           ls -la /checkpoint/
         volumeMounts:
         - name: campaign
