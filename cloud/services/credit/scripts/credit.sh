@@ -14,7 +14,7 @@ FORECAST_DAYS=${FORECAST_DAYS:-1}
 
 # Start and End Date Calculations
 START_DATE="$FORECAST_DATE 00:00:00"
-END_DATE=$(TZ=$TZ date -d "$FORECAST_DATE +${FORECAST_DAYS} day" +"%Y-%m-%d 00:00:00")
+END_DATE=$(TZ=$TZ date -d "$FORECAST_DATE +$FORECAST_DAYS days" +"%Y-%m-%d 00:00:00")
 
 SAVE_PATH="credit_run/results/gfs_init_$(date -d "$FORECAST_DATE" +%Y%m%d_0000).zarr"
 
@@ -31,7 +31,7 @@ echo "Updating model.yml..."
 sed -i "s|^ *forecast_start_time:.*|        forecast_start_time: \"$START_DATE\"|" model.yml
 sed -i "s|^ *forecast_end_time:.*|        forecast_end_time: \"$END_DATE\"|" model.yml
 sed -i "s|^\([[:space:]]*save_loc:\).*zarr\"$|\1 \"$SAVE_PATH\"|" model.yml
-
+sed -i "s|^\([[:space:]]*save_loc_surface:\).*zarr\"$|\1 \"$SAVE_PATH\"|" model.yml
 echo "model.yml updated successfully..."
 
 # Start pipeline
