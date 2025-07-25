@@ -17,14 +17,15 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
       initContainers:
       - name: copy-static-files
         image: busybox:1.35
         securityContext:
-          runAsNonRoot: true
           runAsUser: 1000
           runAsGroup: 1000
-          fsGroup: 1000
         command: ['sh', '-c']
         args:
         - |
@@ -52,10 +53,8 @@ spec:
       - name: copy-checkpoint
         image: busybox:1.35
         securityContext:
-          runAsNonRoot: true
           runAsUser: 1000
           runAsGroup: 1000
-          fsGroup: 1000
         command: ['sh', '-c']
         args:
         - |
