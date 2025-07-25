@@ -17,6 +17,8 @@ spec:
       labels:
         app: {{ .Values.credit.name }}
     spec:
+      securityContext:
+        fsGroup: 1000
       containers:
       - name: {{ .Values.credit.name }}
         image: {{ .Values.credit.container.image }}
