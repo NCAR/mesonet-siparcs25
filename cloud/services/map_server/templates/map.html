@@ -517,9 +517,9 @@
       }
     });
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from SocketIO server');
-      handleError('Lost connection to server', null);
+    socket.on('disconnect', (reason) => {
+        console.error('WebSocket Disconnected:', reason);
+        handleError('Lost connection to server: ' + reason, null);
     });
   </script>
 </body>
