@@ -19,6 +19,33 @@ spec:
     spec:
       securityContext:
         fsGroup: 1000
+      initContainers:
+      - name: copy-static-files
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Attempting to create test file..."
+          touch /static-data/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
+          ls -la /static-data/
+        volumeMounts:
+        - name: campaign
+          mountPath: /campaign
+        - name: static-volume
+          mountPath: /static-data
+      - name: copy-checkpoint
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Attempting to create test file..."
+          touch /checkpoint/test.txt 2>/dev/null && echo "Write test successful" || echo "Write test failed"
+          ls -la /checkpoint/
+        volumeMounts:
+        - name: campaign
+          mountPath: /campaign
+        - name: checkpoint-volume
+          mountPath: /checkpoint
       containers:
       - name: {{ .Values.credit.name }}
         image: {{ .Values.credit.container.image }}
@@ -38,7 +65,14 @@ spec:
           mountPath: /cloud/services/credit/static_data
         - name: checkpoint-volume
           mountPath: /cloud/services/credit/credit_run/results
+        - name: campaign
+          mountPath: /glade/campaign/work/agbeli/mesonet
       volumes:
+      - name: campaign
+        nfs:
+          server: gladedm1.ucar.edu
+          path: /gpfs/csfs1/work/agbeli/mesonet
+          readOnly: true
       - name: config-volume
         configMap:
           name: {{ .Values.app.config.name }}
