@@ -487,7 +487,6 @@
 
     socket.on('connect', () => {
       console.log('Connected to SocketIO server');
-      showLoading(true);
     });
 
     socket.on('initial_data', (data) => {
@@ -498,6 +497,7 @@
           updateStationMarker(id, s);
         });
         cleanupStaleMarkers();
+        showLoading(false);
       } catch (e) {
         handleError('Failed to process initial station data', e);
       } finally {
@@ -517,9 +517,9 @@
       }
     });
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from SocketIO server');
-      handleError('Lost connection to server', null);
+    socket.on('disconnect', (reason) => {
+        console.error('WebSocket Disconnected:', reason);
+        handleError('Lost connection to server: ' + reason, null);
     });
   </script>
 </body>
