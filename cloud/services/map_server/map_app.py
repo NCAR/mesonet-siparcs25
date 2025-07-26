@@ -15,7 +15,8 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'map_secret'
 # socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*"])
 logging.basicConfig(level=logging.DEBUG)
-socketio = SocketIO(app, async_mode='gevent', logger=True, engineio_logger=True, cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode='gevent', ping_timeout=30,       # seconds
+                    ping_interval=20,logger=True, engineio_logger=True, cors_allowed_origins="*")
 
 # Load config
 with open('/cloud/config.yaml', 'r') as f:

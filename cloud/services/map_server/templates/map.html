@@ -196,6 +196,8 @@
     console.log('Client Origin:', window.location.origin);
     const socket = io("https://map-server.mesonet.k8s.ucar.edu", {
       transports: ["websocket", "polling"], // fallback in correct order
+      pingTimeout: 30000,    // 30s
+      pingInterval: 20000,    // 20s
       withCredentials: true
     });
     socket.on('connect_error', (error) => {
