@@ -1,32 +1,31 @@
 import asyncio
 import pandas as pd
 import numpy as np
-from rpds import List
-from traitlets import Any
+from typing import List, Any
 from logger import CustomLogger
 from utils import request, Payload
-from utils.type_c import CreditCreate, CreditUpdate, CreditResponse
+from utils.type_c import CreditCreate, CreditResponse
 
 console = CustomLogger(name="credit_logs", log_dir="/cloud/logs")
 file_path = "results/2025-07-25T00Z_Forecast/Data/forecast_000.xlsx"
 
 class CreditToDB:
     def __init__(self):
-        self.db_uri = ""
+        self.__db_uri = ""
         self.__db_url = ""
         console.log(f"The file to read data from: {file_path}")
 
     @property
-    def db_url(self):
+    def db_url(self) -> str:
         return self.__db_url
     
     @db_url.setter
     def db_url(self, value: str):
         if value:
             self.__db_url = value
-            self.db_uri = f"{value}/api/credit-forecast"
+            self.__db_uri = f"{value}/api/credit-forecast"
 
-    def connect_to_db(self, path: str = None):
+    def connect_to_db(self, path: str = None) -> None:
         """
         Connect to the database using the provided URI.
         """
@@ -35,7 +34,7 @@ class CreditToDB:
         res = request.ping(f"{path}/health")
         console.log(f"Database connection status: {res.get('status')}")
 
-    async def get_stations(self) -> List:
+    async def get_stations(self) -> List[Any]:
         """
         Fetch the list of stations from the database.
         """
@@ -51,14 +50,14 @@ class CreditToDB:
         """
         Interpolate the nearest station location using Euclidean distance between all points and the station.
         """
-        console.log(f"Calculate the nearest prediction for the station at ({station_lat, station_lon})")
+        console.log(f"Calculate the nearest prediction for the station at {station_lat, station_lon}")
         df["euc_dist"] = np.sqrt((df["latitude"] - station_lat)**2 + (df["longitude"] - station_lon)**2)
         nearest_station = df.loc[df["euc_dist"].idxmin()]
         console.debug(f"""Nearest station:\n{nearest_station}""")
 
         return nearest_station
 
-    async def __write_data(self):
+    async def __write_data(self) -> None:
         """
         Write the provided excel data to the database.
         """
@@ -94,20 +93,24 @@ class CreditToDB:
 
             station_data = station_data.to_dict()
 
-            payload = Payload() \
+            payload: CreditCreate = Payload() \
                 .reset() \
                 .set_attr("station_id", station_id) \
                 .set_attr("longitude", station_data.get("longitude")) \
                 .set_attr("latitude", station_data.get("latitude")) \
                 .set_attr("forecast_for", station_data.get("time").isoformat()) \
-                .set_attr("temperature", station_data.get("t2m")) \
+                .set_attr("temperature", station_data.get("temperature")) \
+                .set_attr("humidity", station_data.get("humidity")) \
+                .set_attr("pressure", station_data.get("pressure")) \
+                .set_attr("wind_speed", station_data.get("wind_speed")) \
+                .set_attr("wind_direction", station_data.get("wind_direction")) \
                 .build()
+            
+            console.log(f"Inserting forecast for {station_id} in the database")
+            res: CreditResponse = await request.insert(path=self.__db_uri, data=payload)
+            console.log(f"Credit forecast for station: {res.get('station_id')} successful.")
 
-            res = await request.insert(path=self.db_uri, data=payload)
-
-            console.debug(f"Credit forecast post response: {res}")
-
-    async def run(self):
+    async def run(self) -> None:
         """
         Main method to execute the credit run and write results to the database.
         """
@@ -128,6 +131,7 @@ if __name__ == "__main__":
                 db_url = "http://database-api:8000"
                 app.connect_to_db(db_url)
             except:
+                console.warning(f"Connection did not succeed on {db_url}")
                 db_url = "http://database_api:8000"
                 app.connect_to_db(db_url)
             finally:
@@ -135,6 +139,6 @@ if __name__ == "__main__":
 
             await app.run()
         except Exception as e:
-            console.exception(f"General error occurred: {e}")
+            console.exception(f"Error occurred: {e}")
 
     asyncio.run(main())

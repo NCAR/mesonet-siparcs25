@@ -11,7 +11,8 @@ class CreditCreate(BaseModel):
     humidity: Optional[float] = None
     pressure: Optional[float] = None
     wind_speed: Optional[float] = None
-    wind_direction: Optional[str] = None
+    wind_direction: Optional[float] = None
+    prediction_time: Optional[datetime] = None
 
 class CreditUpdate(CreditCreate):
     id: Optional[int] = None  # Allow id to be optional for updates

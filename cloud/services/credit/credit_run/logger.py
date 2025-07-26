@@ -1,5 +1,7 @@
 import logging
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # Define ANSI escape sequences for colors
 LOG_COLORS = {
@@ -12,6 +14,10 @@ LOG_COLORS = {
 }
 
 class JsonFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, tz=ZoneInfo("America/Denver"))
+        return dt.strftime(datefmt) if datefmt else dt.isoformat()
+
     def format(self, record):
         log_record = {
             "timestamp": self.formatTime(record, self.datefmt),
@@ -24,6 +30,10 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 class ColorFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, tz=ZoneInfo("America/Denver"))
+        return dt.strftime(datefmt) if datefmt else dt.isoformat()
+
     def format(self, record):
         log_color = LOG_COLORS.get(record.levelname, LOG_COLORS['RESET'])
         message = super().format(record)
