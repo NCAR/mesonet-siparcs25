@@ -378,7 +378,6 @@ def main():
             except Exception as e:
                 print(f"[error]: Error processing packet: {e}")
 
-        time.sleep(0.1)
 
 if __name__ == "__main__":
     main()

@@ -18,7 +18,7 @@
 #include <pico/multicore.h>
 #include <pico/sync.h>
 #include <SoftwareSerial.h>
-#include <Arduino.h> 
+#include <Arduino.h>
 
 // --- Constants ---
 #define RFM95_CS 16
@@ -37,6 +37,7 @@
 #define CONTINUOUS_TX_DURATION 6000 // 6 seconds for continuous transmission
 #define CONTINUOUS_PONG_DELAY_MAX 1500 //1.5 seconds for random pong max delay
 #define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
+#define RELAY_QUEUE_SIZE 8
 
 
 
@@ -150,12 +151,17 @@ uint32_t last_packet_time = 0;
 uint32_t last_blink_time = 0;
 uint8_t station_info_index = 0;
 uint32_t continuous_pong_start = 0;
-uint32_t last_rg15_acc_reset = -RG15_ACC_INTERVAL-1; // Track last reset time for RG15 accumulated rainfall
+uint32_t last_rg15_acc_reset = -RG15_ACC_INTERVAL - 1; // Track last reset time for RG15 accumulated rainfall
 float rg15_acc_mm = 0.0;
 float rg15_event_acc_mm = 0.0;
 float rg15_total_acc_mm = 0.0;
 float rg15_r_int_mm = 0.0;
 bool rg15_data_valid = false;
+char relay_packet_queue[RELAY_QUEUE_SIZE][MAX_PACKET_SIZE];
+uint8_t relay_packet_lengths[RELAY_QUEUE_SIZE];
+volatile uint8_t relay_queue_head = 0;
+volatile uint8_t relay_queue_tail = 0;
+mutex_t relay_queue_mutex;
 
 // --- Threading and Synchronization ---
 mutex_t state_mutex;
@@ -164,7 +170,7 @@ mutex_t radio_mutex;
 // --- Mutex Functions ---
 void mutex_safe_update_pong(const char* station_id, const char* type, float load, int8_t rssi, uint8_t relay_count) {
   mutex_enter_blocking(&state_mutex);
-  
+
   // Check for existing pong with the same station_id
   for (uint8_t i = 0; i < pong_count; i++) {
     if (strcmp(pongs[i].id, station_id) == 0) {
@@ -179,7 +185,7 @@ void mutex_safe_update_pong(const char* station_id, const char* type, float load
       return;
     }
   }
-  
+
   // Add new pong if there's space
   if (pong_count < sizeof(pongs) / sizeof(pongs[0])) {
     strlcpy(pongs[pong_count].id, station_id, sizeof(pongs[0].id));
@@ -193,7 +199,7 @@ void mutex_safe_update_pong(const char* station_id, const char* type, float load
   } else {
     Serial.println(F("[warn]: Pong array full, cannot add new pong"));
   }
-  
+
   mutex_exit(&state_mutex);
 }
 
@@ -255,7 +261,7 @@ void handle_blink_led() {
 }
 
 String get_gps_timestamp() {
-  if (!pa1010d_connected || strcmp(gps_module.c_str(),"pa1010d")) return String();
+  if (!pa1010d_connected || strcmp(gps_module.c_str(), "pa1010d")) return String();
   while (sparkfun_GPS.available()) {
     gps.encode(sparkfun_GPS.read());
   }
@@ -413,6 +419,10 @@ void handle_continuous_pong() {
     mutex_exit(&state_mutex);
     return;
   }
+  if (!target_id[0]) {
+    mutex_exit(&state_mutex);
+    return;
+  }
   // Add random initial delay
   static bool initial_delay_done = false;
   static uint32_t initial_delay_ms = 0;
@@ -422,14 +432,15 @@ void handle_continuous_pong() {
     delay(initial_delay_ms);
     initial_delay_done = true;
   }
-  StaticJsonDocument<96> pong_doc;
-  char packet[96];
+  StaticJsonDocument<128> pong_doc;
+  char packet[128];
   pong_doc["sid"] = device_id;
   pong_doc["t"] = "B";
   pong_doc["ty"] = "2";
   pong_doc["l"] = station_load;
   pong_doc["rssi"] = rf95.lastRssi();
   pong_doc["rc"] = relay_count;
+  pong_doc["tar"] = target_id;
   if (serializeJson(pong_doc, packet, sizeof(packet)) >= sizeof(packet)) {
     Serial.println(F("[error]: Continuous pong packet buffer overflow"));
     mutex_exit(&state_mutex);
@@ -478,7 +489,7 @@ void handle_station_info() {
     return;
   }
   mutex_exit(&state_mutex);
-  
+
 
   File file = LittleFS.open("/config.json", "r");
   if (!file) {
@@ -514,6 +525,7 @@ void handle_station_info() {
   doc["lat"] = latitude;
   doc["lon"] = longitude;
   doc["al"] = altitude;
+  doc["to"] = target_id;
   //if (target_id[0]) doc["to"] = target_id;
   String gps_timestamp = get_gps_timestamp();
   if (!gps_timestamp.isEmpty()) doc["ts"] = gps_timestamp;
@@ -547,6 +559,7 @@ void start_station_info() {
   can_transmit = false;
   last_station_info_sent = millis();
   last_packet_time = millis();
+
   mutex_exit(&state_mutex);
 }
 
@@ -581,18 +594,32 @@ void select_best_target() {
   float best_station_score = -1.0;
   char best_station_id[17] = {0};
   uint8_t best_station_relay_count = 255;
+  uint8_t min_pi_relay_count = 255;
+  uint8_t min_station_relay_count = 255;
 
-  // Evaluate all pongs
+  // Find minimum relay counts for Pi and station
   for (uint8_t i = 0; i < pong_count; i++) {
+    if (strcmp(pongs[i].type, "1") == 0) {
+      min_pi_relay_count = min(min_pi_relay_count, pongs[i].relay_count);
+    } else {
+      min_station_relay_count = min(min_station_relay_count, pongs[i].relay_count);
+    }
+  }
+
+  // Evaluate pongs with minimum relay counts
+  for (uint8_t i = 0; i < pong_count; i++) {
+    if (strcmp(pongs[i].type, "1") == 0 && pongs[i].relay_count > min_pi_relay_count) continue;
+    if (strcmp(pongs[i].type, "2") == 0 && pongs[i].relay_count > min_station_relay_count) continue;
+
     float norm_rssi = (pongs[i].rssi + 120.0f) / 70.0;
     norm_rssi = constrain(norm_rssi, 0.0, 1.0);
-    float type_bonus = (strcmp(pongs[i].type, "1") == 0) ? 1.0 : 0.0; // Bonus for Pi
+    float type_bonus = (strcmp(pongs[i].type, "1") == 0) ? 1.0 : 0.0;
     float relay_penalty = exp(-config.score_relay_decay * pongs[i].relay_count);
     float score = config.score_rssi_weight * norm_rssi +
                   config.score_load_weight * (1.0 - pongs[i].load) +
                   config.score_type_weight * type_bonus +
                   config.score_relay_weight * relay_penalty;
-    
+
     Serial.print(F("[info]: Pong from ")); Serial.print(pongs[i].id);
     Serial.print(F(" (")); Serial.print(pongs[i].type); Serial.print(F(")"));
     Serial.print(F(", RSSI: ")); Serial.print(pongs[i].rssi);
@@ -600,15 +627,14 @@ void select_best_target() {
     Serial.print(F(", Relay Count: ")); Serial.print(pongs[i].relay_count);
     Serial.print(F(", Score: ")); Serial.println(score);
 
-    // Track best Pi and best station separately
-    if (strcmp(pongs[i].type, "1") == 0) { // Pi
-      if (score > best_pi_score) {
+    if (strcmp(pongs[i].type, "1") == 0) {
+      if (score > best_pi_score && pongs[i].relay_count == min_pi_relay_count) {
         best_pi_score = score;
         strlcpy(best_pi_id, pongs[i].id, sizeof(best_pi_id));
         best_pi_relay_count = pongs[i].relay_count;
       }
-    } else { // Station
-      if (score > best_station_score) {
+    } else {
+      if (score > best_station_score && pongs[i].relay_count == min_station_relay_count) {
         best_station_score = score;
         strlcpy(best_station_id, pongs[i].id, sizeof(best_station_id));
         best_station_relay_count = pongs[i].relay_count;
@@ -648,11 +674,13 @@ void select_best_target() {
     station_info_index = 0;
     last_connect = millis();
     last_station_info_sent = millis() - config.station_info_interval - 1;
-    last_sensor_transmit=-config.sensor_transmit_delay-1;
+    last_sensor_transmit = -config.sensor_transmit_delay - 1;
     mutex_exit(&state_mutex);
     start_station_info();
-    
+  } else {
+    mutex_exit(&state_mutex);
   }
+
   mutex_enter_blocking(&state_mutex);
   can_ping = true;
   can_select = false;
@@ -687,8 +715,8 @@ bool rfm95_init() {
   }
   rf95.setModemConfig(RH_RF95::Bw125Cr45Sf128);
   rf95.setTxPower(23, false);
-  rf95.setPreambleLength(6);
-  Serial.println(F("[info]: RFM95 configured: BW=125kHz, CR=4/5, SF=7, Preamble=6"));
+  //rf95.setPreambleLength(6);
+  //Serial.println(F("[info]: RFM95 configured: BW=125kHz, CR=4/5, SF=7, Preamble=6"));
   return true;
 }
 
@@ -712,11 +740,9 @@ void rfm95_send(const char* packet) {
 }
 
 void core1_entry() {
-  mutex_init(&radio_mutex);
-  
   while (true) {
     rp2040.wdt_reset();
-    
+
     if (rf95.available()) {
       mutex_enter_blocking(&radio_mutex);
       uint8_t buf[255];
@@ -758,38 +784,103 @@ void core1_entry() {
           last_packet_time = millis();
           mutex_exit(&state_mutex);
           handle_continuous_pong();
-        } else if (doc["t"] == "B" && mutex_safe_get_waiting_for_pongs()) {
-            mutex_safe_update_pong(station_id, doc["ty"] | "2", doc["l"] | 0.0f, doc["rssi"] | 0, doc["rc"] | 0);
-            Serial.println(F("[info]: Stored pong"));
+          //only receive pong if the end target is not this station(to avoid infinite send loop between two stations)
+        } else if (doc["t"] == "B" && strcmp(doc["tar"] | "", device_id) && mutex_safe_get_waiting_for_pongs()) {
+          mutex_safe_update_pong(station_id, doc["ty"] | "2", doc["l"] | 0.0f, doc["rssi"] | 0, doc["rc"] | 0);
+          Serial.println(F("[info]: Stored pong"));
         } else if (doc["t"] == "D" && !strcmp(doc["to"] | "", device_id)) {
-            mutex_safe_clear_target();
-            send_disconnect();
-            Serial.println(F("[info]: Received disconnect, cleared target and sent disconnect to dependents"));
-            start_ping();
-        } else if (doc["t"] == "F" && !strcmp(doc["to"] | "", device_id)) {
-            add_dependent(station_id);
-            mutex_enter_blocking(&state_mutex);
-            if (target_id[0] && station_load <= config.overload_threshold) {
-              doc["to"] = target_id;
-              char packet[255];
-              if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
-                mutex_exit(&state_mutex);
-                Serial.println(F("[error]: Relay packet buffer overflow"));
-              } else {
-                mutex_exit(&state_mutex);
-                rfm95_send(packet);
-                active_relays++;
-                Serial.println(F("[info]: Relayed type F packet"));
-              }
+          mutex_safe_clear_target();
+          send_disconnect();
+          Serial.println(F("[info]: Received disconnect, cleared target and sent disconnect to dependents"));
+          start_ping();
+        } else if (doc["t"] == "E") {
+          Serial.print(F("[debug]: Received type E packet, to: ")); Serial.print(doc["to"] | "None");
+          Serial.print(F(", device_id: ")); Serial.println(device_id);
+          if (!strcmp(doc["to"] | "", device_id)) add_dependent(station_id);
+          mutex_enter_blocking(&state_mutex);
+          Serial.print(F("[debug]: target_id: ")); Serial.println(target_id[0] ? target_id : "None");
+          Serial.print(F("[debug]: station_load: ")); Serial.print(station_load);
+          Serial.print(F(", overload_threshold: ")); Serial.println(config.overload_threshold);
+          if (target_id[0] && station_load <= config.overload_threshold) {
+            doc["to"] = target_id;
+            char packet[255];
+            size_t serialized_len = serializeJson(doc, packet, sizeof(packet));
+            if (serialized_len >= sizeof(packet)) {
+              mutex_exit(&state_mutex);
+              Serial.println(F("[error]: Relay packet buffer overflow for type E"));
             } else {
               mutex_exit(&state_mutex);
+              Serial.print(F("[debug]: Preparing to queue type E packet: ")); Serial.println(packet);
+              delay(50);
+              if (queue_relay_packet(packet, serialized_len)) {
+                active_relays++;
+                Serial.println(F("[info]: Relayed type E packet to Core0 queue"));
+              } else {
+                Serial.println(F("[error]: Failed to queue type E packet to Core0"));
+              }
             }
-        } 
+          } else {
+            Serial.println(F("[warn]: Cannot relay type E packet: no target or overloaded"));
+            mutex_exit(&state_mutex);
+          }
+        } else if (doc["t"] == "F" && !strcmp(doc["to"] | "", device_id)) {
+          Serial.print(F("[debug]: Received type F packet, to: ")); Serial.print(doc["to"] | "None");
+          Serial.print(F(", device_id: ")); Serial.println(device_id);
+          add_dependent(station_id);
+          mutex_enter_blocking(&state_mutex);
+          Serial.print(F("[debug]: target_id: ")); Serial.println(target_id[0] ? target_id : "None");
+          Serial.print(F("[debug]: station_load: ")); Serial.print(station_load);
+          Serial.print(F(", overload_threshold: ")); Serial.println(config.overload_threshold);
+          if (target_id[0] && station_load <= config.overload_threshold) {
+            doc["to"] = target_id;
+            char packet[255];
+            size_t serialized_len = serializeJson(doc, packet, sizeof(packet));
+            if (serialized_len >= sizeof(packet)) {
+              mutex_exit(&state_mutex);
+              Serial.println(F("[error]: Relay packet buffer overflow for type F"));
+            } else {
+              mutex_exit(&state_mutex);
+              Serial.print(F("[debug]: Preparing to queue type F packet: ")); Serial.println(packet);
+              delay(50);
+              if (queue_relay_packet(packet, serialized_len)) {
+                active_relays++;
+                Serial.println(F("[info]: Relayed type F packet to Core0 queue"));
+              } else {
+                Serial.println(F("[error]: Failed to queue type F packet to Core0"));
+              }
+            }
+          } else {
+            Serial.println(F("[warn]: Cannot relay type F packet: no target or overloaded"));
+            mutex_exit(&state_mutex);
+          }
+        } else if (doc["t"] == "R" && !strcmp(doc["to"] | "", device_id)) {
+          mutex_exit(&state_mutex);
+          Serial.println(F("[info]: Not yet implemented"));
+//          Serial.println(F("[info]: Received reboot command"));
+//          mutex_exit(&radio_mutex);
+//          mutex_exit(&state_mutex);
+//          // Optional: Cleanly shut down peripherals before reboot
+//          //rf95.sleep();                // Put radio to sleep
+//          Wire.end();                  // Disable I2C bus
+//          Serial.flush();             // Flush any remaining serial output
+//          delay(50);                  // Give time for hardware to settle
+//        
+//          // Immediate reboot using watchdog (1ms delay)
+//          Serial.println(F("[info]: Rebooting now via watchdog..."));
+//          delay(20);                  // Let the message print completely
+//          watchdog_reboot(0, 0, 1);   // Reboot immediately
+//          rp2040.restartCore1();
+//          while (true); 
+        }
       }
       mutex_exit(&radio_mutex);
     }
-    
+
     mutex_enter_blocking(&state_mutex);
+    if (waiting_for_pongs && can_select && pong_count == 0 && millis() - pong_start_time >= config.pong_timeout) {
+      can_ping = true;
+      mutex_exit(&state_mutex);
+    }
     if (waiting_for_pongs && can_select && pong_count > 0 && millis() - pong_start_time >= config.pong_timeout) {
       waiting_for_pongs = false;
       mutex_exit(&state_mutex);
@@ -798,7 +889,7 @@ void core1_entry() {
     } else {
       mutex_exit(&state_mutex);
     }
-    
+
     if (multicore_fifo_rvalid()) {
       mutex_enter_blocking(&radio_mutex);
       uint8_t len = multicore_fifo_pop_blocking();
@@ -818,6 +909,46 @@ void core1_entry() {
       delay(10);
       mutex_exit(&radio_mutex);
     }
+  }
+}
+
+
+// --- Relay functions ---
+void init_relay_queue() {
+  mutex_init(&relay_queue_mutex);
+}
+
+bool queue_relay_packet(const char* packet, uint8_t len) {
+  mutex_enter_blocking(&relay_queue_mutex);
+  if ((relay_queue_head + 1) % RELAY_QUEUE_SIZE == relay_queue_tail) {
+    Serial.println(F("[error]: Relay packet queue full"));
+    mutex_exit(&relay_queue_mutex);
+    return false;
+  }
+  if (len > MAX_PACKET_SIZE) {
+    Serial.println(F("[error]: Relay packet too large"));
+    mutex_exit(&relay_queue_mutex);
+    return false;
+  }
+  strlcpy(relay_packet_queue[relay_queue_head], packet, sizeof(relay_packet_queue[relay_queue_head]));
+  relay_packet_lengths[relay_queue_head] = len;
+  relay_queue_head = (relay_queue_head + 1) % RELAY_QUEUE_SIZE;
+  Serial.print(F("[debug]: Queued relay packet to Core0 queue: ")); Serial.println(packet);
+  mutex_exit(&relay_queue_mutex);
+  return true;
+}
+
+void process_relay_queue() {
+  mutex_enter_blocking(&relay_queue_mutex);
+  if (relay_queue_head != relay_queue_tail) {
+    const char* packet = relay_packet_queue[relay_queue_tail];
+    uint8_t len = relay_packet_lengths[relay_queue_tail];
+    relay_queue_tail = (relay_queue_tail + 1) % RELAY_QUEUE_SIZE;
+    mutex_exit(&relay_queue_mutex);
+    Serial.print(F("[debug]: Sending relay packet from Core0: ")); Serial.println(packet);
+    rfm95_send(packet);
+  } else {
+    mutex_exit(&relay_queue_mutex);
   }
 }
 
@@ -1025,7 +1156,8 @@ bool bme680_measure_transmit() {
   const char* measurements[] = {"tmp", "rh", "pre", "gr", "al"};
   altitude = bme680.readAltitude(SEALEVELPRESSURE_HPA);
   float values[] = {bme680.temperature, bme680.humidity, bme680.pressure / 100.0,
-                    bme680.gas_resistance / 1000.0, altitude};
+                    bme680.gas_resistance / 1000.0, altitude
+                   };
   for (int i = 0; i < 5; i++) {
     doc["t"] = "F";
     add_common_json_fields(doc, timestamp, "bme680", measurements[i], values[i], "i2");
@@ -1109,9 +1241,11 @@ bool pm25aqi_measure_transmit() {
   StaticJsonDocument<96> doc;
   char packet[144];
   const char* measurements[] = {"pm10standard", "pm25standard", "pm100standard", "pm10env", "pm25env", "pm100env",
-                               "partcount03um", "partcount05um", "partcount10um", "partcount25um", "partcount50um", "partcount100um"};
+                                "partcount03um", "partcount05um", "partcount10um", "partcount25um", "partcount50um", "partcount100um"
+                               };
   int values[] = {data.pm10_standard, data.pm25_standard, data.pm100_standard, data.pm10_env, data.pm25_env, data.pm100_env,
-                  data.particles_03um, data.particles_05um, data.particles_10um, data.particles_25um, data.particles_50um, data.particles_100um};
+                  data.particles_03um, data.particles_05um, data.particles_10um, data.particles_25um, data.particles_50um, data.particles_100um
+                 };
   for (int i = 0; i < 12; i++) {
     doc["t"] = "F";
     char buff[16];
@@ -1368,7 +1502,9 @@ void setup() {
   Serial.println(F("*** IoTwx-LoRa-RP2040 v0.1 ***"));
   Wire.begin();
   rp2040.wdt_begin(15000);
+  mutex_init(&radio_mutex);
   mutex_init(&state_mutex);
+  init_relay_queue();
   if (!LittleFS.begin()) {
     Serial.println(F("[error]: LittleFS init failed"));
     while (1);
@@ -1443,8 +1579,9 @@ void loop() {
   }
   start_station_info();
   handle_station_info();
+  process_relay_queue();
   if (millis() - last_sensor_transmit < config.sensor_transmit_delay || !can_transmit) return;
-   // New: Reset RG15 accumulated rainfall counter every 24 hours
+  // New: Reset RG15 accumulated rainfall counter every 24 hours
   mutex_enter_blocking(&state_mutex);
   if (rg15_connected && millis() - last_rg15_acc_reset >= RG15_ACC_INTERVAL) {
     Serial.println(F("[info]: 24-hour interval reached, resetting RG15 accumulated rainfall counter"));
