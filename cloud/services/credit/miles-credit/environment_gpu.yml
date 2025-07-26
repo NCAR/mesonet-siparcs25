@@ -21,6 +21,8 @@ dependencies:
   - scipy
   - openpyxl
   - mpi4py
+  - httpx
+  - pydantic=2.7.1
   - pip
   - pip:
       - pysteps

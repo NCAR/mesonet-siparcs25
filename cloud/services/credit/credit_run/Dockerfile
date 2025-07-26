@@ -24,5 +24,8 @@ RUN chmod +x process.sh
 COPY write_to_db.py .
 RUN chmod +x write_to_db.py
 
+COPY utils ./utils
+COPY logger.py ./logger.py
+
 # Default startup command
 CMD ["/bin/bash", "./process.sh"]

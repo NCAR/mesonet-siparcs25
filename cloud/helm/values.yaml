@@ -9,7 +9,7 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-25.20.21
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-26.19.25
     memory: 64Gi
     cpu: 8
   volume:
@@ -23,7 +23,7 @@ databaseapi:
   name: database-api
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-26.19.02
     memory: 2Gi
     cpu: 2
     port: 8000
@@ -59,7 +59,7 @@ metabaseorch:
   name: orch-mb
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-22.16
+    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-26.19.24
     memory: 2Gi
     cpu: 2
     port: 8001

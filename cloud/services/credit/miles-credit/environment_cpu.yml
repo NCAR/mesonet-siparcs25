@@ -20,6 +20,8 @@ dependencies:
   - netcdf4
   - scipy
   - openpyxl
+  - httpx
+  - pydantic=2.7.1
   - pip
   - pip:
       - pysteps

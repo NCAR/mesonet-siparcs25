@@ -55,9 +55,7 @@ class Application:
 
         # Modify settings. Need admin privileges
         self.metabase.change_site_url(mb_settings.get("site_url"))
-
-        #TODO: Uncomment when ready for production
-        # self.metabase.setup_email()
+        self.metabase.setup_email()
 
         card = CardServices(self.session, console, mb_db_id)
         model = ModelServices(self.session, console, mb_db_id)

@@ -10,3 +10,5 @@ dependencies:
   - scipy
   - openpyxl
   - ipykernel
+  - httpx
+  - pydantic=2.7.1
