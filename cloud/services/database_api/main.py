@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.connection import Base, async_engine
-from routes import station, reading, user
+from routes import station, reading, user, credit
 
 app = FastAPI(
     title="IoTwx",
@@ -34,3 +34,4 @@ def health():
 app.include_router(station.router)
 app.include_router(reading.router)
 app.include_router(user.router)
+app.include_router(credit.router)

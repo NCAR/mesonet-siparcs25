@@ -30,9 +30,9 @@ class ReadingService:
             await self.db.commit()
             await self.db.refresh(db_reading)
         except IntegrityError as e:
-            self.db.rollback()
+            await self.db.rollback()
             raise HTTPException(status_code=400, detail=f"Failed to create reading for station {reading_data['station_id']}: {str(e)}")
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             raise HTTPException(status_code=500, detail=f"Internal error creating reading for station {reading_data['station_id']}: {str(e)}")
         return db_reading

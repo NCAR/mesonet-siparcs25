@@ -253,6 +253,21 @@ services:
       timeout: 500s
     restart: always
 
+  credit_test:
+    build:
+      context: ./services/credit/credit_run
+      dockerfile: Dockerfile
+      args:
+        ENV_NAME: credit
+    container_name: credit_test
+    environment:
+      FORECAST_DATE: "2025-07-23"
+      FORECAST_DAYS: 7
+    volumes:
+      - ./services/credit/credit_run/results:/cloud/services/credit/credit_run/results
+    depends_on:
+      - database_api
+
   # credit:
   #   build:
   #     context: ./services/credit
