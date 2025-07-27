@@ -1,7 +1,7 @@
 import paho.mqtt.client as mqtt
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import requests
 import redis
 import yaml
@@ -9,6 +9,7 @@ from typing import Dict, Any
 from threading import Lock, Thread
 import logging
 from users import UsersService
+from collections import defaultdict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
@@ -211,10 +212,40 @@ class MQTTDatabaseUpdater:
                             self.sensor_buffer[station_id]["metadata"]["active"] = False
                         else:
                             self.sensor_buffer[station_id]["metadata"]["active"] = True
+
+                        forecast_res = requests.get(url=f"{API_BASE_URL}/api/credit-forecast/{station_id}")
+
+                        if not (200 <= forecast_res.status_code < 300):
+                            print(f"Forecast for {station_id} was not retrieved from the database succesffuly.")
+                            forecast_res.raise_for_status()
+
+                        all_forecasts = forecast_res.json()
+
+                        today = datetime.utcnow().date()
+                        tomorrow = today + timedelta(days=1)
+
+                        # --- Group forecasts by station_id and forecast date ---
+                        tomorrow_forecasts = defaultdict(list)
+
+                        for forecast in all_forecasts:
+                            # Parse the forecast timestamp (assumes ISO format)
+                            forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date()
+                            if forecast_dt == tomorrow:
+                                station_id = forecast['station_id']
+                                tomorrow_forecasts[station_id].append({
+                                    'forecast_for': forecast['forecast_for'],
+                                    'temperature': forecast['temperature'],
+                                    'humidity': forecast['humidity'],
+                                    'pressure': forecast['pressure'],
+                                    'wind_speed': forecast['wind_speed'],
+                                    'wind_direction': forecast['wind_direction']
+                                })
+
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
                             'model_summaries': json.dumps(model_summaries),
+                            "credit_forecast": json.dumps(tomorrow_forecasts),
                             'latitude': str(merged_metadata.get('latitude', '39.9784')),
                             'longitude': str(merged_metadata.get('longitude', '-105.2749')),
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
