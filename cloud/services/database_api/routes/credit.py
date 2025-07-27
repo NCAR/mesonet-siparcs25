@@ -12,7 +12,7 @@ async def get_forecasts(db: AsyncSession = Depends(get_db_async)):
     service = CreditService(db)
     return await service.get_forecasts()
 
-@router.get("/{station_id}", response_model=List[CreditResponse])
+@router.get("/{station_id}/", response_model=List[CreditResponse])
 async def get_station_forecast(station_id: str, db: AsyncSession = Depends(get_db_async)):
     service = CreditService(db)
     forecast_data = await service.get_forecast_by_station_id(station_id)
@@ -26,7 +26,7 @@ async def add_forecast(data: CreditCreate, db: AsyncSession = Depends(get_db_asy
     service = CreditService(db)
     return await service.post_forecast(data)
 
-@router.put("/{station_id}", response_model=CreditResponse)
+@router.put("/{station_id}/", response_model=CreditResponse)
 async def update_forecast(station_id: str, data: CreditUpdate, db: AsyncSession = Depends(get_db_async)):
     service = CreditService(db)
     updated = await service.update_forecast(station_id, data)

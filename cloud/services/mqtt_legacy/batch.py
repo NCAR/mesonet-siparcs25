@@ -1,11 +1,12 @@
 import asyncio
 import json
 import redis
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict
 from redis_c import RedisClient
-from utils import CustomLogger
+from utils import CustomLogger, request
 from llm_model import LLMModel
+from collections import defaultdict
 
 class Batch:
     def __init__(
@@ -13,12 +14,14 @@ class Batch:
         logger: CustomLogger,
         model: LLMModel,
         redis_client: RedisClient,
-        batch_interval=60
+        db_url: str,
+        batch_interval=60,\
     ):
         self.console = logger
         self.redis_client = redis_client
         self.batch_interval = batch_interval
         self.model = model
+        self.db_url = db_url
 
         self.buffer_lock = asyncio.Lock()
         self.sensor_buffer = {}
@@ -118,11 +121,34 @@ class Batch:
                 merged_metadata = self.__merge_metadata(existing_metadata, new_metadata)
 
                 model_summaries = await self.model.run(station_id, merged_sensor_data) or []
-                
+
+                all_forecasts = await request.get_all(path=f"{self.db_url}/api/credit-forecast/{station_id}")
+
+                today = datetime.utcnow().date()
+                tomorrow = today + timedelta(days=1)
+
+                # --- Group forecasts by station_id and forecast date ---
+                tomorrow_forecasts = defaultdict(list)
+
+                for forecast in all_forecasts:
+                    # Parse the forecast timestamp (assumes ISO format)
+                    forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date()
+                    if forecast_dt == tomorrow:
+                        station_id = forecast['station_id']
+                        tomorrow_forecasts[station_id].append({
+                            'forecast_for': forecast['forecast_for'],
+                            'temperature': forecast['temperature'],
+                            'humidity': forecast['humidity'],
+                            'pressure': forecast['pressure'],
+                            'wind_speed': forecast['wind_speed'],
+                            'wind_direction': forecast['wind_direction']
+                        })
+
                 redis_station_data = {
-                    'data': json.dumps(merged_sensor_data),
-                    'metadata': json.dumps(merged_metadata),
-                    'model_summaries': json.dumps(model_summaries)
+                    "data": json.dumps(merged_sensor_data),
+                    "metadata": json.dumps(merged_metadata),
+                    "model_summaries": json.dumps(model_summaries),
+                    "credit_forecast": json.dumps(tomorrow_forecasts)
                 }
 
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
