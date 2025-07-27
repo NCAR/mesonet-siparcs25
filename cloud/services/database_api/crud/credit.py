@@ -33,10 +33,7 @@ class CreditService:
                 )
             )
             existing_forecast = result.scalar_one_or_none()
-
-            utc_now = datetime.now(ZoneInfo("UTC"))
-            denver_time = utc_now.astimezone(ZoneInfo("America/Denver"))
-            forecast_data_dict = {**forecast_data.model_dump(), "prediction_time": denver_time}
+            forecast_data_dict = {**forecast_data.model_dump()}
 
             if existing_forecast:
                 for key, value in forecast_data_dict.items():

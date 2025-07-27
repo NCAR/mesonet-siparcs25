@@ -47,6 +47,7 @@ for HOUR in $(seq 6 6 $TOTAL_HOURS); do
         echo "[$DATE] 🤩 Processing forecast for ${PADDED_HOUR} completed successfully."
 
         echo "[$DATE] Writing processed data to the database..."
+        sed -i "s/forecast_date = \".*\"/forecast_date = \"$FORECAST_DATE\"/" write_to_db.py
         sed -i "s|results/[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T00Z_Forecast/Data/.*\.xlsx|results/${FORECAST_DATE}T00Z_Forecast/Data/forecast_${PADDED_HOUR}.xlsx|g" write_to_db.py
         conda run -n "$ENV_NAME" python write_to_db.py
     else
