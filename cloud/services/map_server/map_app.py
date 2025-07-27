@@ -24,7 +24,7 @@ with open('/cloud/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
 # Redis connection
-REDIS_CONFIG = config.get('redis', {'host': 'localhost', 'port': 6379})
+REDIS_CONFIG = config.get('redis', {'host': 'redis', 'port': 6379})
 redis_client = redis.Redis(
     host=REDIS_CONFIG['host'],
     port=REDIS_CONFIG['port'],
