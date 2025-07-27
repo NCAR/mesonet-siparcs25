@@ -313,7 +313,7 @@
       html += `</div>`;
 
       for (const [sensor, measurements] of Object.entries(sensorData)) {
-        if (sensor != "unkown"){
+        if (sensor != "unknown"){
           const open = expandedSectionsState[stationId]?.[sensor];
           html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
                   <div class="content ${open ? 'active' : ''}"><table>`;
