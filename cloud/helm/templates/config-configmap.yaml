@@ -22,7 +22,7 @@ data:
     database_api:
       base_url: http://database-api:8000
     map:
-      host: localhost
+      host: map_server
       port: 5001
     redis:
       host: redis

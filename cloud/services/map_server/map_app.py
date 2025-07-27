@@ -15,14 +15,16 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'map_secret'
 # socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins=["*"])
 logging.basicConfig(level=logging.DEBUG)
-socketio = SocketIO(app, async_mode='gevent', logger=True, engineio_logger=True, cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode='gevent', ping_timeout=30,       # seconds
+                    ping_interval=20,logger=True, engineio_logger=True, cors_allowed_origins="*")
 
-# Load config
+
+# Load config file
 with open('/cloud/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
 # Redis connection
-REDIS_CONFIG = config.get('redis', {'host': 'localhost', 'port': 6379})
+REDIS_CONFIG = config.get('redis', {'host': 'redis', 'port': 6379})
 redis_client = redis.Redis(
     host=REDIS_CONFIG['host'],
     port=REDIS_CONFIG['port'],
@@ -44,7 +46,7 @@ def redis_listener():
     app.logger.info("Subscribed to Redis channel: station_updates")
     
     for message in pubsub.listen():
-        if message['type'] == 'message':
+        if message == 'Stations updated':
             try:
                 # Fetch updated station data
                 station_keys = sorted(redis_client.keys('station:*'))
@@ -126,4 +128,5 @@ if __name__ == '__main__':
     # Start Redis listener in a background thread
     listener_thread = threading.Thread(target=redis_listener, daemon=True)
     listener_thread.start()
+    app.logger.info(f"Redis listener thread alive: {listener_thread.is_alive()}")
     socketio.run(app, host='0.0.0.0', port=5001)
