@@ -96,7 +96,7 @@ mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-27.06.51
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-27.07.00
     memory: 2Gi
     cpu: 2
 mqttlistener:
