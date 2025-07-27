@@ -9,7 +9,7 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.06.51
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.07.42
     memory: 64Gi
     cpu: 8
   volume:
@@ -37,7 +37,7 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.07.46
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.07.53
     memory: 16Gi
     cpu: 8
     port: 5001
@@ -102,7 +102,7 @@ mqttlistener:
   name: mqtt-listener
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-27.07.46
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-27.07.53
     memory: 2Gi
     cpu: 2
 ollama:
