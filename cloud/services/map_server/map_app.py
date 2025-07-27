@@ -19,7 +19,7 @@ socketio = SocketIO(app, async_mode='gevent', ping_timeout=30,       # seconds
                     ping_interval=20,logger=True, engineio_logger=True, cors_allowed_origins="*")
 
 
-# Load config
+# Load config file
 with open('/cloud/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
 
