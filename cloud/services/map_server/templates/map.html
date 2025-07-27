@@ -323,27 +323,11 @@
         }
       }
 
-      const smOpen = expandedSectionsState[stationId]?.summaries;
-      html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
-               <div class="content ${smOpen ? 'active' : ''}">`;
-
-      if (Object.keys(modelSummaries).length > 0) {
-        html += `<table>`;
-        for (const [k, v] of Object.entries(modelSummaries)) {
-          const name = k.replace('summary_', '').replace('ai/', '');
-          html += `<tr><td>${escapeHTML(name)}</td><td>${escapeHTML(v)}</td></tr>`;
-        }
-        html += `</table>`;
-      } else {
-        html += `<p>No model summaries available</p>`;
-      }
-      html += `</div>`;
-
       const cfOpen = expandedSectionsState[stationId]?.credit_forecast;
       html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
-               <div class="content ${cfOpen ? 'active' : ''}">`;
+              <div class="content ${cfOpen ? 'active' : ''}">`;
 
-      if (creditForecast.length > 0) {
+      if (Array.isArray(creditForecast[stationId]) && creditForecast[stationId].length > 0) {
         html += `<table>`;
         creditForecast.forEach(forecast => {
           const forecastTime = new Date(forecast.forecast_for);
@@ -360,8 +344,28 @@
       }
       html += `</div>`;
 
+   
+
+      const smOpen = expandedSectionsState[stationId]?.summaries;
+      html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
+               <div class="content ${smOpen ? 'active' : ''}">`;
+
+      if (Object.keys(modelSummaries).length > 0) {
+        html += `<table>`;
+        for (const [k, v] of Object.entries(modelSummaries)) {
+          const name = k.replace('summary_', '').replace('ai/', '');
+          html += `<tr><td>${escapeHTML(name)}</td><td>${escapeHTML(v)}</td></tr>`;
+        }
+        html += `</table>`;
+      } else {
+        html += `<p>No model summaries available</p>`;
+      }
+      html += `</div>`;
+
       html += `</div>`;
       return html;
+
+
     }
 
     function debounce(fn, wait) {

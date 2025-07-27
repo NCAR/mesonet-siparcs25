@@ -29,7 +29,7 @@ def predict():
             logger.warning("Invalid request format received")
             return jsonify({"error": "Invalid request format, requires 'data' field"}), 400
         
-        prompt = data["data"]
+        prompt = {"current_data" : data.get("data", {}), "forecast_data" : data.get("forecast_data", {})}
         model = data["model"]
         
         logger.info(f"Processing prediction with prompt: {prompt}")
@@ -37,7 +37,7 @@ def predict():
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a weatherman. summarize the weather conditions based on the sensor data provided in easy to understand language, and provide practical advice. Do not hallucinate data. Do not assume what time of the day it is, so do not say good morning, afternoon, evening or night. Do not hallucinate data. if you have no data just say that you have no data to analyze. Everything should  be less than 100 words"},
+                {"role": "system", "content": "You are a weatherman. summarize the weather conditions and the forcast based on the provided data in easy to understand language, and provide practical advice. Do not hallucinate data. Do not assume what time of the day it is, so do not say good morning, afternoon, evening or night. Do not hallucinate data. if you have no data just say that you have no data to analyze. Everything should  be less than 200 words"},
                 {"role": "user", "content": prompt}
             ]
         )
