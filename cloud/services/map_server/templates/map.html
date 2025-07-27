@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,6 +112,15 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
     }
 
+    #error-message button {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+
     #loading-message {
       position: fixed;
       top: 50px;
@@ -181,7 +191,7 @@
 </head>
 <body>
   <div id="map" aria-label="Interactive sensor network map"></div>
-  <div id="error-message" role="alert"></div>
+  <div id="error-message" role="alert"><span></span><button aria-label="Dismiss error">×</button></div>
   <div id="loading-message">Loading...</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -192,29 +202,66 @@
     const DEFAULT_LONGITUDE = -105.2749;
     const locale = navigator.language || 'en-US';
 
-    // Initialize SocketIO
-    console.log('Client Origin:', window.location.origin);
-    const socket = io("https://map-server.mesonet.k8s.ucar.edu", {
-      transports: ["websocket"], // fallback in correct order
-      pingTimeout: 30000,    // 30s
-      pingInterval: 20000,    // 20s
-      withCredentials: true
-    });
-    socket.on('connect_error', (error) => {
-      console.error('SocketIO Connect Error:', error.message);
-    });
+    // Load map state from localStorage
+    const savedState = JSON.parse(localStorage.getItem('mapState') || '{}');
+    const initialView = {
+      lat: savedState.lat || DEFAULT_LATITUDE,
+      lng: savedState.lng || DEFAULT_LONGITUDE,
+      zoom: savedState.zoom || 13
+    };
 
-    
-
-    const map = L.map('map').setView([DEFAULT_LATITUDE, DEFAULT_LONGITUDE], 13);
+    // Initialize map
+    const map = L.map('map').setView([initialView.lat, initialView.lng], initialView.zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
+    // Save map state on moveend
+    map.on('moveend', () => {
+      const center = map.getCenter();
+      localStorage.setItem('mapState', JSON.stringify({
+        lat: center.lat,
+        lng: center.lng,
+        zoom: map.getZoom()
+      }));
+    });
+
+    // Initialize Socket.IO
+    const socket = io({
+      path: '/socket.io',
+      transports: ['polling', 'websocket'], // Enable fallback
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 60000, // Match server ping_timeout
+      pingInterval: 25000 // Match server ping_interval
+    });
+
+    socket.on('connect', () => {
+      console.log('Connected to SocketIO server:', socket.id);
+      showLoading(true);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('SocketIO Connect Error:', error.message);
+      handleError(`Connection error: ${error.message}`, error);
+    });
+
+    socket.on('reconnect_attempt', (attempt) => {
+      console.log(`Reconnection attempt ${attempt}`);
+      showLoading(true);
+    });
+
+    socket.on('reconnect', () => {
+      console.log('Reconnected to SocketIO server');
+      showLoading(false);
+    });
+
     const stations = {};
     const markerMap = {};
     const activePopups = new Set();
-    const expandedSectionsState = {};
+    let expandedSectionsState = JSON.parse(localStorage.getItem('expandedSectionsState') || '{}');
 
     const markers = L.markerClusterGroup({
       maxClusterRadius: 40,
@@ -234,14 +281,20 @@
     map.addLayer(markers);
 
     const errorMessage = document.getElementById('error-message');
+    const errorText = errorMessage.querySelector('span');
+    const errorDismiss = errorMessage.querySelector('button');
     const loadingMessage = document.getElementById('loading-message');
 
     function handleError(message, error) {
       console.error(`[error] ${message}`, error);
-      errorMessage.textContent = message;
+      errorText.textContent = message;
       errorMessage.style.display = 'block';
-      setTimeout(() => errorMessage.style.display = 'none', 10000);
+      errorDismiss.focus();
     }
+
+    errorDismiss.addEventListener('click', () => {
+      errorMessage.style.display = 'none';
+    });
 
     function showLoading(show) {
       loadingMessage.style.display = show ? 'block' : 'none';
@@ -249,12 +302,9 @@
 
     function escapeHTML(str) {
       if (str == null) return 'N/A';
-      return str.toString()
-        .replace(/&/g, '&')
-        .replace(/</g, '<')
-        .replace(/>/g, '>')
-        .replace(/"/g, '"')
-        .replace(/'/g, "'");
+      const div = document.createElement('div');
+      div.textContent = str.toString();
+      return div.innerHTML;
     }
 
     function createMarkerIcon(stationId, stationData) {
@@ -285,7 +335,7 @@
 
       let sensorData = {}, modelSummaries = {}, metadata = {};
       try {
-        sensorData = JSON.parse(stationData.data || '{}').data || {};
+        sensorData = (JSON.parse(stationData.data || '{}').data || {});
         modelSummaries = JSON.parse(stationData.model_summaries || '{}');
         metadata = JSON.parse(stationData.metadata || '{}');
       } catch (e) {
@@ -294,7 +344,7 @@
         return html;
       }
 
-      const mdOpen = expandedSectionsState[stationId]?.metadata;
+      const mdOpen = expandedSectionsState[stationId]?.metadata || false;
       html += `<div class="collapsible ${mdOpen ? 'active' : ''}" data-section="metadata">Metadata</div>
                <div class="content ${mdOpen ? 'active' : ''}">
                <table>`;
@@ -307,13 +357,13 @@
       if (stationData.last_active) {
         const ts = new Date(stationData.last_active);
         html += `<div class="timestamp">Last updated: ${
-          isNaN(ts) ? 'N/A' : escapeHTML(ts.toLocaleString(locale))
+          isNaN(ts.getTime()) ? 'N/A' : escapeHTML(ts.toLocaleString(locale))
         }</div>`;
       }
       html += `</div>`;
 
       for (const [sensor, measurements] of Object.entries(sensorData)) {
-        const open = expandedSectionsState[stationId]?.[sensor];
+        const open = expandedSectionsState[stationId]?.[sensor] || false;
         html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
                  <div class="content ${open ? 'active' : ''}"><table>`;
         for (const [m, v] of Object.entries(measurements)) {
@@ -322,7 +372,7 @@
         html += `</table></div>`;
       }
 
-      const smOpen = expandedSectionsState[stationId]?.summaries;
+      const smOpen = expandedSectionsState[stationId]?.summaries || false;
       html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
                <div class="content ${smOpen ? 'active' : ''}">`;
 
@@ -373,9 +423,10 @@
           const content = sec.nextElementSibling;
           content.classList.toggle('active', isOpen);
           expandedSectionsState[marker.options.layerId] = {
-            ...expandedSectionsState[marker.options.layerId],
+            ...(expandedSectionsState[marker.options.layerId] || {}),
             [name]: isOpen
           };
+          localStorage.setItem('expandedSectionsState', JSON.stringify(expandedSectionsState));
         };
         sec.addEventListener('click', onToggle);
         listeners.push({ el: sec, ev: 'click', fn: onToggle });
@@ -387,16 +438,22 @@
     }
 
     function updateStationMarker(stationId, stationData) {
-      if (!stationData?.latitude || !stationData?.longitude) {
-        handleError(`Invalid data for station ${stationId}`);
+      if (!stationData?.latitude || !stationData?.longitude || isNaN(+stationData.latitude) || isNaN(+stationData.longitude)) {
+        handleError(`Invalid coordinates for station ${stationId}`);
         return;
       }
 
+      const prevData = stations[stationId];
       stations[stationId] = stationData;
       const ll = [+stationData.latitude, +stationData.longitude];
       const existing = markerMap[stationId];
 
       if (existing) {
+        // Skip update if data is unchanged
+        if (JSON.stringify(prevData) === JSON.stringify(stationData)) {
+          return;
+        }
+
         const wasOpen = activePopups.has(existing);
         existing.options.data = stationData;
 
@@ -407,25 +464,17 @@
 
         existing.setIcon(createMarkerIcon(stationId, stationData));
 
-        const html = createPopupContent(stationId, stationData);
-        const popup = existing.getPopup();
-
-        if (popup) {
-          existing.cleanupPopup && existing.cleanupPopup();
-          popup.remove();
-        }
-
-        existing.bindPopup(html, {
-          className: 'station-popup-container',
-          maxWidth: 350,
-          minWidth: 250,
-          autoClose: true,
-          closeOnClick: true,
-          closeButton: true
-        });
-
         if (wasOpen) {
-          existing.openPopup();
+          const html = createPopupContent(stationId, stationData);
+          existing.cleanupPopup && existing.cleanupPopup();
+          existing.bindPopup(html, {
+            className: 'station-popup-container',
+            maxWidth: 350,
+            minWidth: 250,
+            autoClose: true,
+            closeOnClick: true,
+            closeButton: true
+          }).openPopup();
         }
         return;
       }
@@ -474,9 +523,10 @@
     }
 
     function cleanupStaleMarkers() {
-      const valid = new Set(Object.keys(stations));
-      Object.entries(markerMap).forEach(([id, marker]) => {
-        if (!valid.has(id)) {
+      const validIds = new Set(Object.keys(stations));
+      Object.keys(markerMap).forEach(id => {
+        if (!validIds.has(id)) {
+          const marker = markerMap[id];
           marker.cleanupPopup && marker.cleanupPopup();
           marker.getPopup()?.remove();
           markers.removeLayer(marker);
@@ -485,21 +535,18 @@
           delete expandedSectionsState[id];
         }
       });
+      localStorage.setItem('expandedSectionsState', JSON.stringify(expandedSectionsState));
     }
-
-    socket.on('connect', () => {
-      console.log('Connected to SocketIO server');
-    });
 
     socket.on('initial_data', (data) => {
       console.log('Received initial data:', data.stations);
       showLoading(true);
       try {
-        Object.entries(data.stations || {}).forEach(([id, s]) => {
+        const newStations = data.stations || {};
+        Object.entries(newStations).forEach(([id, s]) => {
           updateStationMarker(id, s);
         });
         cleanupStaleMarkers();
-        showLoading(false);
       } catch (e) {
         handleError('Failed to process initial station data', e);
       } finally {
@@ -510,7 +557,8 @@
     socket.on('station_update', (data) => {
       console.log('Received station update:', data.stations);
       try {
-        Object.entries(data.stations || {}).forEach(([id, s]) => {
+        const newStations = data.stations || {};
+        Object.entries(newStations).forEach(([id, s]) => {
           updateStationMarker(id, s);
         });
         cleanupStaleMarkers();
@@ -520,9 +568,10 @@
     });
 
     socket.on('disconnect', (reason) => {
-        console.error('WebSocket Disconnected:', reason);
-        handleError('Lost connection to server: ' + reason, null);
+      console.error('WebSocket Disconnected:', reason);
+      handleError(`Lost connection to server: ${reason}`, null);
     });
   </script>
 </body>
 </html>
+```
