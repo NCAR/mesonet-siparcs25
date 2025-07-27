@@ -201,11 +201,6 @@ class MQTTDatabaseUpdater:
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
                         model_names = [MODEL_SERVICE_MODEL_NAME]
                         model_summaries = {}
-                        if merged_sensor_data:
-                            for model_name in model_names:
-                                summary = self.query_model_service(station_id, {**merged_sensor_data, **"timestamp": get_current_timestamp()}, model_name)
-                                if summary:
-                                    model_summaries[model_name] = summary
                         # Update buffer with merged data to keep it up-to-date
                         self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
@@ -241,6 +236,11 @@ class MQTTDatabaseUpdater:
                                     'wind_speed': forecast['wind_speed'],
                                     'wind_direction': forecast['wind_direction']
                                 })
+                        if merged_sensor_data:
+                            for model_name in model_names:
+                                summary = self.query_model_service(station_id, {**merged_sensor_data, **tomorrow_forecasts,"timestamp": get_current_timestamp()})
+                                if summary:
+                                    model_summaries[model_name] = summary
 
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
