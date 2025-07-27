@@ -19,6 +19,9 @@ credit:
     checkpoint: 
       name: credit-checkpoint-pvc
       size: 40Gi
+  environment:
+    forecast_date: "{{ now | date \"2025-07-25\" }}"
+    forecast_days: 10
 databaseapi:
   name: database-api
   replicaCount: 1

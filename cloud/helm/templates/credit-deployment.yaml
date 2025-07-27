@@ -72,6 +72,11 @@ spec:
             nvidia.com/gpu: "1"
           requests:
             nvidia.com/gpu: "1"
+        env:
+        - name: FORECAST_DATE
+          value: {{ .Values.credit.environment.forecast_date }}
+        - name: FORECAST_DAYS
+          value: {{ .Values.redit.environment.forecast_days }}
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml

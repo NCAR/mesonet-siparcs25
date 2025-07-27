@@ -8,6 +8,7 @@ from utils.type_c import CreditCreate, CreditResponse
 
 console = CustomLogger(name="credit_logs", log_dir="/cloud/logs")
 file_path = "results/2025-07-25T00Z_Forecast/Data/forecast_000.xlsx"
+forecast_date = "2025-07-25"
 
 class CreditToDB:
     def __init__(self):
@@ -104,6 +105,7 @@ class CreditToDB:
                 .set_attr("pressure", station_data.get("pressure")) \
                 .set_attr("wind_speed", station_data.get("wind_speed")) \
                 .set_attr("wind_direction", station_data.get("wind_direction")) \
+                .set_attr("prediction_time", forecast_date) \
                 .build()
             
             console.log(f"Inserting forecast for {station_id} in the database")
