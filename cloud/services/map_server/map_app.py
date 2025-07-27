@@ -46,7 +46,6 @@ def redis_listener():
     app.logger.info("Subscribed to Redis channel: station_updates")
     
     for message in pubsub.listen():
-        if message == 'Stations updated':
             try:
                 # Fetch updated station data
                 station_keys = sorted(redis_client.keys('station:*'))
