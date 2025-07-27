@@ -26,7 +26,7 @@ databaseapi:
   name: database-api
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-27.03.29
+    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-27.06.51
     memory: 2Gi
     cpu: 2
     port: 8000
@@ -38,7 +38,7 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.05.56
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.06.26
     memory: 16Gi
     cpu: 8
     port: 5001
@@ -96,7 +96,7 @@ mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-24.23.22
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-27.06.51
     memory: 2Gi
     cpu: 2
 mqttlistener:

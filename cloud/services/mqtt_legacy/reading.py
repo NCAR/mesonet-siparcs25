@@ -7,7 +7,8 @@ from redis_c import RedisClient
 class ReadingService:
     def __init__(self, logger: CustomLogger, config: Config):
         self.console = logger
-        self.db_uri = f"{config.database_api['base_url']}/api/readings/"
+        self.db_url = config.database_api['base_url']
+        self.db_uri = f"{self.db_url}/api/readings/"
         self.reading = {}
 
         llm_model = LLMModel(
@@ -21,7 +22,8 @@ class ReadingService:
         self.reading_batch = Batch(logger,
             model=llm_model,
             redis_client=redis_client,
-            batch_interval=config.station["batch_interval"]
+            batch_interval=config.station["batch_interval"],
+            db_url=self.db_url
         )
 
     def get_station_id(self, decoded_data):

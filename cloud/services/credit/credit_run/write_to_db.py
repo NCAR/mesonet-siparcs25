@@ -97,8 +97,8 @@ class CreditToDB:
             payload: CreditCreate = Payload() \
                 .reset() \
                 .set_attr("station_id", station_id) \
-                .set_attr("longitude", station_data.get("longitude")) \
-                .set_attr("latitude", station_data.get("latitude")) \
+                .set_attr("longitude", station_lon) \
+                .set_attr("latitude", station_lat) \
                 .set_attr("forecast_for", station_data.get("time").isoformat()) \
                 .set_attr("temperature", station_data.get("temperature")) \
                 .set_attr("humidity", station_data.get("humidity")) \
