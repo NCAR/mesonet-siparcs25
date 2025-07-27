@@ -67,6 +67,7 @@ class Batch:
                 station_meta["target_id"] = target_id
             if rssi:
                 station_meta["rssi"] = str(rssi)
+            
 
     def __merge_sensor_data(self, existing_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[str, Any]:
         merged = existing_data.copy()
@@ -89,19 +90,34 @@ class Batch:
 
         async with self.buffer_lock:
             batch_data = self.sensor_buffer.copy()
-
+        inactive_stations = []
+        current_time = datetime.now(timezone.utc)
         for station_id, readings in batch_data.items():
             if not station_id or not readings:
                 console.warning(f"Invalid station reading for ID: {station_id}")
                 continue
 
-            last_active = readings.get("metadata", {}).get("last_active")
+            last_active = readings.get("metadata", {}).get("last_active")   
+            if last_active:
+                try:
+                    last_active = datetime.fromisoformat(last_active)
+                    time_diff = (current_time - last_active).total_seconds()
+                    if time_diff > self.active_station_timeout:
+                        inactive_stations.append(station_id)
+                        print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
+                    
+                except ValueError:
+                    print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active}")
 
             if self.last_processed.get(station_id) == last_active:
                 console.debug(f"Skipping reprocessing for {station_id} (unchanged timestamp)")
                 continue
 
             self.last_processed[station_id] = last_active
+            if station_id in inactive_stations:
+                readings["metadata"]["active"] = False
+            else:
+                readings["metadata"]["active"] = True
 
             try:
                 redis_key = f"station:{station_id}"
@@ -111,6 +127,7 @@ class Batch:
                 existing_sensor_data = json.loads(existing_redis_data)
 
                 new_metadata = {**readings.get("metadata", {}), "last_active": last_active}
+                   
                 existing_redis_metadata = await self.redis_client.hget(redis_key, "metadata") or "{}"
                 existing_metadata = json.loads(existing_redis_metadata)
 
