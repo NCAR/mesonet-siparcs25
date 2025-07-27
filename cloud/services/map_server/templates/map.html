@@ -195,16 +195,14 @@
     // Initialize SocketIO
     console.log('Client Origin:', window.location.origin);
     const socket = io("https://map-server.mesonet.k8s.ucar.edu", {
-      transports: ["websocket"], // fallback in correct order
-      pingTimeout: 30000,    // 30s
-      pingInterval: 20000,    // 20s
+      transports: ["websocket"],
+      pingTimeout: 30000,
+      pingInterval: 20000,
       withCredentials: true
     });
     socket.on('connect_error', (error) => {
       console.error('SocketIO Connect Error:', error.message);
     });
-
-    
 
     const map = L.map('map').setView([DEFAULT_LATITUDE, DEFAULT_LONGITUDE], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -264,7 +262,7 @@
       } catch (e) {
         console.error(`[error] parsing metadata for ${stationId}`, e);
       }
-      const isActive = metadata.active | false; //default to false if missing
+      const isActive = metadata.active || false;
       return L.divIcon({
         className: 'station-marker',
         html: `<div style="background: ${isActive ? '#228B22' : '#ff0000'};" >${escapeHTML(stationId)}</div>`,
@@ -283,11 +281,12 @@
           <h3>Station ${escapeHTML(stationId)}</h3>
       `;
 
-      let sensorData = {}, modelSummaries = {}, metadata = {};
+      let sensorData = {}, modelSummaries = {}, metadata = {}, creditForecast = [];
       try {
         sensorData = JSON.parse(stationData.data || '{}').data || {};
         modelSummaries = JSON.parse(stationData.model_summaries || '{}');
         metadata = JSON.parse(stationData.metadata || '{}');
+        creditForecast = stationData.credit_forecast || [];
       } catch (e) {
         console.error(`[error] parsing data for ${stationId}`, e);
         html += `<p>Error parsing station data</p></div>`;
@@ -313,11 +312,11 @@
       html += `</div>`;
 
       for (const [sensor, measurements] of Object.entries(sensorData)) {
-        if (sensor.trim() !== "unknown"){
+        if (sensor.trim() !== "unknown") {
           const open = expandedSectionsState[stationId]?.[sensor];
           html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
                   <div class="content ${open ? 'active' : ''}"><table>`;
-          for (const [m, v] of Object.entries(measurements)) { 
+          for (const [m, v] of Object.entries(measurements)) {
             html += `<tr><td>${escapeHTML(m)}</td><td>${escapeHTML(v)}</td></tr>`;
           }
           html += `</table></div>`;
@@ -338,8 +337,30 @@
       } else {
         html += `<p>No model summaries available</p>`;
       }
+      html += `</div>`;
 
-      html += `</div></div>`;
+      const cfOpen = expandedSectionsState[stationId]?.credit_forecast;
+      html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
+               <div class="content ${cfOpen ? 'active' : ''}">`;
+
+      if (creditForecast.length > 0) {
+        html += `<table>`;
+        creditForecast.forEach(forecast => {
+          const forecastTime = new Date(forecast.forecast_for);
+          html += `<tr><td colspan="2"><strong>Forecast for: ${isNaN(forecastTime) ? 'N/A' : escapeHTML(forecastTime.toLocaleString(locale))}</strong></td></tr>`;
+          for (const [key, value] of Object.entries(forecast)) {
+            if (key !== 'forecast_for') {
+              html += `<tr><td>${escapeHTML(key)}</td><td>${escapeHTML(value)}</td></tr>`;
+            }
+          }
+        });
+        html += `</table>`;
+      } else {
+        html += `<p>No forecast data available</p>`;
+      }
+      html += `</div>`;
+
+      html += `</div>`;
       return html;
     }
 
@@ -522,9 +543,11 @@
     });
 
     socket.on('disconnect', (reason) => {
-        console.error('WebSocket Disconnected:', reason);
-        handleError('Lost connection to server: ' + reason, null);
+      console.error('WebSocket Disconnected:', reason);
+      handleError('Lost connection to server: ' + reason, null);
     });
+
+    
   </script>
 </body>
 </html>
