@@ -264,7 +264,7 @@
       } catch (e) {
         console.error(`[error] parsing metadata for ${stationId}`, e);
       }
-      const isActive = metadata.active !== false;
+      const isActive = metadata.active | false; //default to false if missing
       return L.divIcon({
         className: 'station-marker',
         html: `<div style="background: ${isActive ? '#228B22' : '#ff0000'};" >${escapeHTML(stationId)}</div>`,
@@ -313,7 +313,7 @@
       html += `</div>`;
 
       for (const [sensor, measurements] of Object.entries(sensorData)) {
-        if (sensor != "unknown"){
+        if (sensor.trim() !== "unknown"){
           const open = expandedSectionsState[stationId]?.[sensor];
           html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
                   <div class="content ${open ? 'active' : ''}"><table>`;
