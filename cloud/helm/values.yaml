@@ -35,7 +35,7 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.00.55
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.01.30
     memory: 16Gi
     cpu: 8
     port: 5001
