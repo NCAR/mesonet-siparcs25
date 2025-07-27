@@ -15,7 +15,7 @@ class LLMModel:
     def __get_current_timestamp(self):
         return datetime.now(timezone.utc).isoformat()
 
-    async def __query_model_service(self, station_id: str, sensor_data: dict, model_name: str) -> dict:
+    async def __query_model_service(self, station_id: str, sensor_data: dict, forecast_data, model_name: str) -> dict:
         """
         Query the LLM model service with the given sensor data and return the summary.
         """
@@ -23,6 +23,7 @@ class LLMModel:
 
         payload = {
             "data": json.dumps(sensor_data),
+            "forecast_data": json.dumps(forecast_data),
             "model": model_name
         }
 
@@ -48,7 +49,7 @@ class LLMModel:
             self.console.error("LLM Model Service is not reachable. Please check the configuration.")
             raise ConnectionError("LLM Model Service connection failed.")
         
-    async def run(self, station_id: str, data: dict) -> dict:
+    async def run(self, station_id: str, data: dict, forecast_data: dict) -> dict:
         model_summaries = {}
         if not data:
             self.console.warning("No data provided for model query.")
@@ -56,7 +57,7 @@ class LLMModel:
         
         for model_name in self.model_names:
             summary = await self.__query_model_service(station_id, {
-                **data,
+                **data, **forecast_data,
                 "timestamp": self.__get_current_timestamp()
                 },
                 model_name

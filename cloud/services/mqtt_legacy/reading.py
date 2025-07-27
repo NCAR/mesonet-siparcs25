@@ -53,7 +53,16 @@ class ReadingService:
                     protocol, model, measurement = utils_ftn.pass_sensor(value.strip())
                     self.reading["sensor_protocol"] = protocol
                     self.reading["sensor_model"] = model
-                    self.reading["measurement"] = measurement
+                    # Mapping of abbreviated keys to descriptive names
+                    KEY_MAPPING = {
+                        'acc': 'rainfall_accumulated(24h)',
+                        'acc_evt': 'rainfall_event',
+                        'acc_tot': 'rainfall_total',
+                        'iph': 'rain_intensity',
+                        'voc': 'gas_resistance'
+                    }
+                    descriptive_key = KEY_MAPPING.get(measurement, measurement)
+                    self.reading['measurement'] = descriptive_key
                 case "t":
                     self.reading["timestamp"] = utils_ftn.parse_unix_time(value.strip())
                 case _:

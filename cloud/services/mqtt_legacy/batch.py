@@ -145,7 +145,7 @@ class Batch:
                 tomorrow = today + timedelta(days=1)
 
                 # --- Group forecasts by station_id and forecast date ---
-                tomorrow_forecasts = defaultdict(list)
+                tomorrow_forecasts = []
 
                 for forecast in all_forecasts:
                     # Parse the forecast timestamp (assumes ISO format)
@@ -160,6 +160,7 @@ class Batch:
                             'wind_speed': forecast['wind_speed'],
                             'wind_direction': forecast['wind_direction']
                         })
+                model_summaries = await self.model.run(station_id, merged_sensor_data, tomorrow_forecasts) or []
 
                 redis_station_data = {
                     "data": json.dumps(merged_sensor_data),

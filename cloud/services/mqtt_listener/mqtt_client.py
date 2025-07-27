@@ -133,10 +133,11 @@ class MQTTDatabaseUpdater:
         print(f"[warn]: Disconnected from MQTT broker, reason_code={reason_code}")
         self.connected = False
 
-    def query_model_service(self, station_id: str, sensor_data: Dict[str, Any], model_name: str) -> str:
+    def query_model_service(self, station_id: str, sensor_data: Dict[str, Any], forecast_data: Dict, model_name: str) -> str:
         payload = {
             "model": model_name,
-            "data": json.dumps(sensor_data)
+            "data": json.dumps(sensor_data),
+            "forecast_data": json.dumps(forecast_data)
         }
         try:
             response = requests.post(MODEL_ENDPOINT, json=payload, headers={"Content-Type": "application/json"}, timeout=200)
@@ -201,7 +202,7 @@ class MQTTDatabaseUpdater:
                         model_summaries = {}
                         if merged_sensor_data:
                             for model_name in model_names:
-                                summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, model_name)
+                                summary = self.query_model_service(station_id, {**merged_sensor_data, **"timestamp": get_current_timestamp()}, model_name)
                                 if summary:
                                     model_summaries[model_name] = summary
                         # Update buffer with merged data to keep it up-to-date
