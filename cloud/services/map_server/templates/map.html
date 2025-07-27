@@ -313,13 +313,15 @@
       html += `</div>`;
 
       for (const [sensor, measurements] of Object.entries(sensorData)) {
-        const open = expandedSectionsState[stationId]?.[sensor];
-        html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
-                 <div class="content ${open ? 'active' : ''}"><table>`;
-        for (const [m, v] of Object.entries(measurements)) {
-          html += `<tr><td>${escapeHTML(m)}</td><td>${escapeHTML(v)}</td></tr>`;
+        if (sensor != "default"){
+          const open = expandedSectionsState[stationId]?.[sensor];
+          html += `<div class="collapsible ${open ? 'active' : ''}" data-section="${escapeHTML(sensor)}">${escapeHTML(sensor)}</div>
+                  <div class="content ${open ? 'active' : ''}"><table>`;
+          for (const [m, v] of Object.entries(measurements)) { 
+            html += `<tr><td>${escapeHTML(m)}</td><td>${escapeHTML(v)}</td></tr>`;
+          }
+          html += `</table></div>`;
         }
-        html += `</table></div>`;
       }
 
       const smOpen = expandedSectionsState[stationId]?.summaries;

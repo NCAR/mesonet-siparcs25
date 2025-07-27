@@ -195,7 +195,6 @@ class MQTTDatabaseUpdater:
                         existing_sensor_data = json.loads(existing_redis_data)
                         existing_redis_metadata = self.redis_client.hget(redis_key, "metadata") or "{}"
                         existing_metadata = json.loads(existing_redis_metadata)
-
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
                         model_names = [MODEL_SERVICE_MODEL_NAME]
