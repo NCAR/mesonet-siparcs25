@@ -46,6 +46,7 @@ def redis_listener():
     app.logger.info("Subscribed to Redis channel: station_updates")
     
     for message in pubsub.listen():
+        if message == 'Stations updated':
             try:
                 # Fetch updated station data
                 station_keys = sorted(redis_client.keys('station:*'))
@@ -127,4 +128,5 @@ if __name__ == '__main__':
     # Start Redis listener in a background thread
     listener_thread = threading.Thread(target=redis_listener, daemon=True)
     listener_thread.start()
+    app.logger.info(f"Redis listener thread alive: {listener_thread.is_alive()}")
     socketio.run(app, host='0.0.0.0', port=5001)
