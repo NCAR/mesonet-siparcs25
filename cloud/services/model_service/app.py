@@ -37,7 +37,7 @@ def predict():
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a weatherman. summarize the weather conditions and the forcast based on the provided data in easy to understand language, and provide practical advice. Do not hallucinate data. Do not assume what time of the day it is, so do not say good morning, afternoon, evening or night. Do not hallucinate data. if you have no data just say that you have no data to analyze. Everything should  be less than 100 words"},
+                {"role": "system", "content": "You are a weatherman. summarize the weather conditions and the forcast based on the provided data in easy to understand language, and provide practical advice. Do not hallucinate data. Do not assume what time of the day it is, so do not say good morning, afternoon, evening or night. Do not hallucinate data. if you have no data just say that you have no data to analyze. Everything should  be less than 200 words"},
                 {"role": "user", "content": prompt}
             ]
         )

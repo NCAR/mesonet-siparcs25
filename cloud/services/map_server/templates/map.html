@@ -323,6 +323,29 @@
         }
       }
 
+      const cfOpen = expandedSectionsState[stationId]?.credit_forecast;
+      html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
+              <div class="content ${cfOpen ? 'active' : ''}">`;
+
+      if (Array.isArray(creditForecast[stationId]) && creditForecast[stationId].length > 0) {
+        html += `<table>`;
+        creditForecast.forEach(forecast => {
+          const forecastTime = new Date(forecast.forecast_for);
+          html += `<tr><td colspan="2"><strong>Forecast for: ${isNaN(forecastTime) ? 'N/A' : escapeHTML(forecastTime.toLocaleString(locale))}</strong></td></tr>`;
+          for (const [key, value] of Object.entries(forecast)) {
+            if (key !== 'forecast_for') {
+              html += `<tr><td>${escapeHTML(key)}</td><td>${escapeHTML(value)}</td></tr>`;
+            }
+          }
+        });
+        html += `</table>`;
+      } else {
+        html += `<p>No forecast data available</p>`;
+      }
+      html += `</div>`;
+
+   
+
       const smOpen = expandedSectionsState[stationId]?.summaries;
       html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
                <div class="content ${smOpen ? 'active' : ''}">`;
@@ -339,29 +362,10 @@
       }
       html += `</div>`;
 
-      const cfOpen = expandedSectionsState[stationId]?.credit_forecast[stationId];
-        html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
-                <div class="content ${cfOpen ? 'active' : ''}">`;
-
-        if (Array.isArray(creditForecast) && creditForecast.length > 0) {
-          html += `<table>`;
-          creditForecast.forEach(forecast => {
-            const forecastTime = new Date(forecast.forecast_for);
-            html += `<tr><td colspan="2"><strong>Forecast for: ${isNaN(forecastTime) ? 'N/A' : escapeHTML(forecastTime.toLocaleString(locale))}</strong></td></tr>`;
-            for (const [key, value] of Object.entries(forecast)) {
-              if (key !== 'forecast_for') {
-                html += `<tr><td>${escapeHTML(key)}</td><td>${escapeHTML(value)}</td></tr>`;
-              }
-            }
-          });
-          html += `</table>`;
-        } else {
-          html += `<p>No forecast data available</p>`;
-        }
-        html += `</div>`;
-
       html += `</div>`;
       return html;
+
+
     }
 
     function debounce(fn, wait) {
