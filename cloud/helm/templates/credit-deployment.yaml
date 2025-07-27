@@ -74,7 +74,7 @@ spec:
             nvidia.com/gpu: "1"
         env:
         - name: FORECAST_DATE
-          value: {{ now | date "2006-01-02" }}
+          value: "{{ now | date "2006-01-02" }}"
         - name: FORECAST_DAYS
           value: {{ .Values.credit.environment.forecast_days }}
         volumeMounts:
