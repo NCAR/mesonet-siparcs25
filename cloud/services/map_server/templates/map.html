@@ -339,7 +339,7 @@
       }
       html += `</div>`;
 
-      const cfOpen = expandedSectionsState[stationId]?.credit_forecast;
+      const cfOpen = expandedSectionsState[stationId]?.credit_forecast[stationId];
         html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
                 <div class="content ${cfOpen ? 'active' : ''}">`;
 
