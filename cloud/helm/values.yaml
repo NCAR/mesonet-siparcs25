@@ -9,7 +9,7 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.07.42
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.06.51
     memory: 64Gi
     cpu: 8
   volume:
@@ -20,6 +20,7 @@ credit:
       name: credit-checkpoint-pvc
       size: 40Gi
   environment:
+    forecast_date: '{{ now | date "2025-07-27" }}'
     forecast_days: 10
 databaseapi:
   name: database-api
@@ -37,7 +38,7 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.08.05
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.07.09
     memory: 16Gi
     cpu: 8
     port: 5001
@@ -73,7 +74,7 @@ modelservice:
   name: model-service
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-27.08.05
+    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-24.18
     memory: 2Gi
     cpu: 2
     port: 5002
@@ -95,14 +96,14 @@ mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-27.07.46
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-27.07.00
     memory: 2Gi
     cpu: 2
 mqttlistener:
   name: mqtt-listener
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-27.07.53
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-27.05.56
     memory: 2Gi
     cpu: 2
 ollama:
