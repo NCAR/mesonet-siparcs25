@@ -9,7 +9,7 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-26.19.25
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.03.29
     memory: 64Gi
     cpu: 8
   volume:
@@ -26,7 +26,7 @@ databaseapi:
   name: database-api
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-26.19.02
+    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-27.03.29
     memory: 2Gi
     cpu: 2
     port: 8000
@@ -38,7 +38,7 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.02.19
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-27.04.24
     memory: 16Gi
     cpu: 8
     port: 5001

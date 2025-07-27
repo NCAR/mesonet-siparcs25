@@ -126,6 +126,7 @@ def handle_connect():
 
 if __name__ == '__main__':
     # Start Redis listener in a background thread
+    app.logger.info("Attempting to start Redis listener thread")
     listener_thread = threading.Thread(target=redis_listener, daemon=True)
     listener_thread.start()
     app.logger.info(f"Redis listener thread alive: {listener_thread.is_alive()}")
