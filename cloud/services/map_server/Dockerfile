@@ -4,8 +4,8 @@ FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
 COPY . /cloud/services/map_server/
 WORKDIR /cloud/services/map_server
 # Set environment variables for Gunicorn
-ENV GUNICORN_WORKERS=1
-ENV GUNICORN_TIMEOUT=120
+# ENV GUNICORN_WORKERS=1
+# ENV GUNICORN_TIMEOUT=120
 
 # Create templates/ directory and copy templates
 RUN mkdir -p /cloud/services/map_server/templates
