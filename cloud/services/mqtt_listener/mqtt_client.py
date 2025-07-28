@@ -221,7 +221,7 @@ class MQTTDatabaseUpdater:
                         tomorrow = today + timedelta(days=1)
 
                         # --- Group forecasts by station_id and forecast date ---
-                        tomorrow_forecasts = defaultdict(list)
+                        tomorrow_forecasts = {}
 
                         for forecast in all_forecasts:
                             # Parse the forecast timestamp (assumes ISO format)
