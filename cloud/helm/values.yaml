@@ -71,7 +71,7 @@ modelservice:
   name: model-service
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-24.18
+    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-28.01.43
     memory: 2Gi
     cpu: 2
     port: 5002
