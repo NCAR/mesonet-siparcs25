@@ -145,22 +145,20 @@ class Batch:
                 tomorrow = today + timedelta(days=1)
 
                 # --- Group forecasts by station_id and forecast date ---
-                tomorrow_forecasts = []
+                tomorrow_forecasts = {}
 
                 for forecast in all_forecasts:
                     # Parse the forecast timestamp (assumes ISO format)
-                    forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date()
+                    forecast_dt = forecast['forecast_for']
                     if forecast_dt == tomorrow:
-                        station_id = forecast['station_id']
-                        tomorrow_forecasts[station_id].append({
-                            'forecast_for': forecast['forecast_for'],
+                        tomorrow_forecasts[forecast_dt] = {
                             'temperature': forecast['temperature'],
                             'humidity': forecast['humidity'],
                             'pressure': forecast['pressure'],
                             'wind_speed': forecast['wind_speed'],
                             'wind_direction': forecast['wind_direction']
-                        })
-                model_summaries = await self.model.run(station_id, merged_sensor_data, tomorrow_forecasts) or []
+                        }
+                model_summaries = await self.model.run(station_id, merged_sensor_data, tomorrow_forecasts) or {}
 
                 redis_station_data = {
                     "data": json.dumps(merged_sensor_data),

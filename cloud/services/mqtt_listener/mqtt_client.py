@@ -221,24 +221,22 @@ class MQTTDatabaseUpdater:
                         tomorrow = today + timedelta(days=1)
 
                         # --- Group forecasts by station_id and forecast date ---
-                        tomorrow_forecasts = defaultdict(list)
+                        tomorrow_forecasts = {}
 
                         for forecast in all_forecasts:
                             # Parse the forecast timestamp (assumes ISO format)
-                            forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date()
+                            forecast_dt = forecast['forecast_for']
                             if forecast_dt == tomorrow:
-                                station_id = forecast['station_id']
-                                tomorrow_forecasts[station_id].append({
-                                    'forecast_for': forecast['forecast_for'],
+                                tomorrow_forecasts[forecast_dt] = {
                                     'temperature': forecast['temperature'],
                                     'humidity': forecast['humidity'],
                                     'pressure': forecast['pressure'],
                                     'wind_speed': forecast['wind_speed'],
                                     'wind_direction': forecast['wind_direction']
-                                })
+                                }
                         if merged_sensor_data:
                             for model_name in model_names:
-                                summary = self.query_model_service(station_id, {**merged_sensor_data, **tomorrow_forecasts,"timestamp": get_current_timestamp()})
+                                summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()},**tomorrow_forecasts, model_name=model_name)
                                 if summary:
                                     model_summaries[model_name] = summary
 

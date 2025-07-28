@@ -286,7 +286,20 @@
         sensorData = JSON.parse(stationData.data || '{}').data || {};
         modelSummaries = JSON.parse(stationData.model_summaries || '{}');
         metadata = JSON.parse(stationData.metadata || '{}');
-        creditForecast = stationData.credit_forecast || [];
+        // Use credit_forecast directly as an array
+        creditForecast = Array.isArray(stationData.credit_forecast) ? stationData.credit_forecast : [];
+        // Convert numeric fields to strings and handle invalid values
+        creditForecast = creditForecast.map(forecast => {
+          const cleaned = { ...forecast };
+          for (const [key, value] of Object.entries(cleaned)) {
+            if (key !== 'forecast_for' && (value === null || value === '')) {
+              cleaned[key] = '0'; // Default to '0' for invalid numeric fields
+            } else if (key !== 'forecast_for' && typeof value === 'number') {
+              cleaned[key] = value.toString(); // Convert numbers to strings
+            }
+          }
+          return cleaned;
+        });
       } catch (e) {
         console.error(`[error] parsing data for ${stationId}`, e);
         html += `<p>Error parsing station data</p></div>`;
@@ -295,8 +308,8 @@
 
       const mdOpen = expandedSectionsState[stationId]?.metadata;
       html += `<div class="collapsible ${mdOpen ? 'active' : ''}" data-section="metadata">Metadata</div>
-               <div class="content ${mdOpen ? 'active' : ''}">
-               <table>`;
+              <div class="content ${mdOpen ? 'active' : ''}">
+              <table>`;
 
       for (const [k, v] of Object.entries(metadata)) {
         html += `<tr><td>${escapeHTML(k)}</td><td>${escapeHTML(v)}</td></tr>`;
@@ -327,7 +340,7 @@
       html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
               <div class="content ${cfOpen ? 'active' : ''}">`;
 
-      if (Array.isArray(creditForecast[stationId]) && creditForecast[stationId].length > 0) {
+      if (creditForecast.length > 0) {
         html += `<table>`;
         creditForecast.forEach(forecast => {
           const forecastTime = new Date(forecast.forecast_for);
@@ -344,11 +357,9 @@
       }
       html += `</div>`;
 
-   
-
       const smOpen = expandedSectionsState[stationId]?.summaries;
       html += `<div class="collapsible ${smOpen ? 'active' : ''}" data-section="summaries">AI-Generated Insights</div>
-               <div class="content ${smOpen ? 'active' : ''}">`;
+              <div class="content ${smOpen ? 'active' : ''}">`;
 
       if (Object.keys(modelSummaries).length > 0) {
         html += `<table>`;
@@ -364,8 +375,6 @@
 
       html += `</div>`;
       return html;
-
-
     }
 
     function debounce(fn, wait) {
