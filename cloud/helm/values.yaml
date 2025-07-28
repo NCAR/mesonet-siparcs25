@@ -35,7 +35,7 @@ mapserver:
   name: map-server
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-28.02.20
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-28.04.01
     memory: 16Gi
     cpu: 8
     port: 5001
@@ -71,7 +71,7 @@ modelservice:
   name: model-service
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-28.01.43
+    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-28.04.01
     memory: 2Gi
     cpu: 2
     port: 5002
@@ -100,7 +100,7 @@ mqttlistener:
   name: mqtt-listener
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-28.02.39
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-28.04.01
     memory: 2Gi
     cpu: 2
 ollama:
