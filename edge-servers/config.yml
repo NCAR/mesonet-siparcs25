@@ -1,7 +1,0 @@
-mqtt:
-  broker_ip: 10.2.1.80   # Mosquitto service
-  broker_port: 1884
-  msg_topic: "lora_messages"
-radio:
-  rcv_timeout: 5.0
-  edge_id: "pi_1"

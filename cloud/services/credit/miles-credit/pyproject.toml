@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "miles-credit"
+authors = [{name = "NCAR Machine Integration and Learning for Earth Systems (MILES)", email = "miles@ucar.edu"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+dynamic = ["version"]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "cartopy",
+    "scikit-learn",
+    "pyarrow",
+    "pytest",
+    "pysteps",
+    "xarray",
+    "netcdf4",
+    "torch",
+    "torchvision",
+    "pyyaml",
+    "cartopy",
+    "dask",
+    "distributed",
+    "dask-jobqueue",
+    "zarr",
+    "einops",
+    "echo-opt",
+    "bridgescaler",
+    "segmentation-models-pytorch",
+    "haversine",
+    "pvlib",
+    "torch-harmonics",
+    "torch_geometric",
+    "pre-commit",
+    "ruff",
+    "sphinx",
+    "sphinx-autoapi",
+    "myst_parser",
+    "sphinx-book-theme",
+    "fsspec",
+    "gcsfs"
+   ]
+
+[tool.setuptools]
+packages = ["credit", "credit.models", "credit.metadata", "credit.datasets", "credit.trainers"]
+
+[tool.setuptools.dynamic]
+version = {file = "credit/VERSION"}
+
+[tool.ruff]
+src = ["credit", "applications", "tests"]
+line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["E402"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

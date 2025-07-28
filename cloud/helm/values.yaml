@@ -1,0 +1,212 @@
+app:
+  group: mesonet
+  imagePullPolicy: Always
+  config:
+    name: mesonet-config
+  logger:
+    name: mesonet-logger
+credit:
+  name: credit
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.17.50
+    memory: 64Gi
+    cpu: 8
+  volume:
+    static_data: 
+      size: 20Gi
+      name: credit-static-pvc
+    checkpoint: 
+      name: credit-checkpoint-pvc
+      size: 40Gi
+databaseapi:
+  name: database-api
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-28.14.15
+    memory: 2Gi
+    cpu: 2
+    port: 8000
+  tls:
+    fqdn: database-api.mesonet.k8s.ucar.edu
+    secretName: database-api-tls-cert
+  path: /
+mapserver:
+  name: map-server
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/map-server:2025-07-28.04.01
+    memory: 16Gi
+    cpu: 8
+    port: 5001
+  tls:
+    fqdn: map-server.mesonet.k8s.ucar.edu
+    secretName: map-server-tls-cert
+  path: /
+metabase:
+  name: metabase
+  replicaCount: 1
+  container:
+    image: metabase/metabase:latest
+    memory: 2Gi
+    cpu: 2
+    port: 3000
+  tls:
+    fqdn: metabase.mesonet.k8s.ucar.edu
+    secretName: metabase-tls-cert
+  path: /
+metabaseorch:
+  name: orch-mb
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-28.14.15
+    memory: 2Gi
+    cpu: 2
+    port: 8001
+  tls:
+    fqdn: metabase-orch.mesonet.k8s.ucar.edu
+    secretName: metabase-orch-tls-cert
+  path: /
+modelservice:
+  name: model-service
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/model-service:2025-07-28.04.01
+    memory: 2Gi
+    cpu: 2
+    port: 5002
+  tls:
+    fqdn: model-service.mesonet.k8s.ucar.edu
+    secretName: model-service-tls-cert
+  path: /
+mosquitto:
+  name: mosquitto
+  replicaCount: 1
+  container:
+    image: eclipse-mosquitto:latest
+    memory: 2Gi
+    cpu: 2
+    port: 1883
+  config:
+    name: mosquitto-conf
+mqttlegacy:
+  name: mqtt-legacy-orch
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-28.04.42
+    memory: 2Gi
+    cpu: 2
+mqttlistener:
+  name: mqtt-listener
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-28.05.00
+    memory: 2Gi
+    cpu: 2
+ollama:
+  name: ollama-server
+  replicaCount: 1
+  container:
+    image: ollama/ollama:latest
+    port: 11434
+  volume:
+    name: ollama-pvc
+    size: 10Gi
+pgadmin:
+  name: pgadmin4
+  replicaCount: 1
+  container:
+    image: dpage/pgadmin4
+    memory: 2Gi
+    cpu: 2
+    port: 80
+  tls:
+    fqdn: pgadmin.mesonet.k8s.ucar.edu
+    secretName: pgadmin-tls-cert
+  path: /
+postgres:
+  name: postgres
+  replicaCount: 1
+  container:
+    image: postgres:16
+    memory: 2Gi
+    cpu: 2
+    port: 5432
+  volume:
+    name: postgres-pv
+    size: 1Gi
+  config:
+    name: postgres-init
+redis:
+  name: redis
+  replicaCount: 1
+  container:
+    image: redis:8-alpine
+    memory: 2Gi
+    cpu: 2
+    port: 6379
+  volume:
+    name: redis-pv
+    size: 10Gi
+redisinsight:
+  name: redisinsight
+  replicaCount: 1
+  container:
+    image: redis/redisinsight:2.68
+    memory: 2Gi
+    cpu: 2
+    port: 5540
+  tls:
+    fqdn: redis-insight.mesonet.k8s.ucar.edu
+    secretName: redis-insight-tls-cert
+  path: /
+  volume:
+    name: redis-insight-pv
+    size: 1Gi
+thingsboardce:
+  name: thingsboard-ce
+  replicaCount: 1
+  container:
+    image: thingsboard/tb-node:4.0.1.1
+    memory: 2Gi
+    cpu: 2
+    port: 8080
+    ports:
+      - name: http
+        containerPort: 8080
+        protocol: TCP
+      - name: rpc
+        containerPort: 7070
+        protocol: TCP
+      - name: mqtt
+        containerPort: 1883
+        protocol: TCP
+      - name: coap-udp
+        containerPort: 5683
+        protocol: UDP
+      - name: coap-udp-2
+        containerPort: 5684
+        protocol: UDP
+      - name: coap-udp-3
+        containerPort: 5685
+        protocol: UDP
+      - name: coap-udp-4
+        containerPort: 5686
+        protocol: UDP
+      - name: coap-udp-5
+        containerPort: 5687
+        protocol: UDP
+      - name: coap-udp-6
+        containerPort: 5688
+        protocol: UDP
+  tls:
+    fqdn: thingsboard.mesonet.k8s.ucar.edu
+    secretName: thingsboard-ce-tls-cert
+  path: /
+thingsboardorch:
+  name: thingsboard-orch
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/thingsboard:2025-07-22.21
+    memory: 2Gi
+    cpu: 2

@@ -1,0 +1,71 @@
+predict:
+    forecasts: [["2018-06-01 00:00:00", "2018-06-01 02:00:00"]]
+    save_format: 'nc' #'nc' or 'none'
+    save_loc: '/glade/u/home/ksha/miles-credit/results/crossformer/forecasts/'
+
+visualization:
+    sigma_level_visualize:
+        variable_keys: ['U','V','T','Q']  # variable keys as defined in **[data][variables][...]**
+        visualize_levels: [5, 10,]     # sigma levels (by their indices) to visualize 
+        variable_names: ['U wind [m/s]', # the name of each variable
+                         'V wind [m/s]', # must be consistent with **variable_indices**
+                         'Air temperature [$^\circ$K]',
+                         'Specific humidity [kg/kg]']
+        variable_factors: [1, 1, 1, 1]
+        variable_range: [auto, auto, auto, auto] # use auto or provide a list of [min_var, max_var]; it applies to all levels
+        colormaps: ['Spectral_r', 'Spectral_r', 'viridis_plasma', 'YlGn']
+        file_name_prefix: 'global_sigma'
+    diagnostic_variable_visualize:
+        variable_keys: ['V500', 'U500','T500','Z500','Q500']
+        visualize_levels: ['none', 'none', 'none', 'none', 'none'] # none for single level variables
+        variable_names: ['500 hPa V Wind [m/s]', 
+                         '500 hPa U Wind [m/s]',
+                         '500 hPa Air temperature [$^\circ$K]',
+                         '500 hPa Geopotential Height [km]',
+                         '500 hPa Specific humidity [kg/kg]']
+        variable_factors: [1, 1, 1, 0.001, 1]
+        variable_range: [auto, auto, [220, 300], [50, 60], auto]
+        colormaps: ['Spectral_r', 'Spectral_r', 'viridis_plasma', 'Spectral_r', 'YlGn']
+        file_name_prefix: 'global_diagnostics'
+    surface_visualize:
+        variable_keys: ['SP','t2m']
+        visualize_levels: ['none', 'none']
+        variable_names: ['Surface Pressure [hPa]', 
+                         '2-m Air Temperature [$^\circ$K]']
+        variable_factors: [0.01, 1]
+        variable_range: [[650, 1100], [200, 350]]
+        colormaps: ['Spectral', 'viridis_plasma',]
+        file_name_prefix: 'global_surface'
+    map_projection: 'EckertIII' # PlateCarree, LambertCylindrical, Miller, EckertIII, Mollweide, Robinson
+    save_options: {'dpi':250, 
+                   'orientation':'portrait', 
+                   'bbox_inches':'tight', 
+                   'pad_inches':0.1, 
+                   'transparent':False,
+                   'format':'png'}
+    video_format: 'mp4' # gif, mp4, none
+
+                   
+pbs: #derecho
+    conda: "holodec"
+    project: "NAML0001"
+    job_name: "crossformer"
+    walltime: "24:00:00"
+    nodes: 8
+    ncpus: 64
+    ngpus: 4
+    mem: '480GB'
+    queue: 'preempt'
+    
+# pbs: # casper
+#     conda: "/glade/work/schreck/miniconda3/envs/evidential"
+#     job_name: 'latlon'
+#     nodes: 1
+#     ncpus: 8
+#     ngpus: 1
+#     mem: '128GB'
+#     walltime: '12:00:00'
+#     gpu_type: 'a100'
+#     cpu_type: 'milan'
+#     project: 'NAML0001'
+#     queue: 'casper'

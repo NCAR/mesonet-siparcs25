@@ -1,0 +1,14 @@
+name: credit
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - xarray
+  - matplotlib
+  - papermill
+  - netcdf4
+  - scipy
+  - openpyxl
+  - ipykernel
+  - httpx
+  - pydantic=2.7.1

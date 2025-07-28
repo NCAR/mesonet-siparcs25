@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.redis.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.redis.name }}
+    group: {{ .Values.app.group }}
+spec:
+  replicas: {{ .Values.redis.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.redis.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.redis.name }}
+    spec:
+      securityContext:
+        fsGroup: 999
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+      - name: {{ .Values.redis.name }}
+        image: {{ .Values.redis.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+        resources:
+          limits:
+            memory: {{ .Values.redis.container.memory }}
+            cpu: {{ .Values.redis.container.cpu }}
+        ports:
+        - containerPort: {{ .Values.redis.container.port }}
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        env:
+        - name: SKIP_FIX_PERMS
+          value: "1"
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: {{ .Values.redis.volume.name }}

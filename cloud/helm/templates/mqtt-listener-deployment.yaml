@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mqttlistener.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Values.mqttlistener.name }}
+    group: {{ .Values.app.group }}
+spec:
+  revisionHistoryLimit: 3
+  replicas: {{ .Values.mqttlistener.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.mqttlistener.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.mqttlistener.name }}
+    spec:
+      containers:
+      - name: {{ .Values.mqttlistener.name }}
+        image: {{ .Values.mqttlistener.container.image }}
+        imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+        resources:
+          limits:
+            memory: {{ .Values.mqttlistener.container.memory }}
+            cpu: {{ .Values.mqttlistener.container.cpu }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /cloud/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ .Values.app.config.name }}

@@ -1,0 +1,43 @@
+name: credit
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - libgcc-ng>=13.2.0
+  - numpy=2.2
+  - esmf
+  - esmpy
+  - xesmf
+  - h5netcdf
+  - setuptools
+  - wheel
+  - xarray
+  - matplotlib
+  - papermill
+  - ipykernel
+  - netcdf4
+  - scipy
+  - openpyxl
+  - mpi4py
+  - httpx
+  - pydantic=2.7.1
+  - pip
+  - pip:
+      - pysteps
+      - "torch==2.2.2 --index-url https://download.pytorch.org/whl/cu121"
+      - "torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu121"
+      - llvmlite==0.41.0
+      - numba==0.58.0
+      # - einops
+      # - echo-opt
+      # - optuna==3.6.0
+      # - bridgescaler
+      # - segmentation-models-pytorch>=0.3.4
+      # - torch-harmonics
+      # - torch_geometric
+      # - haversine
+      # - torchsummary
+      # - sphinx-autoapi
+      # - properscoring
