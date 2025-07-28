@@ -59,7 +59,7 @@ metabaseorch:
   name: orch-mb
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-26.19.24
+    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-28.14.15
     memory: 2Gi
     cpu: 2
     port: 8001
