@@ -329,7 +329,7 @@
 
       if (Array.isArray(creditForecast[stationId]) && creditForecast[stationId].length > 0) {
         html += `<table>`;
-        creditForecast.forEach(forecast => {
+        creditForecast[stationId].forEach(forecast => {
           const forecastTime = new Date(forecast.forecast_for);
           html += `<tr><td colspan="2"><strong>Forecast for: ${isNaN(forecastTime) ? 'N/A' : escapeHTML(forecastTime.toLocaleString(locale))}</strong></td></tr>`;
           for (const [key, value] of Object.entries(forecast)) {
