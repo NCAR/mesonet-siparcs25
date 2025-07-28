@@ -2,8 +2,6 @@
 
 A Python application for analyzing and visualizing Mesonet weather data as part of the SIPaRCs 2025 project.
 
-## M
-
 ## Features
 
 - Download and process Mesonet weather datasets
