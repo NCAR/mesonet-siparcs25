@@ -56,6 +56,20 @@ spec:
           value: redis
         - name: REDIS_PORT
           value: "6379"
+        - name: SMTP_HOST
+          value: "smtp.gmail.com"
+        - name: SMTP_PORT
+          value: "587"
+        - name: SMTP_SECURITY
+          value: "starttls"
+        - name: SMTP_USERNAME
+          value: "oppongbaahisaacmega@gmail.com"
+        - name: SMTP_PASSWORD
+          value: "umjsopibixmaqtbr"
+        - name: SMTP_FROM_ADDRESS
+          value: "agbeli@ucar.edu"
+        - name: SMTP_FROM_NAME
+          value: "UCAR"
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml
