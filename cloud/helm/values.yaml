@@ -9,7 +9,7 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.17.50
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-28.19.43
     limits:
       memory: 64Gi
       cpu: 8
