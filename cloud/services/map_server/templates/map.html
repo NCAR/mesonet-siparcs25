@@ -286,10 +286,10 @@
         sensorData = JSON.parse(stationData.data || '{}').data || {};
         modelSummaries = JSON.parse(stationData.model_summaries || '{}');
         metadata = JSON.parse(stationData.metadata || '{}');
-        // Access credit_forecast for the specific stationId
-        creditForecast = (stationData.credit_forecast && stationData.credit_forecast[stationId]) || [];
-        // Ensure numeric fields are strings to avoid type errors
-        creditForecast = Array.isArray(creditForecast) ? creditForecast.map(forecast => {
+        // Use credit_forecast directly as an array
+        creditForecast = Array.isArray(stationData.credit_forecast) ? stationData.credit_forecast : [];
+        // Convert numeric fields to strings and handle invalid values
+        creditForecast = creditForecast.map(forecast => {
           const cleaned = { ...forecast };
           for (const [key, value] of Object.entries(cleaned)) {
             if (key !== 'forecast_for' && (value === null || value === '')) {
@@ -299,7 +299,7 @@
             }
           }
           return cleaned;
-        }) : [];
+        });
       } catch (e) {
         console.error(`[error] parsing data for ${stationId}`, e);
         html += `<p>Error parsing station data</p></div>`;
@@ -340,7 +340,7 @@
       html += `<div class="collapsible ${cfOpen ? 'active' : ''}" data-section="credit_forecast">Weather Forecast</div>
               <div class="content ${cfOpen ? 'active' : ''}">`;
 
-      if (Array.isArray(creditForecast) && creditForecast.length > 0) {
+      if (creditForecast.length > 0) {
         html += `<table>`;
         creditForecast.forEach(forecast => {
           const forecastTime = new Date(forecast.forecast_for);

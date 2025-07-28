@@ -2,6 +2,7 @@
 from flask import Flask, request, jsonify
 from openai import OpenAI
 import logging
+import json
 
 app = Flask(__name__)
 
@@ -29,7 +30,7 @@ def predict():
             logger.warning("Invalid request format received")
             return jsonify({"error": "Invalid request format, requires 'data' field"}), 400
         
-        prompt = {"current_data" : data.get("data", {}), "forecast_data" : data.get("forecast_data", {})}
+        prompt = json.dumps({"current_data" : data.get("data", {}), "forecast_data" : data.get("forecast_data", {})})
         model = data["model"]
         
         logger.info(f"Processing prediction with prompt: {prompt}")

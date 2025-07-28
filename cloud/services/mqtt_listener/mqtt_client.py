@@ -246,7 +246,7 @@ class MQTTDatabaseUpdater:
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
                             'model_summaries': json.dumps(model_summaries),
-                            "credit_forecast": json.dumps(tomorrow_forecasts),
+                            "credit_forecast": json.dumps(tomorrow_forecasts[station_id]),
                             'latitude': str(merged_metadata.get('latitude', '39.9784')),
                             'longitude': str(merged_metadata.get('longitude', '-105.2749')),
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
