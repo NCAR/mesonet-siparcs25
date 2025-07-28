@@ -166,7 +166,7 @@ class Batch:
                     "data": json.dumps(merged_sensor_data),
                     "metadata": json.dumps(merged_metadata),
                     "model_summaries": json.dumps(model_summaries),
-                    "credit_forecast": json.dumps(tomorrow_forecasts)
+                    "credit_forecast": json.dumps(tomorrow_forecasts[station_id])
                 }
 
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
