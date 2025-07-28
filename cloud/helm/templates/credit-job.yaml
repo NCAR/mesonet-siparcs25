@@ -19,6 +19,7 @@ spec:
           labels:
             app: {{ .Values.credit.name }}
         spec:
+          restartPolicy: OnFailure 
           runtimeClassName: nvidia
           securityContext:
             fsGroup: 1000
