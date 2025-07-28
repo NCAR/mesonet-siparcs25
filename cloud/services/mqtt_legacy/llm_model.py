@@ -56,12 +56,9 @@ class LLMModel:
             return model_summaries
         
         for model_name in self.model_names:
-            summary = await self.__query_model_service(station_id, {
-                **data, **forecast_data,
-                "timestamp": self.__get_current_timestamp()
-                },
-                model_name
-            )
+            summary = await self.__query_model_service(station_id, 
+                                                       {**data, "timestamp": self.__get_current_timestamp()},
+                                                       **forecast_data,model_name=model_name)
             if summary:
                 model_summaries[model_name] = summary
 

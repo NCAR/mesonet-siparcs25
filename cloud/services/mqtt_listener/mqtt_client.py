@@ -225,17 +225,15 @@ class MQTTDatabaseUpdater:
 
                         for forecast in all_forecasts:
                             # Parse the forecast timestamp (assumes ISO format)
-                            forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date()
+                            forecast_dt = forecast['forecast_for']
                             if forecast_dt == tomorrow:
-                                station_id = forecast['station_id']
-                                tomorrow_forecasts[station_id].append({
-                                    'forecast_for': forecast['forecast_for'],
+                                tomorrow_forecasts[forecast_dt] = {
                                     'temperature': forecast['temperature'],
                                     'humidity': forecast['humidity'],
                                     'pressure': forecast['pressure'],
                                     'wind_speed': forecast['wind_speed'],
                                     'wind_direction': forecast['wind_direction']
-                                })
+                                }
                         if merged_sensor_data:
                             for model_name in model_names:
                                 summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()},**tomorrow_forecasts, model_name=model_name)
@@ -246,7 +244,7 @@ class MQTTDatabaseUpdater:
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
                             'model_summaries': json.dumps(model_summaries),
-                            "credit_forecast": json.dumps(tomorrow_forecasts[station_id]),
+                            "credit_forecast": json.dumps(tomorrow_forecasts),
                             'latitude': str(merged_metadata.get('latitude', '39.9784')),
                             'longitude': str(merged_metadata.get('longitude', '-105.2749')),
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
