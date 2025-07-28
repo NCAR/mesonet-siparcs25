@@ -10,8 +10,12 @@ credit:
   replicaCount: 1
   container:
     image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.17.50
-    memory: 64Gi
-    cpu: 8
+    limits:
+      memory: 64Gi
+      cpu: 8
+    requests:
+      memory: 8Gi
+      cpu: 2
   volume:
     static_data: 
       size: 20Gi
