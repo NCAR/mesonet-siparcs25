@@ -9,9 +9,13 @@ credit:
   name: credit
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-27.17.50
-    memory: 64Gi
-    cpu: 8
+    image: hub.k8s.ucar.edu/mesonet/credit:2025-07-28.19.43
+    limits:
+      memory: 64Gi
+      cpu: 8
+    requests:
+      memory: 8Gi
+      cpu: 2
   volume:
     static_data: 
       size: 20Gi
@@ -59,7 +63,7 @@ metabaseorch:
   name: orch-mb
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-28.14.15
+    image: hub.k8s.ucar.edu/mesonet/metabase-orch:2025-07-28.19.58
     memory: 2Gi
     cpu: 2
     port: 8001
@@ -93,7 +97,7 @@ mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-28.04.42
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-28.21.07
     memory: 2Gi
     cpu: 2
 mqttlistener:

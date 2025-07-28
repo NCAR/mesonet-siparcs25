@@ -10,7 +10,7 @@ ENV_NAME=${ENV_NAME:-credit}
 
 # Input variables
 FORECAST_DATE=${FORECAST_DATE:-$(TZ=$TZ date +'%Y-%m-%d')}
-FORECAST_DAYS=${FORECAST_DAYS:-1}
+FORECAST_DAYS=${FORECAST_DAYS:-10}
 
 # Start and End Date Calculations
 START_DATE="$FORECAST_DATE 00:00:00"

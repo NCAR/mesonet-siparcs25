@@ -64,7 +64,8 @@ class ReadingService:
                     descriptive_key = KEY_MAPPING.get(measurement, measurement)
                     self.reading['measurement'] = descriptive_key
                 case "t":
-                    self.reading["timestamp"] = utils_ftn.parse_unix_time(value.strip())
+                    pass
+                    # self.reading["timestamp"] = utils_ftn.parse_unix_time(value.strip())
                 case _:
                     continue
 
