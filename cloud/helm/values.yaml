@@ -23,7 +23,7 @@ databaseapi:
   name: database-api
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-27.06.51
+    image: hub.k8s.ucar.edu/mesonet/database-api:2025-07-28.14.15
     memory: 2Gi
     cpu: 2
     port: 8000
