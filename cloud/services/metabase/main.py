@@ -50,7 +50,7 @@ class Application:
         if not mb_db_id:
             console.error(f"Database '{db_name}' does not exist in Metabase. Please check your configuration.")
             raise ValueError("Hello")
-        else:        
+        else:
             console.log(f"Database '{db_name}' is validated with ID: {mb_db_id}")
 
         # Modify settings. Need admin privileges

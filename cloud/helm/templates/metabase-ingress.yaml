@@ -8,7 +8,7 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: "incommon"
 spec:
-  ingressClassName: nginx-internal
+  ingressClassName: nginx-external
   tls:
     - hosts:
       - {{ .Values.metabase.tls.fqdn }}

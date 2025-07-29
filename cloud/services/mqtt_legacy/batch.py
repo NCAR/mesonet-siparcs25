@@ -50,7 +50,7 @@ class Batch:
         ts_iso = (
             datetime.fromtimestamp(ts_raw, tz=timezone.utc).isoformat()
             if isinstance(ts_raw, (int, float))
-            else ts_raw.isoformat()
+            else ts_raw
         )
 
         async with self.buffer_lock:
