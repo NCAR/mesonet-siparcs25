@@ -1,7 +1,7 @@
 import paho.mqtt.client as mqtt
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime,  timezone, timedelta
 import requests
 import redis
 import yaml
@@ -133,10 +133,11 @@ class MQTTDatabaseUpdater:
         print(f"[warn]: Disconnected from MQTT broker, reason_code={reason_code}")
         self.connected = False
 
-    def query_model_service(self, station_id: str, sensor_data: Dict[str, Any], model_name: str) -> str:
+    def query_model_service(self, station_id: str, sensor_data: Dict[str, Any],forecast_data: Dict[str, Any], model_name: str) -> str:
         payload = {
             "model": model_name,
             "data": json.dumps(sensor_data)
+            ,"forecast_data": json.dumps(forecast_data)
         }
         try:
             response = requests.post(MODEL_ENDPOINT, json=payload, headers={"Content-Type": "application/json"}, timeout=200)
@@ -175,6 +176,7 @@ class MQTTDatabaseUpdater:
                 inactive_stations = []
                 current_time = datetime.now(timezone.utc)
                 for station_id, station_data in list(self.sensor_buffer.items()):
+                    inactive = False
                     redis_key = f"station:{station_id}"
                     try:
                         # Check if station is inactive based on last_active timestamp
@@ -184,7 +186,7 @@ class MQTTDatabaseUpdater:
                                 last_active = datetime.fromisoformat(last_active_str)
                                 time_diff = (current_time - last_active).total_seconds()
                                 if time_diff > self.active_station_timeout:
-                                    inactive_stations.append(station_id)
+                                    inactive = True
                                     print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
                                 
                             except ValueError:
@@ -199,6 +201,31 @@ class MQTTDatabaseUpdater:
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
                         model_names = [MODEL_SERVICE_MODEL_NAME]
                         model_summaries = {}
+                        forecast_res = requests.get(url=f"{API_BASE_URL}/api/credit-forecast/{station_id}")
+
+                        if not (200 <= forecast_res.status_code < 300):
+                            print(f"Forecast for {station_id} was not retrieved from the database succesffuly.")
+                            forecast_res.raise_for_status()
+
+                        all_forecasts = forecast_res.json()
+
+                        today = datetime.now(timezone.utc).date()
+                        tomorrow = today + timedelta(days=1)
+
+                        # --- Group forecasts by station_id and forecast date ---
+                        tomorrow_forecasts = {}
+
+                        for forecast in all_forecasts:
+                            # Parse the forecast timestamp (assumes ISO format)
+                            forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date().isoformat()
+                            if forecast_dt == tomorrow.isoformat():
+                                tomorrow_forecasts[forecast_dt] = {
+                                    'temperature': str(forecast['temperature']),
+                                    'humidity': str(forecast['humidity']),
+                                    'pressure': str(forecast['pressure']),
+                                    'wind_speed': str(forecast['wind_speed']),
+                                    'wind_direction': str(forecast['wind_direction'])
+                                }
                         if merged_sensor_data:
                             for model_name in model_names:
                                 summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, model_name)
@@ -207,14 +234,12 @@ class MQTTDatabaseUpdater:
                         # Update buffer with merged data to keep it up-to-date
                         self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
-                        if station_id in inactive_stations:
-                            self.sensor_buffer[station_id]["metadata"]["active"] = False
-                        else:
-                            self.sensor_buffer[station_id]["metadata"]["active"] = True
+                        self.sensor_buffer[station_id]["metadata"]["active"] = not inactive
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
                             'model_summaries': json.dumps(model_summaries),
+                            'credit_forecast': json.dumps(tomorrow_forecasts),
                             'latitude': str(merged_metadata.get('latitude', '39.9784')),
                             'longitude': str(merged_metadata.get('longitude', '-105.2749')),
                             'altitude': str(merged_metadata.get('altitude', '1624.0'))
