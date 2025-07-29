@@ -23,6 +23,7 @@ class Batch:
         self.batch_interval = batch_interval
         self.model = model
         self.db_url = db_url
+        self.active_station_timeout = active_station_timeout
 
         self.buffer_lock = asyncio.Lock()
         self.sensor_buffer = {}
@@ -121,13 +122,12 @@ class Batch:
 
             try:
                 redis_key = f"station:{station_id}"
-                readings["metadata"]["active"] = not inactive
 
                 new_sensor_data = {"data": readings.get("data", {})}
                 existing_redis_data = await self.redis_client.hget(redis_key, "data") or "{}"
                 existing_sensor_data = json.loads(existing_redis_data)
 
-                new_metadata = {**readings.get("metadata", {}), "last_active": last_active}
+                new_metadata = {**readings.get("metadata", {}), "last_active": last_active, "active": not inactive}
                    
                 existing_redis_metadata = await self.redis_client.hget(redis_key, "metadata") or "{}"
                 existing_metadata = json.loads(existing_redis_metadata)
