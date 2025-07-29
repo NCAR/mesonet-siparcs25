@@ -149,8 +149,8 @@ class Batch:
 
                 for forecast in all_forecasts:
                     # Parse the forecast timestamp (assumes ISO format)
-                    forecast_dt = forecast['forecast_for']
-                    if forecast_dt == tomorrow:
+                    forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date().isoformat()
+                    if forecast_dt == tomorrow.date().isoformat():
                         tomorrow_forecasts[forecast_dt] = {
                             'temperature': forecast['temperature'],
                             'humidity': forecast['humidity'],
