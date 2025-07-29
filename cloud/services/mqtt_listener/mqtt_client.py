@@ -191,6 +191,10 @@ class MQTTDatabaseUpdater:
                                 
                             except ValueError:
                                 print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active_str}")
+                        if station_id in inactive_stations:
+                            self.sensor_buffer[station_id]["metadata"]["active"] = False
+                        else:
+                            self.sensor_buffer[station_id]["metadata"]["active"] = True
 
                         sensor_data = {"data": station_data["data"]}
                         existing_redis_data = self.redis_client.hget(redis_key, "data") or "{}"
@@ -204,10 +208,6 @@ class MQTTDatabaseUpdater:
                         # Update buffer with merged data to keep it up-to-date
                         self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
-                        if station_id in inactive_stations:
-                            self.sensor_buffer[station_id]["metadata"]["active"] = False
-                        else:
-                            self.sensor_buffer[station_id]["metadata"]["active"] = True
 
                         forecast_res = requests.get(url=f"{API_BASE_URL}/api/credit-forecast/{station_id}")
 
@@ -217,7 +217,7 @@ class MQTTDatabaseUpdater:
 
                         all_forecasts = forecast_res.json()
 
-                        today = datetime.utcnow().date()
+                        today = datetime.now(timezone.utc).date()
                         tomorrow = today + timedelta(days=1)
 
                         # --- Group forecasts by station_id and forecast date ---
@@ -226,7 +226,7 @@ class MQTTDatabaseUpdater:
                         for forecast in all_forecasts:
                             # Parse the forecast timestamp (assumes ISO format)
                             forecast_dt = forecast['forecast_for']
-                            if forecast_dt == tomorrow:
+                            if forecast_dt == tomorrow.date().isoformat():
                                 tomorrow_forecasts[forecast_dt] = {
                                     'temperature': forecast['temperature'],
                                     'humidity': forecast['humidity'],
