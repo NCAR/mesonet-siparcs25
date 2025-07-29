@@ -166,6 +166,7 @@ class Batch:
                 }
 
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
+                self.redis_client.publish('station_updates', 'Stations updated')
                 console.log(f"Updated Redis reading for station {station_id}")
 
                 # Clean up from memory to avoid growth
