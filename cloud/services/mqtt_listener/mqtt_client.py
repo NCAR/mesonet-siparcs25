@@ -228,7 +228,7 @@ class MQTTDatabaseUpdater:
                                 }
                         if merged_sensor_data:
                             for model_name in model_names:
-                                summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, model_name)
+                                summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()},tomorrow_forecasts, model_name)
                                 if summary:
                                     model_summaries[model_name] = summary
                         # Update buffer with merged data to keep it up-to-date
