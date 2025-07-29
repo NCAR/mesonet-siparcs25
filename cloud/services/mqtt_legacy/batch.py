@@ -21,6 +21,7 @@ class Batch:
         self.redis_client = redis_client
         self.batch_interval = batch_interval
         self.model = model
+        self.active_station_timeout = 300  # seconds
         self.db_url = db_url
 
         self.buffer_lock = asyncio.Lock()
@@ -92,7 +93,7 @@ class Batch:
 
         async with self.buffer_lock:
             batch_data = self.sensor_buffer.copy()
-
+        current_time = datetime.now(timezone.utc)
         for station_id, readings in batch_data.items():
             if not station_id or not readings:
                 console.warning(f"Invalid station reading for ID: {station_id}")
@@ -105,15 +106,22 @@ class Batch:
                 continue
 
             self.last_processed[station_id] = last_active
-
             try:
+                inactive = False
                 redis_key = f"station:{station_id}"
-
+                # Check if station is inactive based on last_active timestamp
+                last_active_str = readings["metadata"].get("last_active") 
+                if last_active_str:
+                    last_active = datetime.fromisoformat(last_active_str)
+                    time_diff = (current_time - last_active).total_seconds()
+                    if time_diff > self.active_station_timeout:
+                        inactive = True
+                        print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
                 new_sensor_data = {"data": readings.get("data", {})}
                 existing_redis_data = await self.redis_client.hget(redis_key, "data") or "{}"
                 existing_sensor_data = json.loads(existing_redis_data)
 
-                new_metadata = {**readings.get("metadata", {}), "last_active": last_active}
+                new_metadata = {**readings.get("metadata", {}), "last_active": last_active, "active": not inactive}
                 existing_redis_metadata = await self.redis_client.hget(redis_key, "metadata") or "{}"
                 existing_metadata = json.loads(existing_redis_metadata)
 
@@ -151,6 +159,7 @@ class Batch:
                 }
 
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
+                await self.redis_client.publish('station_updates', 'Stations updated')
                 console.log(f"Updated Redis reading for station {station_id}")
 
                 # # Clean up from memory to avoid growth
