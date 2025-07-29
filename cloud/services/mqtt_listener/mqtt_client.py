@@ -171,8 +171,6 @@ class MQTTDatabaseUpdater:
         while True:
             time.sleep(self.batch_interval)
             with self.buffer_lock:
-                if not self.sensor_buffer:
-                    continue
                 print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
                 current_time = datetime.now(timezone.utc)
                 for station_id, station_data in list(self.sensor_buffer.items()):
