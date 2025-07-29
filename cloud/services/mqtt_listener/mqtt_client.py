@@ -198,6 +198,7 @@ class MQTTDatabaseUpdater:
                         existing_redis_metadata = self.redis_client.hget(redis_key, "metadata") or "{}"
                         existing_metadata = json.loads(existing_redis_metadata)
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
+                        station_data["metadata"]["active"] = not inactive
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
                         model_names = [MODEL_SERVICE_MODEL_NAME]
                         model_summaries = {}
@@ -234,7 +235,6 @@ class MQTTDatabaseUpdater:
                         # Update buffer with merged data to keep it up-to-date
                         self.sensor_buffer[station_id]["data"] = merged_sensor_data["data"]
                         self.sensor_buffer[station_id]["metadata"] = merged_metadata
-                        self.sensor_buffer[station_id]["metadata"]["active"] = not inactive
                         redis_station_data = {
                             'data': json.dumps(merged_sensor_data),
                             'metadata': json.dumps(merged_metadata),
