@@ -22,7 +22,6 @@ class Batch:
         self.batch_interval = batch_interval
         self.model = model
         self.db_url = db_url
-        self.active_station_timeout = 300  # seconds
 
         self.buffer_lock = asyncio.Lock()
         self.sensor_buffer = {}
@@ -51,7 +50,7 @@ class Batch:
         ts_iso = (
             datetime.fromtimestamp(ts_raw, tz=timezone.utc).isoformat()
             if isinstance(ts_raw, (int, float))
-            else ts_raw
+            else ts_raw.isoformat()
         )
 
         async with self.buffer_lock:
@@ -71,7 +70,6 @@ class Batch:
                 station_meta["target_id"] = target_id
             if rssi:
                 station_meta["rssi"] = str(rssi)
-            
 
     def __merge_sensor_data(self, existing_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[str, Any]:
         merged = existing_data.copy()
@@ -94,24 +92,13 @@ class Batch:
 
         async with self.buffer_lock:
             batch_data = self.sensor_buffer.copy()
-        current_time = datetime.now(timezone.utc)
+
         for station_id, readings in batch_data.items():
-            inactive = False
             if not station_id or not readings:
                 console.warning(f"Invalid station reading for ID: {station_id}")
                 continue
 
-            last_active = readings.get("metadata", {}).get("last_active")   
-            if last_active:
-                try:
-                    last_active = datetime.fromisoformat(last_active)
-                    time_diff = (current_time - last_active).total_seconds()
-                    if time_diff > self.active_station_timeout:
-                        inactive = True
-                        print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
-                    
-                except ValueError:
-                    print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active}")
+            last_active = readings.get("metadata", {}).get("last_active")
 
             if self.last_processed.get(station_id) == last_active:
                 console.debug(f"Skipping reprocessing for {station_id} (unchanged timestamp)")
@@ -126,8 +113,7 @@ class Batch:
                 existing_redis_data = await self.redis_client.hget(redis_key, "data") or "{}"
                 existing_sensor_data = json.loads(existing_redis_data)
 
-                new_metadata = {**readings.get("metadata", {}), "last_active": last_active, "active": not inactive}
-                   
+                new_metadata = {**readings.get("metadata", {}), "last_active": last_active}
                 existing_redis_metadata = await self.redis_client.hget(redis_key, "metadata") or "{}"
                 existing_metadata = json.loads(existing_redis_metadata)
 
@@ -155,7 +141,6 @@ class Batch:
                             'wind_speed': str(forecast['wind_speed']),
                             'wind_direction': str(forecast['wind_direction'])
                         }
-                model_summaries = await self.model.run(station_id, merged_sensor_data, tomorrow_forecasts) or {}
 
                 redis_station_data = {
                     "data": json.dumps(merged_sensor_data),
@@ -165,12 +150,11 @@ class Batch:
                 }
 
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
-                await self.redis_client.publish('station_updates', 'Stations updated')
                 console.log(f"Updated Redis reading for station {station_id}")
 
                 # Clean up from memory to avoid growth
-                # async with self.buffer_lock:
-                #     self.sensor_buffer.pop(station_id, None)
+                async with self.buffer_lock:
+                    self.sensor_buffer.pop(station_id, None)
 
             except (redis.RedisError, json.JSONDecodeError) as e:
                 console.error(f"[error]: Failed to update Redis for station {station_id}: {e}")
