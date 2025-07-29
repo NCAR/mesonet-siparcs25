@@ -121,7 +121,7 @@ class Batch:
                 existing_redis_data = await self.redis_client.hget(redis_key, "data") or "{}"
                 existing_sensor_data = json.loads(existing_redis_data)
 
-                new_metadata = {**readings.get("metadata", {}), "last_active": last_active, "active": not inactive}
+                new_metadata = {**readings.get("metadata", {}), "last_active": last_active_str, "active": not inactive}
                 existing_redis_metadata = await self.redis_client.hget(redis_key, "metadata") or "{}"
                 existing_metadata = json.loads(existing_redis_metadata)
 
