@@ -21,11 +21,11 @@ class LLMModel:
         """
         console = self.console
 
-        payload = {
-            "data": json.dumps(sensor_data),
-            "forecast_data": json.dumps(forecast_data),
-            "model": model_name
-        }
+        payload = json.dumps({
+            "data": sensor_data,
+            "forecast_data": forecast_data,
+            
+        })
 
         try:
             url = f"{self.model_service_base_url}/predict"
