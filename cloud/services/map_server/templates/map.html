@@ -286,11 +286,11 @@
         sensorData = JSON.parse(stationData.data || '{}').data || {};
         modelSummaries = JSON.parse(stationData.model_summaries || '{}');
         metadata = JSON.parse(stationData.metadata || '{}');
-        // Use credit_forecast directly as an array
+        // Parse credit_forecast as an object
         creditForecast = JSON.parse(stationData.credit_forecast || '{}');
-        // Convert numeric fields to strings and handle invalid values
-        creditForecast = creditForecast.map(forecast => {
-          const cleaned = { ...forecast };
+        // Convert object to array of {forecast_for, ...data} for consistent rendering
+        creditForecast = Object.entries(creditForecast).map(([forecast_dt, data]) => {
+          const cleaned = { forecast_for: forecast_dt, ...data };
           for (const [key, value] of Object.entries(cleaned)) {
             if (key !== 'forecast_for' && (value === null || value === '')) {
               cleaned[key] = '0'; // Default to '0' for invalid numeric fields
