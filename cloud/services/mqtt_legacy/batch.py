@@ -15,6 +15,7 @@ class Batch:
         model: LLMModel,
         redis_client: RedisClient,
         db_url: str,
+        active_station_timeout: int = 300,
         batch_interval=60,\
     ):
         self.console = logger
@@ -168,8 +169,8 @@ class Batch:
                 console.log(f"Updated Redis reading for station {station_id}")
 
                 # Clean up from memory to avoid growth
-                async with self.buffer_lock:
-                    self.sensor_buffer.pop(station_id, None)
+                # async with self.buffer_lock:
+                #     self.sensor_buffer.pop(station_id, None)
 
             except (redis.RedisError, json.JSONDecodeError) as e:
                 console.error(f"[error]: Failed to update Redis for station {station_id}: {e}")
