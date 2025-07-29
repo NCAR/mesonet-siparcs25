@@ -50,7 +50,7 @@ class Batch:
         ts_iso = (
             datetime.fromtimestamp(ts_raw, tz=timezone.utc).isoformat()
             if isinstance(ts_raw, (int, float))
-            else ts_raw.isoformat()
+            else ts_raw
         )
 
         async with self.buffer_lock:
@@ -120,7 +120,7 @@ class Batch:
                 merged_sensor_data = self.__merge_sensor_data(existing_sensor_data, new_sensor_data)
                 merged_metadata = self.__merge_metadata(existing_metadata, new_metadata)
 
-                model_summaries = await self.model.run(station_id, merged_sensor_data) or []
+                model_summaries = await self.model.run(station_id, merged_sensor_data) or {}
 
                 all_forecasts = await request.get_all(path=f"{self.db_url}/api/credit-forecast/{station_id}")
 
@@ -152,9 +152,9 @@ class Batch:
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
                 console.log(f"Updated Redis reading for station {station_id}")
 
-                # Clean up from memory to avoid growth
-                async with self.buffer_lock:
-                    self.sensor_buffer.pop(station_id, None)
+                # # Clean up from memory to avoid growth
+                # async with self.buffer_lock:
+                #     self.sensor_buffer.pop(station_id, None)
 
             except (redis.RedisError, json.JSONDecodeError) as e:
                 console.error(f"[error]: Failed to update Redis for station {station_id}: {e}")
