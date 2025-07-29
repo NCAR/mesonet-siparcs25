@@ -341,17 +341,21 @@
               <div class="content ${cfOpen ? 'active' : ''}">`;
 
       if (creditForecast.length > 0) {
-        html += `<table>`;
         creditForecast.forEach(forecast => {
           const forecastTime = new Date(forecast.forecast_for);
-          html += `<tr><td colspan="2"><strong>Forecast for: ${isNaN(forecastTime) ? 'N/A' : escapeHTML(forecastTime.toLocaleString(locale))}</strong></td></tr>`;
+          const forecastSectionId = `forecast_${forecast.forecast_for}`;
+          const forecastOpen = expandedSectionsState[stationId]?.[forecastSectionId];
+          html += `<div class="collapsible ${forecastOpen ? 'active' : ''}" data-section="${escapeHTML(forecastSectionId)}">Forecast for: ${
+            isNaN(forecastTime) ? 'N/A' : escapeHTML(forecastTime.toLocaleString(locale))
+          }</div>
+                  <div class="content ${forecastOpen ? 'active' : ''}"><table>`;
           for (const [key, value] of Object.entries(forecast)) {
             if (key !== 'forecast_for') {
               html += `<tr><td>${escapeHTML(key)}</td><td>${escapeHTML(value)}</td></tr>`;
             }
           }
+          html += `</table></div>`;
         });
-        html += `</table>`;
       } else {
         html += `<p>No forecast data available</p>`;
       }

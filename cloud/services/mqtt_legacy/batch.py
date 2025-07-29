@@ -95,6 +95,7 @@ class Batch:
             batch_data = self.sensor_buffer.copy()
         current_time = datetime.now(timezone.utc)
         for station_id, readings in batch_data.items():
+            inactive = False
             if not station_id or not readings:
                 console.warning(f"Invalid station reading for ID: {station_id}")
                 continue
@@ -105,10 +106,8 @@ class Batch:
                     last_active = datetime.fromisoformat(last_active)
                     time_diff = (current_time - last_active).total_seconds()
                     if time_diff > self.active_station_timeout:
-                        readings["metadata"]["active"] = False
+                        inactive = True
                         print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
-                    else:
-                        readings["metadata"]["active"] = True
                     
                 except ValueError:
                     print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active}")
@@ -121,6 +120,7 @@ class Batch:
 
             try:
                 redis_key = f"station:{station_id}"
+                readings["metadata"]["active"] = not inactive
 
                 new_sensor_data = {"data": readings.get("data", {})}
                 existing_redis_data = await self.redis_client.hget(redis_key, "data") or "{}"
@@ -147,13 +147,13 @@ class Batch:
                 for forecast in all_forecasts:
                     # Parse the forecast timestamp (assumes ISO format)
                     forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date().isoformat()
-                    if forecast_dt == tomorrow.date().isoformat():
+                    if forecast_dt == tomorrow.isoformat():
                         tomorrow_forecasts[forecast_dt] = {
-                            'temperature': forecast['temperature'],
-                            'humidity': forecast['humidity'],
-                            'pressure': forecast['pressure'],
-                            'wind_speed': forecast['wind_speed'],
-                            'wind_direction': forecast['wind_direction']
+                            'temperature': str(forecast['temperature']),
+                            'humidity': str(forecast['humidity']),
+                            'pressure': str(forecast['pressure']),
+                            'wind_speed': str(forecast['wind_speed']),
+                            'wind_direction': str(forecast['wind_direction'])
                         }
                 model_summaries = await self.model.run(station_id, merged_sensor_data, tomorrow_forecasts) or {}
 
