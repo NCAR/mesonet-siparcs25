@@ -120,7 +120,7 @@ class Batch:
                 merged_sensor_data = self.__merge_sensor_data(existing_sensor_data, new_sensor_data)
                 merged_metadata = self.__merge_metadata(existing_metadata, new_metadata)
 
-                model_summaries = await self.model.run(station_id, merged_sensor_data) or {}
+                # model_summaries = await self.model.run(station_id, merged_sensor_data) or {}
 
                 all_forecasts = await request.get_all(path=f"{self.db_url}/api/credit-forecast/{station_id}")
 
@@ -141,6 +141,7 @@ class Batch:
                             'wind_speed': str(forecast['wind_speed']),
                             'wind_direction': str(forecast['wind_direction'])
                         }
+                model_summaries = await self.model.run(station_id, merged_sensor_data,tomorrow_forecasts) or {}
 
                 redis_station_data = {
                     "data": json.dumps(merged_sensor_data),

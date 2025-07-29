@@ -15,17 +15,18 @@ class LLMModel:
     def __get_current_timestamp(self):
         return datetime.now(timezone.utc).isoformat()
 
-    async def __query_model_service(self, station_id: str, sensor_data: dict, forecast_data, model_name: str) -> dict:
+    async def __query_model_service(self, station_id: str, sensor_data: dict, forecast_data: dict, model_name: str) -> dict:
         """
         Query the LLM model service with the given sensor data and return the summary.
         """
         console = self.console
 
-        payload = json.dumps({
-            "data": sensor_data,
-            "forecast_data": forecast_data,
+        payload = {
+            "data": json.dumps(sensor_data),
+            "forecast_data": json.dumps(forecast_data),
+            "model": model_name,
             
-        })
+        }
 
         try:
             url = f"{self.model_service_base_url}/predict"
