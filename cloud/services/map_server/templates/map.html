@@ -281,13 +281,13 @@
           <h3>Station ${escapeHTML(stationId)}</h3>
       `;
 
-      let sensorData = {}, modelSummaries = {}, metadata = {}, creditForecast = [];
+      let sensorData = {}, modelSummaries = {}, metadata = {}, creditForecast = {};
       try {
         sensorData = JSON.parse(stationData.data || '{}').data || {};
         modelSummaries = JSON.parse(stationData.model_summaries || '{}');
         metadata = JSON.parse(stationData.metadata || '{}');
         // Use credit_forecast directly as an array
-        creditForecast = Array.isArray(stationData.credit_forecast) ? stationData.credit_forecast : [];
+        creditForecast = JSON.parse(stationData.credit_forecast || '{}');
         // Convert numeric fields to strings and handle invalid values
         creditForecast = creditForecast.map(forecast => {
           const cleaned = { ...forecast };
