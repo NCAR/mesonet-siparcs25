@@ -93,7 +93,6 @@ class Batch:
 
         async with self.buffer_lock:
             batch_data = self.sensor_buffer.copy()
-        current_time = datetime.now(timezone.utc)
         for station_id, readings in batch_data.items():
             if not station_id or not readings:
                 console.warning(f"Invalid station reading for ID: {station_id}")
@@ -111,6 +110,7 @@ class Batch:
                 redis_key = f"station:{station_id}"
                 # Check if station is inactive based on last_active timestamp
                 last_active_str = readings["metadata"].get("last_active") 
+                current_time = datetime.now(timezone.utc)
                 if last_active_str:
                     last_active = datetime.fromisoformat(last_active_str)
                     time_diff = (current_time - last_active).total_seconds()
@@ -159,7 +159,7 @@ class Batch:
                 }
 
                 await self.redis_client.hset(redis_key, mapping=redis_station_data)
-                await self.redis_client.publish('station_updates', 'Stations updated')
+                await self.redis_client.client.publish('station_updates', 'Stations updated')
                 console.log(f"Updated Redis reading for station {station_id}")
 
                 # # Clean up from memory to avoid growth
