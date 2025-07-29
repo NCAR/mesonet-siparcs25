@@ -174,7 +174,6 @@ class MQTTDatabaseUpdater:
                 if not self.sensor_buffer:
                     continue
                 print(f"[info]: Processing batch for {len(self.sensor_buffer)} stations")
-                inactive_stations = []
                 current_time = datetime.now(timezone.utc)
                 for station_id, station_data in list(self.sensor_buffer.items()):
                     redis_key = f"station:{station_id}"
@@ -186,16 +185,14 @@ class MQTTDatabaseUpdater:
                                 last_active = datetime.fromisoformat(last_active_str)
                                 time_diff = (current_time - last_active).total_seconds()
                                 if time_diff > self.active_station_timeout:
-                                    inactive_stations.append(station_id)
+                                    self.sensor_buffer[station_id]["metadata"]["active"] = False
                                     print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
+                                else:
+                                    self.sensor_buffer[station_id]["metadata"]["active"] = True
                                 
                             except ValueError:
                                 print(f"[warn]: Invalid last_active timestamp for station {station_id}: {last_active_str}")
-                        if station_id in inactive_stations:
-                            self.sensor_buffer[station_id]["metadata"]["active"] = False
-                        else:
-                            self.sensor_buffer[station_id]["metadata"]["active"] = True
-
+                        
                         sensor_data = {"data": station_data["data"]}
                         existing_redis_data = self.redis_client.hget(redis_key, "data") or "{}"
                         existing_sensor_data = json.loads(existing_redis_data)
