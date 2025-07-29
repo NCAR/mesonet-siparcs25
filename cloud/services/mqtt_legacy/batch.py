@@ -15,7 +15,6 @@ class Batch:
         model: LLMModel,
         redis_client: RedisClient,
         db_url: str,
-        active_station_timeout: int = 300,
         batch_interval=60,\
     ):
         self.console = logger
@@ -23,7 +22,7 @@ class Batch:
         self.batch_interval = batch_interval
         self.model = model
         self.db_url = db_url
-        self.active_station_timeout = active_station_timeout
+        self.active_station_timeout = 300  # seconds
 
         self.buffer_lock = asyncio.Lock()
         self.sensor_buffer = {}
