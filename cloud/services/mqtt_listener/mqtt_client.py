@@ -220,7 +220,7 @@ class MQTTDatabaseUpdater:
                             # Parse the forecast timestamp (assumes ISO format)
                             forecast_dt = datetime.fromisoformat(forecast['forecast_for']).date().isoformat()
                             if forecast_dt == tomorrow.isoformat():
-                                tomorrow_forecasts[forecast_dt] = {
+                                tomorrow_forecasts[forecast['forecast_for']] = {
                                     'temperature': str(forecast['temperature']),
                                     'humidity': str(forecast['humidity']),
                                     'pressure': str(forecast['pressure']),
