@@ -33,6 +33,9 @@ class Batch:
     @property
     def readings_buffer(self):
         return self.sensor_buffer
+    
+    def get_current_timestamp():
+        return datetime.now(timezone.utc).isoformat()
 
     async def set_readings_buffer(self, readings: Dict[str, Any]):
         measurement = readings.get("measurement", "")
@@ -41,7 +44,7 @@ class Batch:
         target_id = readings.get('target_id', "")
         rssi = readings.get('rssi')
         station_id = readings.get("station_id")
-        timestamp = readings.get("timestamp", datetime.now(timezone.utc).isoformat())
+        timestamp = self.get_current_timestamp() #readings.get("timestamp", datetime.now(timezone.utc).isoformat())
 
         if not station_id:
             self.console.error("Station ID is required for writing batch data.")
@@ -66,7 +69,7 @@ class Batch:
                 station_meta[measurement] = reading_value
 
             # Always update last_active and optional metadata
-            station_meta["last_active"] = ts_iso
+            station_meta["last_active"] = timestamp
             if target_id:
                 station_meta["target_id"] = target_id
             if rssi:
@@ -115,6 +118,7 @@ class Batch:
                     last_active = datetime.fromisoformat(last_active_str)
                     time_diff = (current_time - last_active).total_seconds()
                     if time_diff > self.active_station_timeout:
+                        #set to false because legacy stations dont seem to have time clocks
                         inactive = True
                         print(f"[info]: Station {station_id} inactive for {time_diff}s, marking as inactive")
                 new_sensor_data = {"data": readings.get("data", {})}

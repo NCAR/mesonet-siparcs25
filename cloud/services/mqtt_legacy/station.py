@@ -126,6 +126,7 @@ class StationService:
         }
 
         await self.redis_client.hset(redis_key, mapping=redis_station_data)
+        await self.redis_client.client.publish('station_updates', 'Stations updated')
         # await self.redis_client.expire(redis_key, self.active_station_timeout)
 
         console.log(f"[Redis]: Updated station {station_id}.")

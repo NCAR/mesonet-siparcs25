@@ -288,7 +288,7 @@ class MQTTDatabaseUpdater:
         if isinstance(ts_raw, (int, float)):
             ts_st = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
             ts_iso = ts_st.isoformat()
-        station_data['last_active'] = ts_iso
+        station_data['last_active'] = timestamp
         # Remove fields not in Station schema
         station_data.pop('timestamp', None)
         station_data.pop('type', None)
@@ -306,7 +306,7 @@ class MQTTDatabaseUpdater:
                 else:
                     print(f"[error]: Failed to update station {station_id} in Postgres: {response.status_code} {response.text}")
             elif response.status_code == 404:
-                station_data['created_at'] = ts_iso
+                station_data['created_at'] = timestamp
                 response = requests.post(STATION_ENDPOINT, json=station_data, headers={"Content-Type": "application/json"}, timeout=5)
                 if response.status_code == 200:
                     print(f"[info]: Created station {station_id} in Postgres")
@@ -373,7 +373,7 @@ class MQTTDatabaseUpdater:
 
             if measurement not in ['latitude', 'longitude', 'altitude']:
                 self.sensor_buffer[station_id]["data"][sensor][measurement] = reading_value
-                self.sensor_buffer[station_id]["metadata"]['last_active'] = ts_iso
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
                 if data.get('target_id'):
                     self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
                 if data.get('rssi'):
@@ -385,7 +385,7 @@ class MQTTDatabaseUpdater:
                     self.sensor_buffer[station_id]["metadata"]['altitude'] = reading_value
                 else:
                     self.sensor_buffer[station_id]["metadata"]['longitude'] = reading_value
-                self.sensor_buffer[station_id]["metadata"]['last_active'] = ts_iso
+                self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
                 if data.get('target_id'):
                     self.sensor_buffer[station_id]["metadata"]['target_id'] = data.get('target_id')
                 if data.get('rssi'):
@@ -408,7 +408,7 @@ class MQTTDatabaseUpdater:
                 "latitude": latitude,
                 "longitude": longitude,
                 "altitude": altitude,
-                "timestamp": ts_iso,
+                "timestamp": timestamp,
                 "rssi": data.get('rssi', 0)
             }
 
