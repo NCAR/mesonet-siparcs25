@@ -91,6 +91,10 @@ mosquitto:
     memory: 2Gi
     cpu: 2
     port: 1883
+  tls:
+    fqdn: mosquitto.mesonet.k8s.ucar.edu
+    secretName: mosquitto-service-tls-cert
+  path: /
   config:
     name: mosquitto-conf
 mqttlegacy:
