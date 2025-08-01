@@ -21,7 +21,7 @@ class Batch:
         self.redis_client = redis_client
         self.batch_interval = batch_interval
         self.model = model
-        self.active_station_timeout = 300  # seconds
+        self.active_station_timeout = 600  # seconds
         self.db_url = db_url
 
         self.buffer_lock = asyncio.Lock()
