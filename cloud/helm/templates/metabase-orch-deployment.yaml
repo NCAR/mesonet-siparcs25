@@ -41,9 +41,15 @@ spec:
         - name: MB_DB_HOST
           value: postgres
         - name: MB_ADMIN_EMAIL
-          value: isaacob@ucar.edu
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: MB_ADMIN_EMAIL
         - name: MB_ADMIN_PASS
-          value: "@siparcs25"
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: MB_ADMIN_PASS
         - name: ORCH_DB_USER
           value: postgres
         - name: ORCH_DB_PASS
