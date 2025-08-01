@@ -37,6 +37,9 @@ spec:
         - name: MB_DB_USER
           value: postgres
         - name: MB_DB_PASS
-          value: temppostgrespw
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: MB_DB_PASS
         - name: MB_DB_HOST
           value: postgres

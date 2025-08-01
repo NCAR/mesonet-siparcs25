@@ -31,7 +31,10 @@ spec:
         - name: ORCH_DB_USER
           value: postgres
         - name: ORCH_DB_PASS
-          value: temppostgrespw
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: ORCH_DB_PASS
         - name: ORCH_DB_NAME
           value: iotwx_db
         - name: ORCH_DB_HOST
