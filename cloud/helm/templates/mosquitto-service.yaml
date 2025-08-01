@@ -5,7 +5,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     group: {{ .Values.app.group }}
+    cirrus/lb: internal
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "{{ .Values.mosquitto.name }}.k8s.ucar.edu"
+    external-dns.alpha.kubernetes.io/ttl: "300"
 spec:
+  type: LoadBalancer
   ports:
   - port: {{ .Values.mosquitto.container.port }}
   selector:
