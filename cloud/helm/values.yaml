@@ -101,14 +101,14 @@ mqttlegacy:
   name: mqtt-legacy-orch
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-29.18.08
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-08-01.00.10
     memory: 2Gi
     cpu: 2
 mqttlistener:
   name: mqtt-listener
   replicaCount: 1
   container:
-    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-07-30.17.11
+    image: hub.k8s.ucar.edu/mesonet/mqtt-listener:2025-08-01.00.11
     memory: 2Gi
     cpu: 2
 ollama:
