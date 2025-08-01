@@ -27,9 +27,15 @@ spec:
             cpu: {{ .Values.mqttlegacy.container.cpu }}
         env:
         - name: MB_ADMIN_EMAIL
-          value: isaacob@ucar.edu
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: MB_ADMIN_EMAIL
         - name: MB_ADMIN_PASS
-          value: "@siparcs25"
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: MB_ADMIN_PASS
         - name: MB_DB_TYPE
           value: postgres
         - name: MB_DB_DBNAME
