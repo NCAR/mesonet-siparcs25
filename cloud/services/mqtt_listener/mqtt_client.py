@@ -290,6 +290,7 @@ class MQTTDatabaseUpdater:
             ts_st = datetime.fromtimestamp(ts_raw, tz=timezone.utc)
             ts_iso = ts_st.isoformat()
         station_data['last_active'] = timestamp
+        station_data['active'] = True
         # Remove fields not in Station schema
         station_data.pop('timestamp', None)
         station_data.pop('type', None)
