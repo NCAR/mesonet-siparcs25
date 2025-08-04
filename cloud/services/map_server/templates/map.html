@@ -264,9 +264,8 @@
       }
       const isActive = metadata.active || false;
       return L.divIcon({
-        //#ff0000
         className: 'station-marker',
-        html: `<div style="background: ${isActive ? '#228B22' : '#228B22'};" >${escapeHTML(stationId)}</div>`,
+        html: `<div style="background: ${isActive ? '#228B22' : '#ff0000'};" >${escapeHTML(stationId)}</div>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
         popupAnchor: [0, -12]

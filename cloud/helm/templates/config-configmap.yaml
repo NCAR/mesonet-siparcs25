@@ -28,7 +28,7 @@ data:
       host: redis
       port: 6379
     station:
-      active_station_timeout: 600
+      active_station_timeout: 3600
       batch_interval: 60
     model_service:
       base_url: http://model-service:5002
