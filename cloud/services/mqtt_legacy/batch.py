@@ -130,6 +130,7 @@ class Batch:
 
                 merged_sensor_data = self.__merge_sensor_data(existing_sensor_data, new_sensor_data)
                 merged_metadata = self.__merge_metadata(existing_metadata, new_metadata)
+                merged_metadata['active'] = not inactive
 
                 # model_summaries = await self.model.run(station_id, merged_sensor_data) or {}
 

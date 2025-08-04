@@ -356,6 +356,7 @@ class MQTTDatabaseUpdater:
         sensor = data.get('sensor', 'unknown')
         if sensor== "unknown":
             print(f"[warn]: Missing sensor in reading from station {station_id},{data} skipping")
+            return
         ts_raw = data.get('timestamp', timestamp)
         ts_iso = ts_raw
         if isinstance(ts_raw, (int, float)):
