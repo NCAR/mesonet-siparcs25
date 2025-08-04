@@ -93,7 +93,6 @@ class Batch:
 
     async def process_batch(self):
         console = self.console
-
         async with self.buffer_lock:
             batch_data = self.sensor_buffer.copy()
         for station_id, readings in batch_data.items():

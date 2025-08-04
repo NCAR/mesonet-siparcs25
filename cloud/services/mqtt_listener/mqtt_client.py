@@ -197,8 +197,9 @@ class MQTTDatabaseUpdater:
                         existing_redis_metadata = self.redis_client.hget(redis_key, "metadata") or "{}"
                         existing_metadata = json.loads(existing_redis_metadata)
                         merged_sensor_data = self.merge_sensor_data(existing_sensor_data, sensor_data)
-                        station_data["metadata"]["active"] = not inactive
+                        #station_data["metadata"]["active"] = not inactive
                         merged_metadata = self.merge_metadata(existing_metadata, station_data["metadata"])
+                        merged_metadata["active"] = not inactive
                         model_names = [MODEL_SERVICE_MODEL_NAME]
                         model_summaries = {}
                         forecast_res = requests.get(url=f"{API_BASE_URL}/api/credit-forecast/{station_id}")
@@ -433,7 +434,7 @@ class MQTTDatabaseUpdater:
                     "station_id": station_id,
                     **self.sensor_buffer[station_id]["metadata"],
                 }
-                station_payload['last_active'] = data.get("timestamp", timestamp)
+                station_payload['last_active'] = timestamp  #data.get("timestamp", timestamp)
                 station_payload.pop('timestamp', None)
                 station_payload.pop('target_id', None)
                 station_payload.pop('type', None)
