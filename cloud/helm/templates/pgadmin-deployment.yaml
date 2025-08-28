@@ -29,6 +29,12 @@ spec:
         - containerPort: {{ .Values.pgadmin.container.port }}
         env:
         - name: PGADMIN_DEFAULT_EMAIL
-          value: "ncote@ucar.edu"
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: PGADMIN_DEFAULT_EMAIL
         - name: PGADMIN_DEFAULT_PASSWORD
-          value: temppostgrespw
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: PGADMIN_DEFAULT_PASSWORD

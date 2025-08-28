@@ -32,6 +32,16 @@ spec:
           protocol: {{ .protocol }}
         {{- end }}
         env:
+        - name: TB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: TB_USERNAME
+        - name: TB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: TB_PASSWORD
         - name: TB_SERVICE_ID
           value: "tb-node-0"
         - name: SPRING_DATASOURCE_URL
@@ -39,7 +49,10 @@ spec:
         - name: SPRING_DATASOURCE_USERNAME
           value: "postgres"
         - name: SPRING_DATASOURCE_PASSWORD
-          value: "temppostgrespw"
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: POSTGRES_PASSWORD
         - name: DATABASE_TS_TYPE
           value: "sql"
         - name: SPRING_DRIVER_CLASS_NAME

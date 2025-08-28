@@ -75,9 +75,15 @@ spec:
         - name: SMTP_SECURITY
           value: "starttls"
         - name: SMTP_USERNAME
-          value: "oppongbaahisaacmega@gmail.com"
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: SMTP_USERNAME
         - name: SMTP_PASSWORD
-          value: "umjsopibixmaqtbr"
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: SMTP_PASSWORD
         - name: SMTP_FROM_ADDRESS
           value: "agbeli@ucar.edu"
         - name: SMTP_FROM_NAME

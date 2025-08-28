@@ -62,8 +62,8 @@ data:
       broker_ip: "thingsboard-ce"
       broker_port: 1883  
       api_url: "http://thingsboard-ce:8080"
-      username: "tenant@thingsboard.org"
-      password: "tenant" 
+      username: "${TB_USERNAME}"
+      password: "${TB_PASSWORD}" 
       default_device_type: "GPS_Station"
       dashboard_name: "Dynamic Station Dashboard"
 
