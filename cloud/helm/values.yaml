@@ -134,7 +134,7 @@ pgadmin:
   path: /
 postgres:
   name: postgres
-  replicaCount: 0
+  replicaCount: 1
   container:
     image: postgres:16
     memory: 2Gi
