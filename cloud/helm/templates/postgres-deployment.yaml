@@ -8,7 +8,7 @@ metadata:
     group: {{ .Values.app.group }}
 spec:
   serviceName: {{ .Values.postgres.name }}
-  replicas: 1 
+  replicas: {{ .Values.postgres.replicaCount }}
   selector:
     matchLabels:
       app: {{ .Values.postgres.name }}
