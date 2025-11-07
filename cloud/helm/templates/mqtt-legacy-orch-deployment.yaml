@@ -62,6 +62,16 @@ spec:
           value: iotwx_db
         - name: ORCH_DB_HOST
           value: postgres
+        - name: TB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: TB_USERNAME
+        - name: TB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.app.group }}-esos
+              key: TB_PASSWORD
         volumeMounts:
         - name: config-volume
           mountPath: /cloud/config.yaml
