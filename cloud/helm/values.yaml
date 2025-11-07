@@ -142,7 +142,7 @@ postgres:
     port: 5432
   volume:
     name: postgres-pv
-    size: 100Gi
+    size: 10Gi
   config:
     name: postgres-init
 redis:
