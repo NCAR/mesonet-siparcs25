@@ -48,7 +48,9 @@ spec:
         configMap:
           name: {{ .Values.postgres.config.name }}
   volumeClaimTemplates:
-  - metadata:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
       name: postgres-data
     spec:
       accessModes: ["ReadWriteOnce"]
