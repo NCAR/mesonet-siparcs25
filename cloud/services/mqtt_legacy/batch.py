@@ -34,6 +34,7 @@ class Batch:
     def readings_buffer(self):
         return self.sensor_buffer
     
+    @staticmethod
     def get_current_timestamp():
         return datetime.now(timezone.utc).isoformat()
 
