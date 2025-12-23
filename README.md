@@ -29,13 +29,18 @@ sh scripts/run.sh -s
 All the stations push data through raspberry pis that serve as gateways using radio.
 The pis push the data to the cloud using an MQTT server.
 ### Installation
-This clones the repo, pip installs the requirements and runs the application as a service.
+This clones the repo and pip installs the edge-server requirements. 
 
 ```bash
 sudo apt update && sudo apt install -y git
 git clone https://github.com/NCAR/mesonet-siparcs25.git
 cd mesonet-siparcs25/edge-server
 pip install -r requirements.txt
+```
+
+### Usage
+This runs the application as a service in the background.
+```bash
 ./setup_and_run.sh
 ```
 ### Verify
