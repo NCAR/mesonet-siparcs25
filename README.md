@@ -41,7 +41,7 @@ pip install -r requirements.txt
 ### Usage
 This runs the application as a service in the background.
 ```bash
-./setup_and_run.sh
+./deploy.sh
 ```
 ### Verify
 You can run this to see the ouput of the application
