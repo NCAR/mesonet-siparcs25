@@ -51,7 +51,7 @@ metabase:
   name: metabase
   replicaCount: 1
   container:
-    image: metabase/metabase:latest
+    image: docker.io/metabase/metabase:latest
     memory: 2Gi
     cpu: 2
     port: 3000
@@ -87,7 +87,7 @@ mosquitto:
   name: mosquitto
   replicaCount: 1
   container:
-    image: eclipse-mosquitto:latest
+    image: docker.io/library/eclipse-mosquitto:latest
     memory: 2Gi
     cpu: 2
     port: 1883
@@ -115,7 +115,7 @@ ollama:
   name: ollama-server
   replicaCount: 1
   container:
-    image: ollama/ollama:latest
+    image: docker.io/ollama/ollama:latest
     port: 11434
   volume:
     name: ollama-pvc
@@ -124,7 +124,7 @@ pgadmin:
   name: pgadmin4
   replicaCount: 1
   container:
-    image: dpage/pgadmin4
+    image: docker.io/dpage/pgadmin4
     memory: 2Gi
     cpu: 2
     port: 80
@@ -136,7 +136,7 @@ postgres:
   name: postgres
   replicaCount: 1
   container:
-    image: postgres:16
+    image: docker.io/library/postgres:16
     memory: 2Gi
     cpu: 2
     port: 5432
@@ -149,7 +149,7 @@ redis:
   name: redis
   replicaCount: 1
   container:
-    image: redis:8-alpine
+    image: docker.io/library/redis:8-alpine
     memory: 2Gi
     cpu: 2
     port: 6379
@@ -160,7 +160,7 @@ redisinsight:
   name: redisinsight
   replicaCount: 1
   container:
-    image: redis/redisinsight:2.68
+    image: docker.io/redis/redisinsight:2.68
     memory: 2Gi
     cpu: 2
     port: 5540
@@ -175,7 +175,7 @@ thingsboardce:
   name: thingsboard-ce
   replicaCount: 1
   container:
-    image: thingsboard/tb-node:4.0.1.1
+    image: docker.io/thingsboard/tb-node:4.0.1.1
     memory: 2Gi
     cpu: 2
     port: 8080
