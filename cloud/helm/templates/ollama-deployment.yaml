@@ -18,7 +18,7 @@ spec:
     spec:
       initContainers:
       - name: model-puller
-        image: ollama/ollama:latest
+        image: docker.io/ollama/ollama:latest
         command: ["/bin/sh", "-c"]
         args:
         - |
