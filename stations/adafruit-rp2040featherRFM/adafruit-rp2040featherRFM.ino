@@ -1,4 +1,3 @@
-#include <LittleFS.h>
 #include <SPI.h>
 #include <RH_RF95.h>
 #include <Adafruit_Sensor.h>
@@ -19,6 +18,7 @@
 #include <pico/sync.h>
 #include <SoftwareSerial.h>
 #include <Arduino.h>
+#include <LittleFS.h>
 
 // --- Constants ---
 #define RFM95_CS 16
@@ -31,6 +31,7 @@
 #define BLINK_HIGH_DURATION 500
 #define BLINK_LOW_DURATION 500
 #define NO_ERROR 0
+#undef MAX_PACKET_SIZE
 #define MAX_PACKET_SIZE 256
 #define RG15_RX_PIN 1
 #define RG15_TX_PIN 0
@@ -38,6 +39,7 @@
 #define CONTINUOUS_PONG_DELAY_MAX 1500 //1.5 seconds for random pong max delay
 #define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
 #define RELAY_QUEUE_SIZE 8
+#define PING_MIN_INTERVAL 5000
 
 
 
@@ -106,6 +108,13 @@ struct Pong {
   int8_t rssi;
   uint8_t relay_count;
 };
+
+// TX queue: Core 0 → Core 1
+char tx_packet_queue[RELAY_QUEUE_SIZE][MAX_PACKET_SIZE];
+uint8_t tx_packet_lengths[RELAY_QUEUE_SIZE];
+volatile uint8_t tx_queue_head = 0;
+volatile uint8_t tx_queue_tail = 0;
+mutex_t tx_queue_mutex;
 
 // --- Global Variables ---
 uint32_t last_ping_attempt = 0;
@@ -254,9 +263,8 @@ void handle_blink_led() {
     digitalWrite(LED_BUILTIN, LOW);
     led_state = false;
     last_blink_time = current_time;
-  } else if (!led_state && current_time - last_blink_time >= BLINK_LOW_DURATION) {
-    mutex_exit(&state_mutex);
   }
+  // removed the else-if that caused the double exit
   mutex_exit(&state_mutex);
 }
 
@@ -307,7 +315,7 @@ bool load_config() {
     Serial.println(F("[error]: Failed to open /config.json"));
     return false;
   }
-  StaticJsonDocument<512> doc;
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, file);
   file.close();
   if (error) {
@@ -383,7 +391,7 @@ void add_common_json_fields(JsonDocument& doc, const String& timestamp, const ch
 // --- Network Communication ---
 void start_ping() {
   Serial.println(F("[debug]: Enter start_ping"));
-  StaticJsonDocument<64> doc;
+  JsonDocument doc;
   char packet[64];
   doc["sid"] = device_id;
   doc["t"] = "A";
@@ -432,7 +440,7 @@ void handle_continuous_pong() {
     delay(initial_delay_ms);
     initial_delay_done = true;
   }
-  StaticJsonDocument<128> pong_doc;
+  JsonDocument pong_doc;
   char packet[128];
   pong_doc["sid"] = device_id;
   pong_doc["t"] = "B";
@@ -500,7 +508,7 @@ void handle_station_info() {
     mutex_exit(&state_mutex);
     return;
   }
-  StaticJsonDocument<512> cfg;
+  JsonDocument cfg;
   DeserializationError error = deserializeJson(cfg, file);
   file.close();
   if (error) {
@@ -512,7 +520,7 @@ void handle_station_info() {
     return;
   }
 
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   char packet[256];
   mutex_enter_blocking(&state_mutex);
   doc["sid"] = device_id;
@@ -566,7 +574,7 @@ void start_station_info() {
 void send_disconnect() {
   mutex_enter_blocking(&state_mutex);
   Serial.println(F("[debug]: Sending disconnect to dependents"));
-  StaticJsonDocument<48> doc;
+  JsonDocument doc;
   char packet[48];
   for (uint8_t i = 0; i < dependent_count; i++) {
     doc["sid"] = device_id;
@@ -726,16 +734,36 @@ void rfm95_send(const char* packet) {
     Serial.println(F("[error]: Packet too large for FIFO"));
     return;
   }
-  StaticJsonDocument<256> doc;
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, packet);
   if (error) {
     Serial.print(F("[error]: Invalid JSON packet: ")); Serial.println(packet);
     return;
   }
   Serial.print(F("[debug]: Preparing to send packet: ")); Serial.println(packet);
-  multicore_fifo_push_blocking(len);
-  for (uint8_t i = 0; i < len; i++) {
-    multicore_fifo_push_blocking(packet[i]);
+
+  if (get_core_num() == 0) {
+    mutex_enter_blocking(&tx_queue_mutex);
+    if ((tx_queue_head + 1) % RELAY_QUEUE_SIZE == tx_queue_tail) {
+        Serial.println(F("[error]: TX queue full, dropping packet"));
+        mutex_exit(&tx_queue_mutex);
+        return;
+    }
+    strlcpy(tx_packet_queue[tx_queue_head], packet, MAX_PACKET_SIZE);
+    tx_packet_lengths[tx_queue_head] = len;
+    tx_queue_head = (tx_queue_head + 1) % RELAY_QUEUE_SIZE;
+    mutex_exit(&tx_queue_mutex);
+  } else {
+    // Core 1: send directly — FIFO goes the wrong direction from here
+    mutex_enter_blocking(&radio_mutex);
+    if (!rf95.send((uint8_t*)packet, len - 1)) {
+      Serial.println(F("[error]: rf95.send failed (direct)"));
+    } else if (!rf95.waitPacketSent()) {
+      Serial.println(F("[error]: rf95.waitPacketSent timed out (direct)"));
+    } else {
+      Serial.print(F("[debug]: Packet sent directly, length: ")); Serial.println(len - 1);
+    }
+    mutex_exit(&radio_mutex);
   }
 }
 
@@ -751,7 +779,7 @@ void core1_entry() {
       if (rf95.recv(buf, &len)) {
         buf[len] = '\0';
         Serial.print(F("[info]: Core1 Received packet >> ")); Serial.println((char*)buf);
-        StaticJsonDocument<255> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, (char*)buf);
         if (error) {
           Serial.print(F("[error]: JSON deserialization failed: ")); Serial.println(error.c_str());
@@ -783,7 +811,9 @@ void core1_entry() {
           continuous_pong_start = millis();
           last_packet_time = millis();
           mutex_exit(&state_mutex);
+          mutex_exit(&radio_mutex);  // release BEFORE calling rfm95_send indirectly
           handle_continuous_pong();
+          continue;  // skip the mutex_exit(&radio_mutex) at the bottom of the block
           //only receive pong if the end target is not this station(to avoid infinite send loop between two stations)
         } else if (doc["t"] == "B" && strcmp(doc["tar"] | "", device_id) && mutex_safe_get_waiting_for_pongs()) {
           mutex_safe_update_pong(station_id, doc["ty"] | "2", doc["l"] | 0.0f, doc["rssi"] | 0, doc["rc"] | 0);
@@ -854,23 +884,7 @@ void core1_entry() {
             mutex_exit(&state_mutex);
           }
         } else if (doc["t"] == "R" && !strcmp(doc["to"] | "", device_id)) {
-          mutex_exit(&state_mutex);
-          Serial.println(F("[info]: Not yet implemented"));
-//          Serial.println(F("[info]: Received reboot command"));
-//          mutex_exit(&radio_mutex);
-//          mutex_exit(&state_mutex);
-//          // Optional: Cleanly shut down peripherals before reboot
-//          //rf95.sleep();                // Put radio to sleep
-//          Wire.end();                  // Disable I2C bus
-//          Serial.flush();             // Flush any remaining serial output
-//          delay(50);                  // Give time for hardware to settle
-//        
-//          // Immediate reboot using watchdog (1ms delay)
-//          Serial.println(F("[info]: Rebooting now via watchdog..."));
-//          delay(20);                  // Let the message print completely
-//          watchdog_reboot(0, 0, 1);   // Reboot immediately
-//          rp2040.restartCore1();
-//          while (true); 
+            Serial.println(F("[info]: Not yet implemented"));
         }
       }
       mutex_exit(&radio_mutex);
@@ -878,8 +892,11 @@ void core1_entry() {
 
     mutex_enter_blocking(&state_mutex);
     if (waiting_for_pongs && can_select && pong_count == 0 && millis() - pong_start_time >= config.pong_timeout) {
-      can_ping = true;
-      mutex_exit(&state_mutex);
+        can_ping = true;
+        waiting_for_pongs = false;  // ← was missing
+        can_select = false;          // ← was missing
+        mutex_exit(&state_mutex);
+        continue;
     }
     if (waiting_for_pongs && can_select && pong_count > 0 && millis() - pong_start_time >= config.pong_timeout) {
       waiting_for_pongs = false;
@@ -890,24 +907,26 @@ void core1_entry() {
       mutex_exit(&state_mutex);
     }
 
-    if (multicore_fifo_rvalid()) {
-      mutex_enter_blocking(&radio_mutex);
-      uint8_t len = multicore_fifo_pop_blocking();
-      char packet[MAX_PACKET_SIZE];
-      for (uint8_t i = 0; i < len; i++) {
-        packet[i] = (char)multicore_fifo_pop_blocking();
-      }
-      Serial.print(F("[debug]: Core1 Sending packet >> ")); Serial.println(packet);
-      if (!rf95.send((uint8_t*)packet, len - 1)) {
-        Serial.println(F("[error]: rf95.send failed"));
-      } else if (!rf95.waitPacketSent()) {
-        Serial.println(F("[error]: rf95.waitPacketSent timed out"));
-      } else {
-        Serial.print(F("[debug]: Packet sent successfully, length: ")); Serial.print(len - 1);
-        Serial.print(F(", content: ")); Serial.println(packet);
-      }
-      delay(10);
-      mutex_exit(&radio_mutex);
+    mutex_enter_blocking(&tx_queue_mutex);
+    if (tx_queue_head != tx_queue_tail) {
+        char pkt[MAX_PACKET_SIZE];
+        uint8_t plen = tx_packet_lengths[tx_queue_tail];
+        strlcpy(pkt, tx_packet_queue[tx_queue_tail], MAX_PACKET_SIZE);
+        tx_queue_tail = (tx_queue_tail + 1) % RELAY_QUEUE_SIZE;
+        mutex_exit(&tx_queue_mutex);
+        mutex_enter_blocking(&radio_mutex);
+        Serial.print(F("[debug]: Core1 Sending packet >> ")); Serial.println(pkt);
+        if (!rf95.send((uint8_t*)pkt, plen - 1)) {
+            Serial.println(F("[error]: rf95.send failed"));
+        } else if (!rf95.waitPacketSent()) {
+            Serial.println(F("[error]: rf95.waitPacketSent timed out"));
+        } else {
+            Serial.print(F("[debug]: Packet sent, length: ")); Serial.println(plen - 1);
+        }
+        delay(10);
+        mutex_exit(&radio_mutex);
+    } else {
+        mutex_exit(&tx_queue_mutex);
     }
   }
 }
@@ -1120,7 +1139,7 @@ bool si7021_measure_transmit() {
   }
   Serial.println(F("[debug]: Enter si7021_measure_transmit"));
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   doc["t"] = "F";
   add_common_json_fields(doc, timestamp, "si7021", "tmp", si7021.readTemperature(), "i2");
@@ -1151,13 +1170,13 @@ bool bme680_measure_transmit() {
     return false;
   }
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   const char* measurements[] = {"tmp", "rh", "pre", "gr", "al"};
   altitude = bme680.readAltitude(SEALEVELPRESSURE_HPA);
-  float values[] = {bme680.temperature, bme680.humidity, bme680.pressure / 100.0,
-                    bme680.gas_resistance / 1000.0, altitude
-                   };
+  float values[] = {bme680.temperature, bme680.humidity, (float)(bme680.pressure / 100.0),
+                  (float)(bme680.gas_resistance / 1000.0), (float)altitude};
+
   for (int i = 0; i < 5; i++) {
     doc["t"] = "F";
     add_common_json_fields(doc, timestamp, "bme680", measurements[i], values[i], "i2");
@@ -1180,7 +1199,7 @@ bool tmp117_measure_transmit() {
   sensors_event_t temp;
   tmp117.getEvent(&temp);
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   doc["t"] = "F";
   add_common_json_fields(doc, timestamp, "tmp117", "tmp", temp.temperature, "i2");
@@ -1200,7 +1219,7 @@ bool ltr390_measure_transmit() {
   }
   Serial.println(F("[debug]: Enter ltr390_measure_transmit"));
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   ltr390.setMode(LTR390_MODE_UVS);
   if (ltr390.newDataAvailable()) {
@@ -1238,7 +1257,7 @@ bool pm25aqi_measure_transmit() {
     return false;
   }
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   const char* measurements[] = {"pm10standard", "pm25standard", "pm100standard", "pm10env", "pm25env", "pm100env",
                                 "partcount03um", "partcount05um", "partcount10um", "partcount25um", "partcount50um", "partcount100um"
@@ -1285,7 +1304,7 @@ bool gps_measure_transmit() {
   mutex_exit(&state_mutex);
   if (!has_valid_data) Serial.println(F("[info]: Using last recorded GPS coordinates"));
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   doc["t"] = "F";
   add_common_json_fields(doc, timestamp, gps_module.c_str(), "lat", latitude, "i2");
@@ -1319,10 +1338,10 @@ bool scd40_measure_transmit() {
   temperature = scd40.getTemperature();
   humidity = scd40.getHumidity();
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   const char* measurements[] = {"CO2", "tmp", "rh"};
-  float values[] = {co2, temperature, humidity};
+  float values[] = {(float)co2, temperature, humidity};
   for (int i = 0; i < 3; i++) {
     doc["t"] = "F";
     add_common_json_fields(doc, timestamp, "scd40", measurements[i], values[i], "i2");
@@ -1443,7 +1462,7 @@ bool rg15_measure_transmit() {
     return false;
   }
   String timestamp = get_gps_timestamp();
-  StaticJsonDocument<96> doc;
+  JsonDocument doc;
   char packet[144];
   doc["t"] = "F";
   add_common_json_fields(doc, timestamp, "rg15", "ra", rg15_acc_mm, "se");
@@ -1504,10 +1523,16 @@ void setup() {
   rp2040.wdt_begin(15000);
   mutex_init(&radio_mutex);
   mutex_init(&state_mutex);
+  mutex_init(&tx_queue_mutex);
   init_relay_queue();
   if (!LittleFS.begin()) {
-    Serial.println(F("[error]: LittleFS init failed"));
-    while (1);
+    Serial.println(F("[warn]: LittleFS mount failed, attempting format..."));
+    if (LittleFS.format() && LittleFS.begin()) {
+        Serial.println(F("[info]: LittleFS formatted and mounted OK"));
+    } else {
+        Serial.println(F("[fatal]: LittleFS format failed, halting"));
+        while (1);
+    }
   }
   Serial.println(F("[info]: LittleFS Initialized"));
   if (!load_config()) {
@@ -1574,7 +1599,7 @@ void loop() {
   } else {
     mutex_exit(&state_mutex);
   }
-  if (!target_id[0] && can_ping) {
+  if (!target_id[0] && can_ping && millis() - last_ping_attempt >= PING_MIN_INTERVAL) {
     start_ping();
   }
   start_station_info();
