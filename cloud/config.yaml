@@ -1,6 +1,6 @@
 mqtt:
-  host: "iotwx.ucar.edu"
-  host2: "iotwx.ucar.edu"
+  host: "mosquitto"
+  host2: "mosquitto"
   port: 1883
   msg_topic: "sensors/#"
   topics:

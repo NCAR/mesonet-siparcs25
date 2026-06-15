@@ -181,7 +181,7 @@ class MQTTClientWrapper:
             'l': load,
             'rssi': rssi,
             'rc': 0,
-            'to': station_id
+            'tar': station_id  # ← was 'to', must match station firmware
         }
         start_time = time.time()
         pong_count = 0
@@ -263,6 +263,46 @@ def map_packet_fields(packet_data):
             mapped_packet[full_field] = full_value
     return mapped_packet
 
+# --- Legacy format publishing ---
+LEGACY_BATCH_WINDOW = 5  # seconds: packets from same sensor within window share one timestamp
+_legacy_batch_timestamps = {}  # (station_id, sensor) -> (epoch, last_seen)
+
+def get_batch_timestamp(station_id, sensor):
+    """Return a shared epoch timestamp for packets arriving in the same reading burst."""
+    now = time.time()
+    key = (station_id, sensor)
+    if key in _legacy_batch_timestamps:
+        epoch, last_seen = _legacy_batch_timestamps[key]
+        if now - last_seen <= LEGACY_BATCH_WINDOW:
+            _legacy_batch_timestamps[key] = (epoch, now)
+            return epoch
+    epoch = int(now)
+    _legacy_batch_timestamps[key] = (epoch, now)
+    return epoch
+
+def publish_legacy_format(mqtt_client, lora_msg, legacy_topic):
+    """Publish a sensor reading in the legacy ESP32 flat text format."""
+    station_id = lora_msg.get('station_id')
+    sensor = lora_msg.get('sensor', 'unknown')
+    measurement = lora_msg.get('measurement', 'unknown')
+    protocol = lora_msg.get('sensor_protocol', 'unknown')
+    value = lora_msg.get('reading_value')
+
+    # Prefer GPS timestamp from the station if present, else batch-stamp at Pi
+    ts = lora_msg.get('timestamp')
+    try:
+        epoch = int(datetime.fromisoformat(ts.replace('Z', '+00:00')).timestamp())
+    except Exception:
+        epoch = get_batch_timestamp(station_id, sensor)
+
+    payload = (
+        f"device: adafruit/rp2040/{station_id}\n"
+        f"sensor: lora/{protocol}/{sensor}/{measurement}\n"
+        f"m: {value}\n"
+        f"t: {epoch}"
+    )
+    mqtt_client.publish(legacy_topic, payload)
+
 def main():
     """Main function to initialize and run the LoRa-to-MQTT gateway."""
     try:
@@ -279,6 +319,8 @@ def main():
     except Exception as e:
         print(f"[error]: Failed to load pi_config.json: {e}")
         return
+
+    legacy_topic = config.get('mqtt', {}).get('legacy_topic', 'ncar/iotwx/co/boulder/rp2040_test')
 
     edge_id = get_pi_serial() or config.get('radio', {}).get('edge_id', 'default_pi')
     print(f"[info]: Using edge_id: {edge_id}")
@@ -368,16 +410,25 @@ def main():
                 lora_msg = map_packet_fields(packet_data)
                 lora_msg['rssi'] = radio.last_rssi if hasattr(radio, 'last_rssi') else 0
                 if 'timestamp' not in lora_msg or not lora_msg['timestamp']:
-                    lora_msg['timestamp'] = datetime.now(timezone.utc).isoformat()
+                    if lora_msg.get('type') == 'sensor_data':
+                        epoch = get_batch_timestamp(station_id, lora_msg.get('sensor', 'unknown'))
+                        lora_msg['timestamp'] = datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+                    else:
+                        lora_msg['timestamp'] = datetime.now(timezone.utc).isoformat()
 
                 msg_topic = mqtt_client.msg_topic_template.format(station_id=station_id)
                 if mqtt_client.publish(msg_topic, json.dumps(lora_msg)):
                     print(f"[info]: Forwarded message for {station_id} to {msg_topic}: {lora_msg}")
                 else:
                     print(f"[error]: Failed to forward message for {station_id} to {msg_topic}")
+
+                if lora_msg.get('type') == 'sensor_data':
+                    publish_legacy_format(mqtt_client, lora_msg, legacy_topic)
+                
             except Exception as e:
                 print(f"[error]: Error processing packet: {e}")
-
+        
+        
 
 if __name__ == "__main__":
     main()

@@ -1,9 +1,12 @@
-# Use the base image image
-FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
+FROM python:3.11-slim
 
-# Copy your application code
+RUN apt-get update && apt-get install -y gcc libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir flask numpy scikit-learn requests openai
+
+COPY . /app/
+
 WORKDIR /app
-COPY . /app
 
-# Command to run your application
-CMD ["python", "app.py"]
+CMD ["python3", "app.py"]

@@ -1,5 +1,5 @@
 # Use the base image image
-FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
+FROM python:3.11-slim
 
 # Install compatible versions
 RUN pip install --no-cache-dir "paho-mqtt==1.6.1"

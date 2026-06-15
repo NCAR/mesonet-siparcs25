@@ -15,8 +15,7 @@ CREATE TABLE IF NOT EXISTS stations (
     email VARCHAR(50),
     organization VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    email VARCHAR(50)
+    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     -- FOREIGN KEY (email) REFERENCES users(email)
 );
 
@@ -39,8 +38,8 @@ CREATE TABLE IF NOT EXISTS readings (
 
 -- Create the users table referencing stations
 CREATE TABLE IF NOT EXISTS users (
-    email SERIAL PRIMARY KEY,
+    email VARCHAR(50) PRIMARY KEY,
     mb_user_id INTEGER,
     mb_group_id INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

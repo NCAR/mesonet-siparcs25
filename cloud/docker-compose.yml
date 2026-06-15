@@ -32,6 +32,12 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   thingsboard-ce:
     image: "thingsboard/tb-node:4.0.1.1"
@@ -111,7 +117,10 @@ services:
     ports:
       - 8000:8000
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
       DB_USER: ${ORCH_DB_USER}
       DB_PASS: ${ORCH_DB_PASS}
@@ -131,7 +140,7 @@ services:
     restart: always
     image: eclipse-mosquitto
     ports:
-      - "1883:1883"
+      - "1884:1883"
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
     healthcheck:

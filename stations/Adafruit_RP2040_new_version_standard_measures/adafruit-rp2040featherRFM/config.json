@@ -1,0 +1,32 @@
+{
+  "radio": {
+    "overload_threshold": 0.85,
+    "station_relay_midpoint": 10,
+    "station_relay_steepness": 0.2,
+    "station_sensor_midpoint": 5,
+    "station_sensor_steepness": 0.5,
+    "station_relay_weight": 0.7,
+    "station_sensor_weight": 0.3,
+    "score_rssi_weight": 0.35,
+    "score_load_weight": 0.35,
+    "score_type_weight": 0.2,
+    "score_relay_weight": 0.1,
+    "score_relay_decay": 1.0,
+    "pong_timeout": 2000,
+    "connect_timeout": 900000
+  },
+  "station_info": {
+    "firstname": "John",
+    "lastname": "Doe",
+    "email": "john.doe@example.com",
+    "organization": "Example Org",
+    "device": "adafruit RP2040 RFM95 LoRa",
+    "latitude": 39.9784,
+    "longitude": -105.2749,
+    "altitude": 1650.0,
+    "station_info_interval": 86400000,
+    "fixed_deployment": false,
+    "gps_fixed_interval": 43200000,
+    "sensor_transmit_delay": 60000
+  }
+}

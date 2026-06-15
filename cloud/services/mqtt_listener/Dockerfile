@@ -1,12 +1,14 @@
-# Use the base image image
-FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
+FROM python:3.11-slim
 
-RUN pip install --no-cache-dir "paho-mqtt==2.1.0"
+ENV PYTHONUNBUFFERED=1
 
-# Copy the necessary files
-COPY . ./services/mqtt_listener/
+RUN apt-get update && apt-get install -y gcc libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /cloud/services/mqtt_listener
+RUN pip install --no-cache-dir "paho-mqtt==2.1.0" requests redis pyyaml "pydantic[email]"
 
-# Run the scripts
+COPY . /app/
+
+WORKDIR /app
+
 CMD ["python3", "mqtt_client.py"]

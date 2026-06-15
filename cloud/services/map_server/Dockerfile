@@ -1,4 +1,4 @@
-FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
+FROM python:3.11-slim
 
 # Copy application code and config
 COPY . /cloud/services/map_server/

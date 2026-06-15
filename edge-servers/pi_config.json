@@ -2,7 +2,8 @@
   "mqtt": {
     "broker_ip": "iotwx.ucar.edu",
     "broker_port": 1883,
-    "msg_topic_template": "sensors/{station_id}"
+    "msg_topic_template": "sensors/{station_id}",
+    "legacy_topic": "ncar/iotwx/co/boulder/rp2040_test"
   },
 
   "radio": {

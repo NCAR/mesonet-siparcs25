@@ -211,11 +211,14 @@ class MQTTDatabaseUpdater:
 
                         forecast_res = requests.get(url=f"{API_BASE_URL}/api/credit-forecast/{station_id}")
 
-                        if not (200 <= forecast_res.status_code < 300):
-                            print(f"Forecast for {station_id} was not retrieved from the database succesffuly.")
+                        if forecast_res.status_code == 404:
+                            print(f"No forecast found for {station_id}, continuing without forecast.")
+                            all_forecasts = []
+                        elif not (200 <= forecast_res.status_code < 300):
+                            print(f"Forecast for {station_id} was not retrieved from the database successfully.")
                             forecast_res.raise_for_status()
-
-                        all_forecasts = forecast_res.json()
+                        else:
+                            all_forecasts = forecast_res.json()
 
                         today = datetime.utcnow().date()
                         tomorrow = today + timedelta(days=1)
@@ -236,7 +239,7 @@ class MQTTDatabaseUpdater:
                                 }
                         if merged_sensor_data:
                             for model_name in model_names:
-                                summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()},**tomorrow_forecasts, model_name=model_name)
+                                summary = self.query_model_service(station_id, {**merged_sensor_data, "timestamp": get_current_timestamp()}, tomorrow_forecasts, model_name=model_name)
                                 if summary:
                                     model_summaries[model_name] = summary
 

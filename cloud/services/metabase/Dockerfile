@@ -1,5 +1,5 @@
 # Use official Python image
-FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
+FROM python:3.11-slim
 
 # Copy the necessary files
 COPY . ./services/metabase/

@@ -1,10 +1,12 @@
-# Use the base image image
-FROM hub.k8s.ucar.edu/mesonet/iotwx-base:latest
+FROM python:3.11-slim
 
-# Copy the necessary files
-COPY . ./services/database_api/
+RUN apt-get update && apt-get install -y gcc libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /cloud/services/database_api/
+RUN pip install --no-cache-dir uvicorn fastapi psycopg2-binary "pydantic[email]" sqlalchemy asyncpg email-validator
 
-# Run the scripts
+COPY . /app/
+
+WORKDIR /app
+
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
