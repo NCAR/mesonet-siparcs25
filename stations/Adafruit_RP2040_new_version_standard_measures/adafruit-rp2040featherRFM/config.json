@@ -16,10 +16,10 @@
     "connect_timeout": 900000
   },
   "station_info": {
-    "firstname": "John",
-    "lastname": "Doe",
-    "email": "john.doe@example.com",
-    "organization": "Example Org",
+    "firstname": "Pouya",
+    "lastname": "Shaeri",
+    "email": "pshaeri@ucar.edu",
+    "organization": "SIParCS UCAR",
     "device": "adafruit RP2040 RFM95 LoRa",
     "latitude": 39.9784,
     "longitude": -105.2749,
