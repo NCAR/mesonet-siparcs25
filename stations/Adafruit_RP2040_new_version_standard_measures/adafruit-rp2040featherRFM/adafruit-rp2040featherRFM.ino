@@ -39,7 +39,7 @@
 #define CONTINUOUS_PONG_DELAY_MAX 1500 //1.5 seconds for random pong max delay
 #define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
 #define RELAY_QUEUE_SIZE 8
-#define PING_MIN_INTERVAL 5000
+#define PING_MIN_INTERVAL 2000
 
 
 
@@ -721,7 +721,9 @@ bool rfm95_init() {
     Serial.println(F("[error]: radio setFrequency() failed"));
     while (1);
   }
+  
   rf95.setModemConfig(RH_RF95::Bw125Cr45Sf128);
+  
   rf95.setTxPower(23, false);
   //rf95.setPreambleLength(6);
   //Serial.println(F("[info]: RFM95 configured: BW=125kHz, CR=4/5, SF=7, Preamble=6"));

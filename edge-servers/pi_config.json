@@ -10,7 +10,7 @@
     "edge_id": "default_pi",
     "rcv_timeout": 0.5,
     "pong_duration": 3.0,
-    "pong_initial_delay_max": 1.5,
+    "pong_initial_delay_max": 0.01,
     "overload_threshold": 0.85,
     "pi_station_midpoint": 5,
     "pi_station_steepness": 1,
