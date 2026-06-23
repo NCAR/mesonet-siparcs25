@@ -367,14 +367,15 @@ def main():
             try:
                 msg = packet.decode('utf-8')
                 packet_data = json.loads(msg)
+
+                if packet_data.get('sys') == 'demo':
+                    continue
+
                 print(f"[info]: Received LoRa packet: {msg}")
 
                 station_id = packet_data.get('sid')
                 if not isinstance(station_id, str) or not station_id:
                     print(f"[warn]: Invalid or missing sid in packet: {msg}")
-                    continue
-
-                if packet_data.get('sys') == 'demo':
                     continue
 
                 if packet_data.get('t') == 'A':
