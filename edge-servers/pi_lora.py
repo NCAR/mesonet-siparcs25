@@ -374,6 +374,9 @@ def main():
                     print(f"[warn]: Invalid or missing sid in packet: {msg}")
                     continue
 
+                if packet_data.get('sys') == 'demo':
+                    continue
+
                 if packet_data.get('t') == 'A':
                     mqtt_client.update_load()
                     if mqtt_client.load > mqtt_client.overload_threshold:
