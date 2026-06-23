@@ -38,7 +38,7 @@
 #define CONTINUOUS_TX_DURATION 6000 // 6 seconds for continuous transmission
 #define CONTINUOUS_PONG_DELAY_MAX 1500 //1.5 seconds for random pong max delay
 #define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
-#define RELAY_QUEUE_SIZE 8
+#define RELAY_QUEUE_SIZE 32
 #define PING_MIN_INTERVAL 2000
 
 
