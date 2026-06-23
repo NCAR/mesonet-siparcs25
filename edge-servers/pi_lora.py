@@ -48,7 +48,10 @@ def initialize_radio(freq=915.0, power=23):
         spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
         rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, freq)
         rfm9x.tx_power = power
-        rfm9x.spreading_factor = 7
+
+        # rfm9x.spreading_factor = 7
+        rfm9x.spreading_factor = 11 # avoid collision with Nathan's
+        
         rfm9x.signal_bandwidth = 125000
         rfm9x.coding_rate = 5
         print(f"[info]: Radio initialized - Frequency: {freq} MHz, Spreading Factor: {rfm9x.spreading_factor}, "
