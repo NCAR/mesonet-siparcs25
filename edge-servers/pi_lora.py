@@ -51,6 +51,8 @@ def initialize_radio(freq=915.0, power=23):
 
         # rfm9x.spreading_factor = 7
         rfm9x.spreading_factor = 11 # avoid collision with Nathan's
+
+        rfm9x.low_datarate_optimize = True
         
         rfm9x.signal_bandwidth = 125000
         rfm9x.coding_rate = 5
