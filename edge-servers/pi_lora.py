@@ -296,10 +296,10 @@ def publish_legacy_format(mqtt_client, lora_msg, legacy_topic):
         epoch = get_batch_timestamp(station_id, sensor)
 
     payload = (
-        f"device: adafruit/rp2040/{station_id}\n"
+        f"\ndevice: adafruit/rp2040/{station_id}\n"
         f"sensor: lora/{protocol}/{sensor}/{measurement}\n"
         f"m: {value}\n"
-        f"t: {epoch}"
+        f"t: {epoch}\n"
     )
     mqtt_client.publish(legacy_topic, payload)
 
@@ -416,11 +416,11 @@ def main():
                     else:
                         lora_msg['timestamp'] = datetime.now(timezone.utc).isoformat()
 
-                msg_topic = mqtt_client.msg_topic_template.format(station_id=station_id)
-                if mqtt_client.publish(msg_topic, json.dumps(lora_msg)):
-                    print(f"[info]: Forwarded message for {station_id} to {msg_topic}: {lora_msg}")
-                else:
-                    print(f"[error]: Failed to forward message for {station_id} to {msg_topic}")
+                # msg_topic = mqtt_client.msg_topic_template.format(station_id=station_id)
+                # if mqtt_client.publish(msg_topic, json.dumps(lora_msg)):
+                #     print(f"[info]: Forwarded message for {station_id} to {msg_topic}: {lora_msg}")
+                # else:
+                #     print(f"[error]: Failed to forward message for {station_id} to {msg_topic}")
 
                 if lora_msg.get('type') == 'sensor_data':
                     publish_legacy_format(mqtt_client, lora_msg, legacy_topic)
