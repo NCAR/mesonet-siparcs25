@@ -815,7 +815,7 @@ void core1_entry() {
           handle_continuous_pong();
           continue;  // skip the mutex_exit(&radio_mutex) at the bottom of the block
           //only receive pong if the end target is not this station(to avoid infinite send loop between two stations)
-        } else if (doc["t"] == "B" && strcmp(doc["tar"] | "", device_id) && mutex_safe_get_waiting_for_pongs()) {
+        } else if (doc["t"] == "B" && !strcmp(doc["tar"] | "", device_id) && mutex_safe_get_waiting_for_pongs()) {
           mutex_safe_update_pong(station_id, doc["ty"] | "2", doc["l"] | 0.0f, doc["rssi"] | 0, doc["rc"] | 0);
           Serial.println(F("[info]: Stored pong"));
         } else if (doc["t"] == "D" && !strcmp(doc["to"] | "", device_id)) {

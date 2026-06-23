@@ -60,5 +60,16 @@
     "email": "oppongbaahisaac@yahoo.com",
     "organization": "NCAR",
     "device": "m5atom ESP32"
+  },
+  {
+    "station_id": "DF643CF0136D5D26",
+    "latitude": 39.9784,
+    "longitude": -105.2749,
+    "altitude": 1650.0,
+    "firstname": "Pouya",
+    "lastname": "Shaeri",
+    "email": "pshaeri@ucar.edu",
+    "organization": "NCAR",
+    "device": "adafruit RP2040 RFM95 LoRa"
   }
 ]
