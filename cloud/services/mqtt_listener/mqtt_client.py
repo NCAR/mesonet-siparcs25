@@ -340,6 +340,18 @@ class MQTTDatabaseUpdater:
             print(f"[info]: Updated station {station_id} in Redis: {redis_station_data}")
         except redis.RedisError as e:
             print(f"[error]: Failed to update Redis for station {station_id}: {e}")
+
+        # Seed sensor_buffer with coordinates from station_info
+        with self.buffer_lock:
+            if station_id not in self.sensor_buffer:
+                self.sensor_buffer[station_id] = {"data": {}, "metadata": {}}
+            if station_data.get('latitude'):
+                self.sensor_buffer[station_id]["metadata"]['latitude'] = str(station_data['latitude'])
+            if station_data.get('longitude'):
+                self.sensor_buffer[station_id]["metadata"]['longitude'] = str(station_data['longitude'])
+            if station_data.get('altitude'):
+                self.sensor_buffer[station_id]["metadata"]['altitude'] = str(station_data['altitude'])
+            self.sensor_buffer[station_id]["metadata"]['last_active'] = timestamp
         
         if not station_data.get("email"):
             print(f"[warn]: No email provided for station {station_id}, skipping user and group creation")

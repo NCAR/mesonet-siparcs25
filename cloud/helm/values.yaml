@@ -93,13 +93,23 @@ mosquitto:
     port: 1883
   config:
     name: mosquitto-conf
+    
 mqttlegacy:
-  name: mqtt-legacy-orch
+  name: mqtt-legacy
   replicaCount: 1
   container:
     image: hub.k8s.ucar.edu/mesonet/mqtt-legacy:2025-07-28.21.07
     memory: 2Gi
     cpu: 2
+
+mqttlegacyorch:
+  name: mqtt-legacy-orch
+  replicaCount: 1
+  container:
+    image: hub.k8s.ucar.edu/mesonet/mqtt-legacy-orch:latest
+    memory: 2Gi
+    cpu: 2
+
 mqttlistener:
   name: mqtt-listener
   replicaCount: 1

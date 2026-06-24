@@ -1,0 +1,47 @@
+name: MQTT Legacy Orchestration Image Build & Push
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - cloud/services/mqtt_legacy/**
+    branches:
+      - cirrus
+
+permissions:
+  contents: write
+
+jobs:
+  build-push-base-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d.%H.%M')" >> $GITHUB_OUTPUT
+
+      - name: registry login
+        uses: docker/login-action@v3
+        with:
+          registry: hub.k8s.ucar.edu
+          username: ${{ secrets.HARBOR_LOGIN }}
+          password: ${{ secrets.HARBOR_SECRET }}
+
+      - name: Build image
+        run: |
+          docker buildx build --push -f cloud/services/mqtt_legacy/Dockerfile.orch -t hub.k8s.ucar.edu/mesonet/mqtt-legacy-orch:${{ steps.date.outputs.date }} cloud/services/mqtt_legacy/.
+
+      - name: Update Helm chart with new image
+        run: |
+          sed -i "/mqtt-legacy-orch:/,/^[a-zA-Z]/ s|image: .*|image: hub.k8s.ucar.edu/mesonet/mqtt-legacy-orch:${{ steps.date.outputs.date }}|" cloud/helm/values.yaml
+
+      - name: Push changes to GitHub
+        run: |
+          git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git config --global user.name "$GITHUB_ACTOR"
+          git add .
+          git commit -m "Image build and push successful, updated Helm chart to use new image: ${{ steps.date.outputs.date }}"
+          git pull --rebase origin ${{ github.ref_name }}
+          git push origin ${{ github.ref_name }}

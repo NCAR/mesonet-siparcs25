@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+
+RUN pip install --no-cache-dir "paho-mqtt==1.6.1"
+
+COPY . ./services/mqtt_legacy/
+
+WORKDIR /cloud/services/mqtt_legacy
+
+CMD ["python3", "main.py"]
