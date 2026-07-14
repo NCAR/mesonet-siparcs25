@@ -19,6 +19,8 @@
 #include <SoftwareSerial.h>
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <SPI.h>
+#include <cstring>
 
 // --- Constants ---
 #define RFM95_CS 16
@@ -40,6 +42,15 @@
 #define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
 #define RELAY_QUEUE_SIZE 32
 #define PING_MIN_INTERVAL 8000
+
+#define WIND_TX_PIN 24
+#define WIND_RX_PIN 25
+#define WIND_DE_PIN A0
+#define WIND_SLAVE_ADDR 0x01   // confirm against WS302 paperwork if you have it
+#define WIND_REG_SPEED 0x0000
+#define WIND_REG_DIR   0x0001
+#define WIND_BAUD 9600
+#define WIND_RESPONSE_TIMEOUT 300
 
 
 
@@ -67,6 +78,9 @@ SoftwareSerial rg15Serial(RG15_RX_PIN, RG15_TX_PIN);
 
 // --- RG15 Rain Sensor ---
 bool rg15_connected = false;
+
+// --- Wind Sensor ---
+bool wind_connected = false;
 
 // --- Configuration and State ---
 struct Config {
@@ -767,6 +781,81 @@ bool rfm95_init() {
   return true;
 }
 
+
+uint16_t modbus_crc16(const uint8_t* buf, int len) {
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < len; pos++) {
+    crc ^= (uint16_t)buf[pos];
+    for (int i = 0; i < 8; i++) {
+      if (crc & 0x0001) {
+        crc >>= 1;
+        crc ^= 0xA001;
+      } else {
+        crc >>= 1;
+      }
+    }
+  }
+  return crc;
+}
+
+void rs485_set_transmit(bool enable) {
+  digitalWrite(WIND_DE_PIN, enable ? HIGH : LOW);
+  delayMicroseconds(50); // let the transceiver settle
+}
+
+// Reads `count` holding registers starting at start_reg. Returns true on success.
+bool wind_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_values) {
+  uint8_t request[8];
+  request[0] = WIND_SLAVE_ADDR;
+  request[1] = 0x03;
+  request[2] = (start_reg >> 8) & 0xFF;
+  request[3] = start_reg & 0xFF;
+  request[4] = (count >> 8) & 0xFF;
+  request[5] = count & 0xFF;
+  uint16_t crc = modbus_crc16(request, 6);
+  request[6] = crc & 0xFF;
+  request[7] = (crc >> 8) & 0xFF;
+
+  while (Serial2.available()) Serial2.read(); // flush stale bytes
+
+  rs485_set_transmit(true);
+  Serial2.write(request, 8);
+  Serial2.flush(); // wait for bytes to actually leave the UART
+  rs485_set_transmit(false);
+
+  uint8_t expected_len = 5 + count * 2; // addr+func+bytecount+data+crc
+  uint8_t response[64];
+  uint8_t idx = 0;
+  uint32_t start_time = millis();
+  while (millis() - start_time < WIND_RESPONSE_TIMEOUT && idx < expected_len) {
+    if (Serial2.available()) {
+      response[idx++] = Serial2.read();
+    }
+  }
+
+  if (idx < expected_len) {
+    Serial.print(F("[warn]: WS302 response too short, got ")); Serial.println(idx);
+    return false;
+  }
+
+  uint16_t recv_crc = response[idx - 2] | (response[idx - 1] << 8);
+  uint16_t calc_crc = modbus_crc16(response, idx - 2);
+  if (recv_crc != calc_crc) {
+    Serial.println(F("[warn]: WS302 CRC mismatch"));
+    return false;
+  }
+  if (response[0] != WIND_SLAVE_ADDR || response[1] != 0x03) {
+    Serial.println(F("[warn]: WS302 unexpected slave/function in response"));
+    return false;
+  }
+
+  for (int i = 0; i < count; i++) {
+    out_values[i] = (response[3 + i * 2] << 8) | response[4 + i * 2];
+  }
+  return true;
+}
+
+
 void rfm95_send(const char* packet) {
   uint8_t len = strlen(packet) + 1;
   if (len > MAX_PACKET_SIZE) {
@@ -1007,6 +1096,29 @@ void process_relay_queue() {
     rfm95_send(packet);
   } else {
     mutex_exit(&relay_queue_mutex);
+  }
+}
+
+void wind_init_nonblocking() {
+  static bool init_started = false;
+  static uint32_t init_start_time = 0;
+  if (!init_started) {
+    Serial.println(F("[debug]: Initializing WS302 wind sensor"));
+    init_started = true;
+    init_start_time = millis();
+  }
+  if (millis() - init_start_time >= 500) {
+    uint16_t regs[4];
+    if (wind_query_registers(WIND_REG_SPEED, 4, regs)) {
+      Serial.println(F("[info]: WS302 wind sensor found ... OK"));
+      wind_connected = true;
+      active_sensors++;
+      Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
+    } else {
+      Serial.println(F("[error]: WS302 wind sensor not responding"));
+      wind_connected = false;
+    }
+    init_started = false;
   }
 }
 
@@ -1412,6 +1524,51 @@ bool gps_measure_transmit() {
   return true;
 }
 
+bool wind_measure_transmit() {
+  if (!has_pi_path) {
+    Serial.println(F("[warn]: No Pi path, skipping WS302 transmit"));
+    return false;
+  }
+  Serial.println(F("[debug]: Enter wind_measure_transmit"));
+  uint16_t regs[4];
+  if (!wind_query_registers(WIND_REG_SPEED, 4, regs)) {
+    Serial.println(F("[warn]: WS302 read failed"));
+    return false;
+  }
+
+  // reg[0] is a fixed status/type value (not wind data)
+  // reg[1] is wind direction, plain integer 0-359 deg
+  // reg[2]/reg[3] together form a 32-bit IEEE-754 float wind speed,
+  // with reg[3] as the high word and reg[2] as the low word
+  uint32_t speed_bits = ((uint32_t)regs[3] << 16) | regs[2];
+  float wind_speed_ms;
+  memcpy(&wind_speed_ms, &speed_bits, sizeof(wind_speed_ms));
+  float wind_dir_deg = (float)regs[1];
+
+  String timestamp = get_gps_timestamp();
+  JsonDocument doc;
+  char packet[144];
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "ws302", "ws", wind_speed_ms, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: WS302 speed packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "ws302", "wd", wind_dir_deg, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: WS302 direction packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  Serial.println(F("[debug]: Exit wind_measure_transmit"));
+  return true;
+}
+
 bool scd40_measure_transmit() {
   if (!has_pi_path) {
     Serial.println(F("[warn]: No Pi path, skipping SCD40 transmit"));
@@ -1696,6 +1853,12 @@ void setup() {
   }
 
 
+  pinMode(WIND_DE_PIN, OUTPUT);
+  digitalWrite(WIND_DE_PIN, LOW); // start in receive mode
+  Serial2.setRX(WIND_RX_PIN);
+  Serial2.setTX(WIND_TX_PIN);
+  Serial2.begin(WIND_BAUD, SERIAL_8E1);
+
   pinMode(LED_BUILTIN, OUTPUT);
   multicore_launch_core1(core1_entry);
 }
@@ -1704,6 +1867,8 @@ void setup() {
 void loop() {
   rp2040.wdt_reset();
   static bool sensors_initialized = false;
+  static uint32_t loop_start_time = 0;
+  if (loop_start_time == 0) loop_start_time = millis();
   if (!sensors_initialized) {
     si7021_init_nonblocking();
     tmp117_init_nonblocking();
@@ -1711,9 +1876,11 @@ void loop() {
     pm25aqi_init_nonblocking();
     scd40_init_nonblocking();
     rg15_init_nonblocking();
+    wind_init_nonblocking();
 
-    if (si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
-        pm25aqi_connected || scd40_connected || rg15_connected) {
+    if (millis() - loop_start_time >= 1500 &&
+        (si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
+        pm25aqi_connected || scd40_connected || rg15_connected || wind_connected)) {
       sensors_initialized = true;
       start_station_info();
     }
@@ -1795,8 +1962,12 @@ void loop() {
   if (rg15_connected && (transmit_ok = rg15_measure_transmit())) start_blink_led();
   rp2040.wdt_reset();
 
+  Serial.print(F("WS302 "));
+  if (wind_connected && (transmit_ok = wind_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   if (!(si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
-        pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected)) {
+        pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected || wind_connected)) {
     Serial.print(F("None Connected"));
   }
   Serial.println();
