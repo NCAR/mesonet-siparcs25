@@ -45,7 +45,6 @@
 
 #define WIND_TX_PIN 24
 #define WIND_RX_PIN 25
-#define WIND_DE_PIN A0
 #define WIND_SLAVE_ADDR 0x01   // confirm against WS302 paperwork if you have it
 #define WIND_REG_SPEED 0x0000
 #define WIND_REG_DIR   0x0001
@@ -798,11 +797,6 @@ uint16_t modbus_crc16(const uint8_t* buf, int len) {
   return crc;
 }
 
-void rs485_set_transmit(bool enable) {
-  digitalWrite(WIND_DE_PIN, enable ? HIGH : LOW);
-  delayMicroseconds(50); // let the transceiver settle
-}
-
 // Reads `count` holding registers starting at start_reg. Returns true on success.
 bool wind_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_values) {
   uint8_t request[8];
@@ -818,10 +812,8 @@ bool wind_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_valu
 
   while (Serial2.available()) Serial2.read(); // flush stale bytes
 
-  rs485_set_transmit(true);
   Serial2.write(request, 8);
-  Serial2.flush(); // wait for bytes to actually leave the UART
-  rs485_set_transmit(false);
+  Serial2.flush();
 
   uint8_t expected_len = 5 + count * 2; // addr+func+bytecount+data+crc
   uint8_t response[64];
@@ -1536,14 +1528,13 @@ bool wind_measure_transmit() {
     return false;
   }
 
-  // reg[0] is a fixed status/type value (not wind data)
-  // reg[1] is wind direction, plain integer 0-359 deg
-  // reg[2]/reg[3] together form a 32-bit IEEE-754 float wind speed,
-  // with reg[3] as the high word and reg[2] as the low word
   uint32_t speed_bits = ((uint32_t)regs[3] << 16) | regs[2];
   float wind_speed_ms;
   memcpy(&wind_speed_ms, &speed_bits, sizeof(wind_speed_ms));
   float wind_dir_deg = (float)regs[1];
+
+  const float WIND_CALM_THRESHOLD_MS = 0.2f;  // tune against WS302 datasheet if it specifies one
+  bool direction_valid = wind_speed_ms >= WIND_CALM_THRESHOLD_MS;
 
   String timestamp = get_gps_timestamp();
   JsonDocument doc;
@@ -1557,13 +1548,17 @@ bool wind_measure_transmit() {
   }
   rfm95_send(packet);
 
-  doc["t"] = "F";
-  add_common_json_fields(doc, timestamp, "ws302", "wd", wind_dir_deg, "se");
-  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
-    Serial.println(F("[error]: WS302 direction packet buffer overflow"));
-    return false;
+  if (direction_valid) {
+    doc["t"] = "F";
+    add_common_json_fields(doc, timestamp, "ws302", "wd", wind_dir_deg, "se");
+    if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+      Serial.println(F("[error]: WS302 direction packet buffer overflow"));
+      return false;
+    }
+    rfm95_send(packet);
+  } else {
+    Serial.println(F("[info]: WS302 calm — direction suppressed to avoid stuck value"));
   }
-  rfm95_send(packet);
 
   Serial.println(F("[debug]: Exit wind_measure_transmit"));
   return true;
@@ -1852,9 +1847,6 @@ void setup() {
     Serial.println(F("[info]: BME680 #2 found at 0x76"));
   }
 
-
-  pinMode(WIND_DE_PIN, OUTPUT);
-  digitalWrite(WIND_DE_PIN, LOW); // start in receive mode
   Serial2.setRX(WIND_RX_PIN);
   Serial2.setTX(WIND_TX_PIN);
   Serial2.begin(WIND_BAUD, SERIAL_8E1);
