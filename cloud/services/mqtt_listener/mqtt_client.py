@@ -408,6 +408,9 @@ class MQTTDatabaseUpdater:
         if (sensor, measurement) not in MRT_TRIGGER_PAIRS:
             return
 
+        print(f"[debug]: MRT trigger fired for station {station_id} on ({sensor}, {measurement}), "
+              f"checking if all 3 inputs are buffered")
+
         with self.buffer_lock:
             station_data = self.sensor_buffer.get(station_id, {}).get("data", {})
             Tg_raw = station_data.get(MRT_GLOBE_SENSOR, {}).get(MRT_GLOBE_MEASUREMENT)
@@ -415,7 +418,16 @@ class MQTTDatabaseUpdater:
             va_raw = station_data.get(MRT_WIND_SENSOR, {}).get(MRT_WIND_MEASUREMENT)
 
         if Tg_raw is None or Ta_raw is None or va_raw is None:
-            # Not all three inputs have arrived yet for this station
+            missing = []
+            if Tg_raw is None:
+                missing.append(f"{MRT_GLOBE_SENSOR}/{MRT_GLOBE_MEASUREMENT}")
+            if Ta_raw is None:
+                missing.append(f"{MRT_AMBIENT_SENSOR}/{MRT_AMBIENT_MEASUREMENT}")
+            if va_raw is None:
+                missing.append(f"{MRT_WIND_SENSOR}/{MRT_WIND_MEASUREMENT}")
+            print(f"[debug]: MRT inputs incomplete for station {station_id}, "
+                  f"still waiting on: {', '.join(missing)} "
+                  f"(have Tg={Tg_raw!r}, Ta={Ta_raw!r}, va={va_raw!r})")
             return
 
         try:
