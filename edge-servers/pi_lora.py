@@ -70,7 +70,9 @@ class MQTTClientWrapper:
         self.port = config.get('mqtt', {}).get('broker_port', 1883)
         self.edge_id = get_pi_serial() or config.get('radio', {}).get('edge_id', 'default_pi')
         self.msg_topic_template = config.get('mqtt', {}).get('msg_topic_template', 'iotwx/{station_id}')
-        self.pong_duration = config.get('radio', {}).get('pong_duration', 3.0)
+        self.pong_count = config.get('radio', {}).get('pong_count', 3)
+        self.pong_spacing = config.get('radio', {}).get('pong_spacing', 0.5)
+        self.pong_jitter = config.get('radio', {}).get('pong_jitter', 0.2)
         self.pong_initial_delay_max = config.get('radio', {}).get('pong_initial_delay_max', 0.5)
         self.overload_threshold = config.get('radio', {}).get('overload_threshold', 0.85)
         self.station_midpoint = config.get('radio', {}).get('pi_station_midpoint', 5)
@@ -170,15 +172,15 @@ class MQTTClientWrapper:
             print(f"[error]: Failed to start MQTT loop: {e}")
 
     def send_pongs(self, station_id, edge_id, load, rssi):
-        """Send pongs to a station for configured duration in a separate thread if MQTT is connected."""
+        """Send a small number of jittered pongs to a station, only if MQTT is connected."""
         if not self.connected:
             print(f"[info]: Not sending pongs to {station_id} - MQTT not connected")
             return
-        
+
         initial_delay = random.uniform(0, self.pong_initial_delay_max)
         print(f"[info]: Delaying pong response to {station_id} by {initial_delay:.3f} seconds")
         time.sleep(initial_delay)
-        
+
         pong = {
             'sid': edge_id,
             't': 'B',
@@ -186,21 +188,19 @@ class MQTTClientWrapper:
             'l': load,
             'rssi': rssi,
             'rc': 0,
-            'tar': station_id  # ← was 'to', must match station firmware
+            'tar': station_id
         }
-        start_time = time.time()
-        pong_count = 0
-        while time.time() - start_time < self.pong_duration:
+
+        for i in range(self.pong_count):
             with self.radio_lock:
                 if self.radio:
                     try:
                         self.radio.send(bytes(json.dumps(pong), 'utf-8'))
-                        pong_count += 1
-                        print(f"[info]: Sent pong {pong_count} to {station_id}: {pong}")
+                        print(f"[info]: Sent pong {i+1}/{self.pong_count} to {station_id}: {pong}")
                     except Exception as e:
-                        print(f"[error]: Failed to send pong {pong_count+1} to {station_id}: {e}")
-            time.sleep(0.01)
-        print(f"[info]: Sent {pong_count} pongs to {station_id} over {self.pong_duration} seconds")
+                        print(f"[error]: Failed to send pong {i+1}/{self.pong_count} to {station_id}: {e}")
+            if i < self.pong_count - 1:
+                time.sleep(self.pong_spacing + random.uniform(0, self.pong_jitter))
 
 def map_packet_fields(packet_data):
     """Map shortened Arduino packet fields to full names for MQTT publishing."""
@@ -367,7 +367,8 @@ def main():
             print(f"[debug]: Main loop running, MQTT connected: {mqtt_client.connected}, Station count: {mqtt_client.station_count}")
             last_debug_log = current_time
 
-        packet = radio.receive(timeout=config.get('radio', {}).get('rcv_timeout', 0.5))
+        with mqtt_client.radio_lock:
+            packet = radio.receive(timeout=config.get('radio', {}).get('rcv_timeout', 0.5))
         if packet is not None:
             try:
                 msg = packet.decode('utf-8')
