@@ -19,7 +19,7 @@
 #include <SoftwareSerial.h>
 #include <Arduino.h>
 #include <LittleFS.h>
-#include <SPI.h>
+#include <math.h>
 #include <cstring>
 
 // --- Constants ---
@@ -52,6 +52,12 @@
 #define WIND_RESPONSE_TIMEOUT 300
 
 
+// --- MRT (ISO 7726) ---
+#define SIGMA 5.670374419e-8f          // Stefan-Boltzmann, W/m2K4
+#define MRT_GLOBE_DIAMETER_M 0.038f    // OpenIoTwx 3.8cm globe (update if globe changes)
+#define MRT_GLOBE_EMISSIVITY 0.95f
+
+
 
 // --- State Enum ---
 enum SystemState {
@@ -80,6 +86,8 @@ bool rg15_connected = false;
 
 // --- Wind Sensor ---
 bool wind_connected = false;
+float last_wind_speed_ms = 0.0f;
+bool last_wind_speed_valid = false;
 
 // --- Configuration and State ---
 struct Config {
@@ -154,6 +162,8 @@ float station_load = 0.0;
 bool si7021_connected = false;
 bool bme680_1_connected = false;
 bool bme680_2_connected = false;
+bool bme680_1_fresh = false;   // true only if performReading() succeeded THIS cycle
+bool bme680_2_fresh = false;   // true only if performReading() succeeded THIS cycle
 bool tmp117_connected = false;
 bool ltr390_connected = false;
 bool pm25aqi_connected = false;
@@ -1287,6 +1297,41 @@ bool pa1010d_gps_init() {
 }
 
 // --- Sensor Data Transmission ---
+
+
+// --- MRT calculation (ISO 7726) ---
+float hcg_natural(float Ta, float Tg, float D) {
+  return 1.4f * pow(fabs(Ta - Tg) / D, 0.25f);
+}
+
+float hcg_forced(float va, float D) {
+  return 6.3f * pow(va, 0.6f) / pow(D, 0.4f);
+}
+
+bool calculate_mrt(float Tg, float Ta, float va, float D, float eps_g, float* mrt_c_out) {
+  if (D <= 0 || eps_g <= 0 || eps_g > 1 || va < 0) {
+    Serial.println(F("[error]: MRT invalid input params"));
+    return false;
+  }
+
+  float h_nat = hcg_natural(Ta, Tg, D);
+  float h_forced = (va > 0) ? hcg_forced(va, D) : 0.0f;
+  float hcg = max(h_nat, h_forced);
+
+  float Tg_k = Tg + 273.15f;
+  float inner = pow(Tg_k, 4) + (hcg / (eps_g * SIGMA)) * (Tg - Ta);
+
+  if (inner < 0) {
+    Serial.print(F("[error]: MRT negative under 4th root, inner=")); Serial.println(inner);
+    return false;
+  }
+
+  float mrt_k = pow(inner, 0.25f);
+  *mrt_c_out = mrt_k - 273.15f;
+  return true;
+}
+
+
 bool si7021_measure_transmit() {
   if (!has_pi_path) {
     Serial.println(F("[warn]: No Pi path, skipping Si7021 transmit"));
@@ -1331,7 +1376,9 @@ bool bme680_measure_transmit() {
     Serial.println(F("[debug]: Calling BME680 #1 performReading..."));
     if (!bme680_1.performReading()) {
       Serial.println(F("[warn]: BME680 #1 performReading failed"));
+      bme680_1_fresh = false;
     } else {
+      bme680_1_fresh = true;
       Serial.println(F("[debug]: BME680 #1 reading OK"));
       altitude = bme680_1.readAltitude(SEALEVELPRESSURE_HPA);
       float values[] = {bme680_1.temperature, bme680_1.humidity,
@@ -1356,7 +1403,9 @@ bool bme680_measure_transmit() {
     Serial.println(F("[debug]: Calling BME680 #2 performReading..."));
     if (!bme680_2.performReading()) {
       Serial.println(F("[warn]: BME680 #2 performReading failed"));
+      bme680_2_fresh = false;
     } else {
+      bme680_2_fresh = true;
       Serial.println(F("[debug]: BME680 #2 reading OK"));
       const char* gbt_measurements[] = {"globe_temperature", "globe_humidity",
                                          "globe_pressure", "globe_gas_resistance",
@@ -1378,6 +1427,58 @@ bool bme680_measure_transmit() {
   }
 
   Serial.println(F("[debug]: Exit bme680_measure_transmit"));
+  return true;
+}
+
+bool mrt_measure_transmit() {
+  if (!has_pi_path) {
+    Serial.println(F("[warn]: No Pi path, skipping MRT transmit"));
+    return false;
+  }
+  if (!bme680_1_connected || !bme680_2_connected) {
+    Serial.println(F("[warn]: MRT requires both BME680 sensors, skipping"));
+    return false;
+  }
+  if (!bme680_1_fresh || !bme680_2_fresh) {
+    Serial.println(F("[warn]: MRT requires fresh BME680 readings this cycle, skipping"));
+    return false;
+  }
+  if (!wind_connected || !last_wind_speed_valid) {
+    Serial.println(F("[warn]: MRT requires WS302 wind data, skipping"));
+    return false;
+  }
+
+  Serial.println(F("[debug]: Enter mrt_measure_transmit"));
+
+  float Ta = bme680_1.temperature;      // ambient
+  float Tg = bme680_2.temperature;      // globe (soldered, 0x76)
+  float va = last_wind_speed_ms;
+
+  Serial.print(F("[debug]: MRT inputs -> Ta=")); Serial.print(Ta);
+  Serial.print(F(" Tg=")); Serial.print(Tg);
+  Serial.print(F(" va=")); Serial.print(va);
+  Serial.print(F(" (bme1_fresh=")); Serial.print(bme680_1_fresh);
+  Serial.print(F(", bme2_fresh=")); Serial.print(bme680_2_fresh);
+  Serial.println(F(")"));
+
+  float mrt_c;
+  if (!calculate_mrt(Tg, Ta, va, MRT_GLOBE_DIAMETER_M, MRT_GLOBE_EMISSIVITY, &mrt_c)) {
+    Serial.println(F("[warn]: MRT calculation failed"));
+    return false;
+  }
+
+  String timestamp = get_gps_timestamp();
+  JsonDocument doc;
+  char packet[144];
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "gbt_ws", "MRT", mrt_c, "d2");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: MRT packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  Serial.print(F("[debug]: Exit mrt_measure_transmit, MRT=")); Serial.println(mrt_c);
   return true;
 }
 
@@ -1532,6 +1633,9 @@ bool wind_measure_transmit() {
   float wind_speed_ms;
   memcpy(&wind_speed_ms, &speed_bits, sizeof(wind_speed_ms));
   float wind_dir_deg = (float)regs[1];
+
+  last_wind_speed_ms = wind_speed_ms;
+  last_wind_speed_valid = true;
 
   const float WIND_CALM_THRESHOLD_MS = 0.2f;  // tune against WS302 datasheet if it specifies one
   bool direction_valid = wind_speed_ms >= WIND_CALM_THRESHOLD_MS;
@@ -1919,9 +2023,11 @@ void loop() {
   last_sensor_transmit = millis();
   update_station_load();
 
+  bme680_1_fresh = false;
+  bme680_2_fresh = false;
+
   bool transmit_ok;
   Serial.print(F("[info]: Transmitting sensors: "));
-
   Serial.print(F("Si7021 "));
   if (si7021_connected && (transmit_ok = si7021_measure_transmit())) start_blink_led();
   rp2040.wdt_reset();
@@ -1956,6 +2062,10 @@ void loop() {
 
   Serial.print(F("WS302 "));
   if (wind_connected && (transmit_ok = wind_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
+  Serial.print(F("MRT "));
+  if ((bme680_1_connected && bme680_2_connected) && (transmit_ok = mrt_measure_transmit())) start_blink_led();
   rp2040.wdt_reset();
 
   if (!(si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
