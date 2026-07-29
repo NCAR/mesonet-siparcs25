@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "",
+  "builtInLibrariesFolders": "C:\\Users\\pshaeri\\AppData\\Local\\Arduino15\\libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:m5stack_atom:UploadSpeed=1500000,CPUFreq=240,FlashFreq=80,FlashMode=qio,FlashSize=4M,PartitionScheme=huge_app,DebugLevel=none,LoopCore=1,EventsCore=1,EraseFlash=none",
+  "hardwareFolders": "C:\\Users\\pshaeri\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.10,C:\\Users\\pshaeri\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.10",
+  "otherLibrariesFolders": "c:\\Users\\pshaeri\\Documents\\Arduino\\libraries",
+  "sketchLocation": "C:\\Workspace\\esp32-atomlite-arduino-base\\web\\esp32-atomlite-arduino-base-web"
+}
