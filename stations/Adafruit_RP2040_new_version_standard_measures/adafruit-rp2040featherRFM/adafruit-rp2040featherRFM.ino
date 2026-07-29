@@ -21,6 +21,7 @@
 #include <LittleFS.h>
 #include <math.h>
 #include <cstring>
+#include <SerialPIO.h>
 
 // --- Constants ---
 #define RFM95_CS 16
@@ -51,6 +52,16 @@
 #define WIND_BAUD 9600
 #define WIND_RESPONSE_TIMEOUT 300
 
+// SEN0600 soil moisture/temperature — Serial1 and Serial2 are already taken
+// (RG15, WS302), so this uses SerialPIO on spare Feather pins A0/A1, same
+// as the standalone RP2040 test. NOT SEN0601 — this sensor only exposes
+// humidity + temperature, no EC/salinity/TDS. See wiki.dfrobot.com/sen0600
+#define SOIL_TX_PIN A1
+#define SOIL_RX_PIN A0
+#define SOIL_SLAVE_ADDR 0x01
+#define SOIL_REG_START 0x0000   // reg0 = humidity, reg1 = temperature
+#define SOIL_BAUD 9600
+#define SOIL_RESPONSE_TIMEOUT 400
 
 // --- MRT (ISO 7726) ---
 #define SIGMA 5.670374419e-8f          // Stefan-Boltzmann, W/m2K4
@@ -80,6 +91,7 @@ Adafruit_PM25AQI pm25aqi;
 TinyGPSPlus gps;
 SCD4x scd40;
 SoftwareSerial rg15Serial(RG15_RX_PIN, RG15_TX_PIN);
+SerialPIO soilSerial(SOIL_TX_PIN, SOIL_RX_PIN);
 
 // --- RG15 Rain Sensor ---
 bool rg15_connected = false;
@@ -88,6 +100,12 @@ bool rg15_connected = false;
 bool wind_connected = false;
 float last_wind_speed_ms = 0.0f;
 bool last_wind_speed_valid = false;
+
+// --- Soil Sensor ---
+bool soil_connected = false;
+float last_soil_moisture_pct = 0.0f;
+float last_soil_temp_c = 0.0f;
+bool last_soil_valid = false;
 
 // --- Configuration and State ---
 struct Config {
@@ -858,6 +876,57 @@ bool wind_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_valu
 }
 
 
+// Reads `count` holding registers starting at start_reg from the SEN0600.
+bool soil_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_values) {
+  uint8_t request[8];
+  request[0] = SOIL_SLAVE_ADDR;
+  request[1] = 0x03;
+  request[2] = (start_reg >> 8) & 0xFF;
+  request[3] = start_reg & 0xFF;
+  request[4] = (count >> 8) & 0xFF;
+  request[5] = count & 0xFF;
+  uint16_t crc = modbus_crc16(request, 6);
+  request[6] = crc & 0xFF;
+  request[7] = (crc >> 8) & 0xFF;
+
+  while (soilSerial.available()) soilSerial.read(); // flush stale bytes
+
+  soilSerial.write(request, 8);
+  soilSerial.flush();
+
+  uint8_t expected_len = 5 + count * 2; // addr+func+bytecount+data+crc
+  uint8_t response[32];
+  uint8_t idx = 0;
+  uint32_t start_time = millis();
+  while (millis() - start_time < SOIL_RESPONSE_TIMEOUT && idx < expected_len) {
+    if (soilSerial.available()) {
+      response[idx++] = soilSerial.read();
+    }
+  }
+
+  if (idx < expected_len) {
+    Serial.print(F("[warn]: SEN0600 response too short, got ")); Serial.println(idx);
+    return false;
+  }
+
+  uint16_t recv_crc = response[idx - 2] | (response[idx - 1] << 8);
+  uint16_t calc_crc = modbus_crc16(response, idx - 2);
+  if (recv_crc != calc_crc) {
+    Serial.println(F("[warn]: SEN0600 CRC mismatch"));
+    return false;
+  }
+  if (response[0] != SOIL_SLAVE_ADDR || response[1] != 0x03) {
+    Serial.println(F("[warn]: SEN0600 unexpected slave/function in response"));
+    return false;
+  }
+
+  for (int i = 0; i < count; i++) {
+    out_values[i] = (response[3 + i * 2] << 8) | response[4 + i * 2];
+  }
+  return true;
+}
+
+
 void rfm95_send(const char* packet) {
   uint8_t len = strlen(packet) + 1;
   if (len > MAX_PACKET_SIZE) {
@@ -1119,6 +1188,29 @@ void wind_init_nonblocking() {
     } else {
       Serial.println(F("[error]: WS302 wind sensor not responding"));
       wind_connected = false;
+    }
+    init_started = false;
+  }
+}
+
+void soil_init_nonblocking() {
+  static bool init_started = false;
+  static uint32_t init_start_time = 0;
+  if (!init_started) {
+    Serial.println(F("[debug]: Initializing SEN0600 soil sensor"));
+    init_started = true;
+    init_start_time = millis();
+  }
+  if (millis() - init_start_time >= 500) {
+    uint16_t regs[2];
+    if (soil_query_registers(SOIL_REG_START, 2, regs)) {
+      Serial.println(F("[info]: SEN0600 soil sensor found ... OK"));
+      soil_connected = true;
+      active_sensors++;
+      Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
+    } else {
+      Serial.println(F("[error]: SEN0600 soil sensor not responding"));
+      soil_connected = false;
     }
     init_started = false;
   }
@@ -1668,6 +1760,55 @@ bool wind_measure_transmit() {
   return true;
 }
 
+bool soil_measure_transmit() {
+  if (!has_pi_path) {
+    Serial.println(F("[warn]: No Pi path, skipping SEN0600 transmit"));
+    return false;
+  }
+  Serial.println(F("[debug]: Enter soil_measure_transmit"));
+  uint16_t regs[2];
+  if (!soil_query_registers(SOIL_REG_START, 2, regs)) {
+    Serial.println(F("[warn]: SEN0600 read failed"));
+    return false;
+  }
+
+  float moisture_pct = regs[0] / 10.0f;
+  float temp_c = (float)((int16_t)regs[1]) / 10.0f;
+
+  if (!isfinite(moisture_pct) || moisture_pct < 0.0f || moisture_pct > 100.0f ||
+      !isfinite(temp_c) || temp_c < -40.0f || temp_c > 80.0f) {
+    Serial.println(F("[warn]: SEN0600 out-of-range values, discarding"));
+    return false;
+  }
+
+  last_soil_moisture_pct = moisture_pct;
+  last_soil_temp_c = temp_c;
+  last_soil_valid = true;
+
+  String timestamp = get_gps_timestamp();
+  JsonDocument doc;
+  char packet[144];
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "sen0600", "sm", moisture_pct, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: SEN0600 moisture packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "sen0600", "st", temp_c, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: SEN0600 temperature packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  Serial.println(F("[debug]: Exit soil_measure_transmit"));
+  return true;
+}
+
 bool scd40_measure_transmit() {
   if (!has_pi_path) {
     Serial.println(F("[warn]: No Pi path, skipping SCD40 transmit"));
@@ -1954,7 +2095,7 @@ void setup() {
   Serial2.setRX(WIND_RX_PIN);
   Serial2.setTX(WIND_TX_PIN);
   Serial2.begin(WIND_BAUD, SERIAL_8E1);
-
+  soilSerial.begin(SOIL_BAUD, SERIAL_8N1);
   pinMode(LED_BUILTIN, OUTPUT);
   multicore_launch_core1(core1_entry);
 }
@@ -1973,10 +2114,11 @@ void loop() {
     scd40_init_nonblocking();
     rg15_init_nonblocking();
     wind_init_nonblocking();
+    soil_init_nonblocking();
 
     if (millis() - loop_start_time >= 1500 &&
         (si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
-        pm25aqi_connected || scd40_connected || rg15_connected || wind_connected)) {
+        pm25aqi_connected || scd40_connected || rg15_connected || wind_connected || soil_connected)) {
       sensors_initialized = true;
       start_station_info();
     }
@@ -2064,12 +2206,16 @@ void loop() {
   if (wind_connected && (transmit_ok = wind_measure_transmit())) start_blink_led();
   rp2040.wdt_reset();
 
+  Serial.print(F("SEN0600 "));
+  if (soil_connected && (transmit_ok = soil_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("MRT "));
   if ((bme680_1_connected && bme680_2_connected) && (transmit_ok = mrt_measure_transmit())) start_blink_led();
   rp2040.wdt_reset();
 
   if (!(si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
-        pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected || wind_connected)) {
+        pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected || wind_connected || soil_connected)) {
     Serial.print(F("None Connected"));
   }
   Serial.println();

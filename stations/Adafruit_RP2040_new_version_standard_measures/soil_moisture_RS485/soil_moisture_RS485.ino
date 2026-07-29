@@ -1,5 +1,9 @@
-// soil moisture (SEN0601) for RP2040 Feather, via SerialPIO on A0/A1
+// soil moisture/temperature (SEN0600) for RP2040 Feather, via SerialPIO on A0/A1
 // Grove RS485 TX -> A0, Grove RS485 RX -> A1 (physical wiring)
+//
+// NOTE: SEN0600 is a 2-in-1 sensor (humidity + temperature only).
+// It does NOT measure conductivity, salinity, or TDS — that's the SEN0601,
+// a different physical product. See DFRobot wiki: https://wiki.dfrobot.com/sen0600/
 
 #include <cstring>
 #include <cmath>
@@ -32,12 +36,10 @@ uint16_t modbus_crc16(const uint8_t* data, size_t length) {
   return crc;
 }
 
-bool readSoilData(float* moisturePctOut, float* temperatureCOut,
-                   uint16_t* conductivityOut, uint16_t* salinityOut,
-                   uint16_t* tdsOut) {
-  // Registers 0x0000-0x0004: moisture, temperature, conductivity, salinity, TDS
-  constexpr uint8_t registerCount = 5;
-  constexpr size_t expectedLength = 15; // addr+func+bytecount(3) + 5*2 data + 2 crc
+bool readSoilData(float* moisturePctOut, float* temperatureCOut) {
+  // Registers 0x0000-0x0001: humidity, temperature (SEN0600 only exposes these two)
+  constexpr uint8_t registerCount = 2;
+  constexpr size_t expectedLength = 9; // addr+func+bytecount(3) + 2*2 data + 2 crc
 
   uint8_t request[8] = {
     SOIL_SLAVE_ADDR,
@@ -144,17 +146,17 @@ bool readSoilData(float* moisturePctOut, float* temperatureCOut,
     return false;
   }
 
-  if (response[2] != 0x0A) {  // 5 registers * 2 bytes = 10 = 0x0A
+  if (response[2] != 0x04) {  // 2 registers * 2 bytes = 4 = 0x04
     Serial.println("Incorrect Modbus byte count");
     return false;
   }
 
   const uint16_t receivedCrc =
-      static_cast<uint16_t>(response[13]) |
-      (static_cast<uint16_t>(response[14]) << 8);
+      static_cast<uint16_t>(response[7]) |
+      (static_cast<uint16_t>(response[8]) << 8);
 
   const uint16_t calculatedCrc =
-      modbus_crc16(response, 13);
+      modbus_crc16(response, 7);
 
   if (receivedCrc != calculatedCrc) {
     Serial.print("CRC error. Received: 0x");
@@ -164,42 +166,25 @@ bool readSoilData(float* moisturePctOut, float* temperatureCOut,
     return false;
   }
 
-  const uint16_t regMoisture =
+  // Per DFRobot SEN0600: register 0 = humidity, register 1 = temperature
+  const uint16_t regHumidity =
       (static_cast<uint16_t>(response[3]) << 8) | response[4];
 
   const uint16_t regTempRaw =
       (static_cast<uint16_t>(response[5]) << 8) | response[6];
 
-  const uint16_t regConductivity =
-      (static_cast<uint16_t>(response[7]) << 8) | response[8];
-
-  const uint16_t regSalinity =
-      (static_cast<uint16_t>(response[9]) << 8) | response[10];
-
-  const uint16_t regTds =
-      (static_cast<uint16_t>(response[11]) << 8) | response[12];
-
   // Temperature register is a signed 16-bit value (two's complement),
   // e.g. 0xFF9B -> -101 -> -10.1 C
   const int16_t tempSigned = static_cast<int16_t>(regTempRaw);
 
-  const float moisturePct = regMoisture / 10.0f;
+  const float moisturePct = regHumidity / 10.0f;
   const float temperatureC = tempSigned / 10.0f;
 
-  Serial.print("Register 0, moisture raw: ");
-  Serial.println(regMoisture);
+  Serial.print("Register 0, humidity raw: ");
+  Serial.println(regHumidity);
 
   Serial.print("Register 1, temperature raw: ");
   Serial.println(regTempRaw);
-
-  Serial.print("Register 2, conductivity: ");
-  Serial.println(regConductivity);
-
-  Serial.print("Register 3, salinity: ");
-  Serial.println(regSalinity);
-
-  Serial.print("Register 4, TDS: ");
-  Serial.println(regTds);
 
   Serial.print("Decoded moisture: ");
   Serial.print(moisturePct, 1);
@@ -224,9 +209,6 @@ bool readSoilData(float* moisturePctOut, float* temperatureCOut,
 
   *moisturePctOut = moisturePct;
   *temperatureCOut = temperatureC;
-  *conductivityOut = regConductivity;
-  *salinityOut = regSalinity;
-  *tdsOut = regTds;
 
   return true;
 }
@@ -237,34 +219,26 @@ void setup() {
   while (!Serial && millis() < 5000) {
   }
 
-  // SEN0601 default: 9600 baud, 8 data bits, NO parity, 1 stop bit (8N1).
+  // SEN0600 default: 9600 baud, 8 data bits, NO parity, 1 stop bit (8N1).
   // This differs from the WS302, which requires 8E1.
   soilSerial.begin(SOIL_BAUD, SERIAL_8N1);
 
   Serial.println();
-  Serial.println("SEN0601 Grove RS485 test");
-  Serial.println("Expected response: 15 bytes beginning 01 03 0A");
+  Serial.println("SEN0600 Grove RS485 test");
+  Serial.println("Expected response: 9 bytes beginning 01 03 04");
   delay(2000);
 }
 
 void loop() {
   float moisturePct = 0.0f;
   float temperatureC = 0.0f;
-  uint16_t conductivity = 0;
-  uint16_t salinity = 0;
-  uint16_t tds = 0;
 
-  if (readSoilData(&moisturePct, &temperatureC, &conductivity, &salinity, &tds)) {
+  if (readSoilData(&moisturePct, &temperatureC)) {
     Serial.print("Soil moisture: ");
     Serial.print(moisturePct, 1);
     Serial.print(" % | Temp: ");
     Serial.print(temperatureC, 1);
-    Serial.print(" C | EC: ");
-    Serial.print(conductivity);
-    Serial.print(" uS/cm | Salinity: ");
-    Serial.print(salinity);
-    Serial.print(" | TDS: ");
-    Serial.println(tds);
+    Serial.println(" C");
   } else {
     Serial.println("Soil reading failed");
   }
