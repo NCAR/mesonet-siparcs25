@@ -10,6 +10,7 @@ from threading import Lock, Thread
 import logging
 from users import UsersService
 from collections import defaultdict
+from mrt_calculator import calculate_mrt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s')
@@ -57,6 +58,28 @@ MODEL_ENDPOINT = f"{MODEL_SERVICE_URL}/predict"
 STATION_ENDPOINT = f"{API_BASE_URL}/api/stations"
 READING_ENDPOINT = f"{API_BASE_URL}/api/readings/"
 METABASE_ORCH_URL = config['metabase']['orch_url']
+
+# --- MRT (Mean Radiant Temperature) derivation config ---
+# Which (sensor, measurement) pairs feed the ISO 7726 globe-thermometer MRT
+# calculation. sensor names/measurement names must match what the firmware
+# sends (see bme680_measure_transmit() / wind_measure_transmit() in the
+# RP2040 .ino). Ambient air temp is taken from the un-shrouded BME680
+# ("bme680"/"tmp"), NOT the globe-mounted one ("gbt_bme680").
+MRT_AMBIENT_SENSOR = 'bme680'
+MRT_AMBIENT_MEASUREMENT = 'tmp'
+MRT_GLOBE_SENSOR = 'gbt_bme680'
+MRT_GLOBE_MEASUREMENT = 'globe_temperature'
+MRT_WIND_SENSOR = 'ws302'
+MRT_WIND_MEASUREMENT = 'ws'
+
+MRT_TRIGGER_PAIRS = {
+    (MRT_AMBIENT_SENSOR, MRT_AMBIENT_MEASUREMENT),
+    (MRT_GLOBE_SENSOR, MRT_GLOBE_MEASUREMENT),
+    (MRT_WIND_SENSOR, MRT_WIND_MEASUREMENT),
+}
+
+MRT_SENSOR_MODEL = 'mrt_calculated'
+MRT_MEASUREMENT_NAME = 'mrt'
 
 def get_current_timestamp():
     return datetime.now(timezone.utc).isoformat()
@@ -369,6 +392,86 @@ class MQTTDatabaseUpdater:
             group_name = group.get("name")
             print(f"Group '{group_name}' has been added successfully")
 
+    def _maybe_compute_and_post_mrt(self, station_id: str, sensor: str, measurement: str,
+                                     ts_iso: str, data: Dict[str, Any],
+                                     latitude: str, longitude: str, altitude: str):
+        """
+        If the reading that was just buffered is one of the three MRT inputs
+        (ambient temp, globe temp, wind speed), check whether all three are
+        now present for this station and, if so, compute MRT (ISO 7726) and
+        POST it to /api/readings/ the same way every other reading is posted.
+
+        Only triggers on the specific (sensor, measurement) pairs that feed
+        MRT -- an unrelated reading (e.g. humidity) won't cause a re-post of
+        a stale/duplicate MRT value.
+        """
+        if (sensor, measurement) not in MRT_TRIGGER_PAIRS:
+            return
+
+        print(f"[debug]: MRT trigger fired for station {station_id} on ({sensor}, {measurement}), "
+              f"checking if all 3 inputs are buffered")
+
+        with self.buffer_lock:
+            station_data = self.sensor_buffer.get(station_id, {}).get("data", {})
+            Tg_raw = station_data.get(MRT_GLOBE_SENSOR, {}).get(MRT_GLOBE_MEASUREMENT)
+            Ta_raw = station_data.get(MRT_AMBIENT_SENSOR, {}).get(MRT_AMBIENT_MEASUREMENT)
+            va_raw = station_data.get(MRT_WIND_SENSOR, {}).get(MRT_WIND_MEASUREMENT)
+
+        if Tg_raw is None or Ta_raw is None or va_raw is None:
+            missing = []
+            if Tg_raw is None:
+                missing.append(f"{MRT_GLOBE_SENSOR}/{MRT_GLOBE_MEASUREMENT}")
+            if Ta_raw is None:
+                missing.append(f"{MRT_AMBIENT_SENSOR}/{MRT_AMBIENT_MEASUREMENT}")
+            if va_raw is None:
+                missing.append(f"{MRT_WIND_SENSOR}/{MRT_WIND_MEASUREMENT}")
+            print(f"[debug]: MRT inputs incomplete for station {station_id}, "
+                  f"still waiting on: {', '.join(missing)} "
+                  f"(have Tg={Tg_raw!r}, Ta={Ta_raw!r}, va={va_raw!r})")
+            return
+
+        try:
+            Tg = float(Tg_raw)
+            Ta = float(Ta_raw)
+            va = float(va_raw)
+        except (TypeError, ValueError):
+            print(f"[warn]: Non-numeric MRT input(s) for station {station_id}: "
+                  f"Tg={Tg_raw!r} Ta={Ta_raw!r} va={va_raw!r}")
+            return
+
+        try:
+            mrt_result = calculate_mrt(Tg=Tg, Ta=Ta, va=va)
+        except ValueError as e:
+            print(f"[warn]: MRT calculation failed for station {station_id}: {e}")
+            return
+
+        reading_payload = {
+            "station_id": station_id,
+            "edge_id": data.get('target_id', ''),
+            "measurement": MRT_MEASUREMENT_NAME,
+            "reading_value": str(round(mrt_result["mrt_c"], 2)),
+            "sensor_model": MRT_SENSOR_MODEL,
+            "sensor_protocol": "derived",
+            "latitude": latitude,
+            "longitude": longitude,
+            "altitude": altitude,
+            "timestamp": ts_iso,
+            "rssi": data.get('rssi', 0)
+        }
+
+        try:
+            response = requests.post(READING_ENDPOINT, json=reading_payload,
+                                      headers={"Content-Type": "application/json"}, timeout=5)
+            if response.status_code == 200:
+                print(f"[info]: Created MRT reading for station {station_id}: "
+                      f"{mrt_result['mrt_c']:.2f}C (Tg={Tg}, Ta={Ta}, va={va}, "
+                      f"regime={mrt_result['regime']})")
+            else:
+                print(f"[error]: Failed to create MRT reading for {station_id} in Postgres: "
+                      f"{response.status_code} {response.text}")
+        except requests.RequestException as e:
+            print(f"[error]: Failed to communicate with Postgres for MRT reading {station_id}: {e}")
+
     def handle_reading(self, station_id: str, data: Dict[str, Any], timestamp: str):
         reading_value = str(data.get('reading_value', ''))
         measurement = data.get('measurement', '')
@@ -444,10 +547,15 @@ class MQTTDatabaseUpdater:
                     print(f"[info]: Created reading for station {station_id}, measurement {measurement} in Postgres")
                 else:
                     print(f"[error]: Failed to create reading for {station_id} in Postgres: {response.status_code} {response.text}")
- 
+
             except requests.RequestException as e:
                 print(f"[error]: Failed to communicate with Postgres for reading {station_id}: {e}")
-            
+
+            # If this reading is one of the three MRT inputs, and all three are
+            # now buffered for this station, compute and post MRT too.
+            self._maybe_compute_and_post_mrt(station_id, sensor, measurement, ts_iso, data,
+                                              latitude, longitude, altitude)
+
         else:  
             try:
                 station_payload = {

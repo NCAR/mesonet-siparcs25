@@ -1,0 +1,18 @@
+
+{
+  "iotwx_gpio_config": "A",
+  "iotwx_use_wifi": "0",
+  "iotwx_poe_mac": "0xFFFFFFFFFFFF",
+  "iotwx_local_config": "1",
+  "iotwx_id": "m5atom/esp32/aabbffee",
+  "iotwx_mq_ip": "0.0.0.0",
+  "iotwx_mq_port": "1883",
+  "iotwx_publish_interval": "2",
+  "iotwx_reset_interval": "360",
+  "iotwx_sensor": "grove/i2c",
+  "iotwx_timezone": "21600",
+  "iotwx_wifi_pwd": "your-password",
+  "iotwx_wifi_ssid": "your-ssid",
+  "iotwx_topic": "ncar/iotwx/your-state/your-city/your-station000",
+  "iotwx_max_frequency": "80"
+}

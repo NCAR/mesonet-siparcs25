@@ -19,6 +19,9 @@
 #include <SoftwareSerial.h>
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <math.h>
+#include <cstring>
+#include <SerialPIO.h>
 
 // --- Constants ---
 #define RFM95_CS 16
@@ -39,7 +42,31 @@
 #define CONTINUOUS_PONG_DELAY_MAX 1500 //1.5 seconds for random pong max delay
 #define RG15_ACC_INTERVAL 86400000UL // 24-hour interval for accumulated rainfall reset (in milliseconds)
 #define RELAY_QUEUE_SIZE 32
-#define PING_MIN_INTERVAL 2000
+#define PING_MIN_INTERVAL 8000
+
+#define WIND_TX_PIN 24
+#define WIND_RX_PIN 25
+#define WIND_SLAVE_ADDR 0x01   // confirm against WS302 paperwork if you have it
+#define WIND_REG_SPEED 0x0000
+#define WIND_REG_DIR   0x0001
+#define WIND_BAUD 9600
+#define WIND_RESPONSE_TIMEOUT 300
+
+// SEN0600 soil moisture/temperature — Serial1 and Serial2 are already taken
+// (RG15, WS302), so this uses SerialPIO on spare Feather pins A0/A1, same
+// as the standalone RP2040 test. NOT SEN0601 — this sensor only exposes
+// humidity + temperature, no EC/salinity/TDS. See wiki.dfrobot.com/sen0600
+#define SOIL_TX_PIN A1
+#define SOIL_RX_PIN A0
+#define SOIL_SLAVE_ADDR 0x01
+#define SOIL_REG_START 0x0000   // reg0 = humidity, reg1 = temperature
+#define SOIL_BAUD 9600
+#define SOIL_RESPONSE_TIMEOUT 400
+
+// --- MRT (ISO 7726) ---
+#define SIGMA 5.670374419e-8f          // Stefan-Boltzmann, W/m2K4
+#define MRT_GLOBE_DIAMETER_M 0.038f    // OpenIoTwx 3.8cm globe (update if globe changes)
+#define MRT_GLOBE_EMISSIVITY 0.95f
 
 
 
@@ -54,7 +81,8 @@ enum SystemState {
 // --- Hardware Objects ---
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
 Adafruit_Si7021 si7021;
-Adafruit_BME680 bme680;
+Adafruit_BME680 bme680_1;  // 0x77 default
+Adafruit_BME680 bme680_2;  // 0x76 soldered
 Adafruit_TMP117 tmp117;
 Adafruit_GPS pa1010d(&Wire);
 I2CGPS sparkfun_GPS;
@@ -63,9 +91,21 @@ Adafruit_PM25AQI pm25aqi;
 TinyGPSPlus gps;
 SCD4x scd40;
 SoftwareSerial rg15Serial(RG15_RX_PIN, RG15_TX_PIN);
+SerialPIO soilSerial(SOIL_TX_PIN, SOIL_RX_PIN);
 
 // --- RG15 Rain Sensor ---
 bool rg15_connected = false;
+
+// --- Wind Sensor ---
+bool wind_connected = false;
+float last_wind_speed_ms = 0.0f;
+bool last_wind_speed_valid = false;
+
+// --- Soil Sensor ---
+bool soil_connected = false;
+float last_soil_moisture_pct = 0.0f;
+float last_soil_temp_c = 0.0f;
+bool last_soil_valid = false;
 
 // --- Configuration and State ---
 struct Config {
@@ -90,11 +130,11 @@ struct Config {
   bool fixed_deployment;
   uint32_t gps_fixed_interval;
   uint32_t sensor_transmit_delay;
-  String firstname;
-  String lastname;
-  String email;
-  String organization;
-  String device;
+  char firstname[48];
+  char lastname[48];
+  char email[64];
+  char organization[64];
+  char device[64];
 } config;
 
 struct Dependent {
@@ -138,7 +178,10 @@ uint8_t active_relays = 0;
 uint32_t last_load_update = 0;
 float station_load = 0.0;
 bool si7021_connected = false;
-bool bme680_connected = false;
+bool bme680_1_connected = false;
+bool bme680_2_connected = false;
+bool bme680_1_fresh = false;   // true only if performReading() succeeded THIS cycle
+bool bme680_2_fresh = false;   // true only if performReading() succeeded THIS cycle
 bool tmp117_connected = false;
 bool ltr390_connected = false;
 bool pm25aqi_connected = false;
@@ -293,7 +336,8 @@ void update_station_load() {
   last_load_update = millis();
   Serial.print(F("[info]: Connected sensors: "));
   if (si7021_connected) Serial.print(F("Si7021 "));
-  if (bme680_connected) Serial.print(F("BME680 "));
+  if (bme680_1_connected) Serial.print(F("BME680_1 "));
+  if (bme680_2_connected) Serial.print(F("BME680_2 "));
   if (tmp117_connected) Serial.print(F("TMP117 "));
   if (ltr390_connected) Serial.print(F("LTR390 "));
   if (pm25aqi_connected) Serial.print(F("PM25AQI "));
@@ -312,48 +356,101 @@ bool load_config() {
   Serial.println(F("[debug]: Loading /config.json"));
   File file = LittleFS.open("/config.json", "r");
   if (!file) {
-    Serial.println(F("[error]: Failed to open /config.json"));
-    return false;
+    Serial.println(F("[warn]: Failed to open /config.json, using hardcoded defaults"));
+  } else {
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    if (error) {
+      Serial.print(F("[warn]: JSON parse failed: ")); Serial.println(error.c_str());
+      Serial.println(F("[warn]: Falling back to hardcoded defaults"));
+    } else {
+      config.overload_threshold       = doc["radio"]["overload_threshold"]       | 0.85f;
+      config.station_relay_midpoint   = doc["radio"]["station_relay_midpoint"]   | 10.0f;
+      config.station_relay_steepness  = doc["radio"]["station_relay_steepness"]  | 0.2f;
+      config.station_sensor_midpoint  = doc["radio"]["station_sensor_midpoint"]  | 5.0f;
+      config.station_sensor_steepness = doc["radio"]["station_sensor_steepness"] | 0.5f;
+      config.station_relay_weight     = doc["radio"]["station_relay_weight"]     | 0.7f;
+      config.station_sensor_weight    = doc["radio"]["station_sensor_weight"]    | 0.3f;
+      config.score_rssi_weight        = doc["radio"]["score_rssi_weight"]        | 0.35f;
+      config.score_load_weight        = doc["radio"]["score_load_weight"]        | 0.35f;
+      config.score_type_weight        = doc["radio"]["score_type_weight"]        | 0.2f;
+      config.score_relay_weight       = doc["radio"]["score_relay_weight"]       | 0.1f;
+      config.score_relay_decay        = doc["radio"]["score_relay_decay"]        | 1.0f;
+      config.pong_timeout             = doc["radio"]["pong_timeout"]             | 5000UL;
+      config.connect_timeout          = doc["radio"]["connect_timeout"]          | 900000UL;
+      config.latitude                 = doc["station_info"]["latitude"]          | 0.0;
+      config.longitude                = doc["station_info"]["longitude"]         | 0.0;
+      config.altitude                 = doc["station_info"]["altitude"]          | 0.0;
+      strlcpy(config.firstname,    doc["station_info"]["firstname"]    | "",  sizeof(config.firstname));
+      strlcpy(config.lastname,     doc["station_info"]["lastname"]     | "",  sizeof(config.lastname));
+      strlcpy(config.email,        doc["station_info"]["email"]        | "",  sizeof(config.email));
+      strlcpy(config.organization, doc["station_info"]["organization"] | "",  sizeof(config.organization));
+      strlcpy(config.device,       doc["station_info"]["device"]       | "",  sizeof(config.device));
+      config.station_info_interval    = doc["station_info"]["station_info_interval"]  | 86400000UL;
+      config.fixed_deployment         = doc["station_info"]["fixed_deployment"]       | false;
+      config.sensor_transmit_delay    = doc["station_info"]["sensor_transmit_delay"]  | 60000UL;
+      config.gps_fixed_interval       = doc["station_info"]["gps_fixed_interval"]     | 43200000UL;
+      latitude  = config.latitude;
+      longitude = config.longitude;
+      altitude  = config.altitude;
+      Serial.println(F("[info]: Loaded /config.json"));
+      return true;
+    }
   }
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, file);
-  file.close();
-  if (error) {
-    Serial.print(F("[error]: JSON parse failed: ")); Serial.println(error.c_str());
-    return false;
-  }
-  config.overload_threshold = doc["radio"]["overload_threshold"] | 0.85f;
-  config.station_relay_midpoint = doc["radio"]["station_relay_midpoint"] | 10.0f;
-  config.station_relay_steepness = doc["radio"]["station_relay_steepness"] | 0.2f;
-  config.station_sensor_midpoint = doc["radio"]["station_sensor_midpoint"] | 5.0f;
-  config.station_sensor_steepness = doc["radio"]["station_sensor_steepness"] | 0.5f;
-  config.station_relay_weight = doc["radio"]["station_relay_weight"] | 0.7f;
-  config.station_sensor_weight = doc["radio"]["station_sensor_weight"] | 0.3f;
-  config.score_rssi_weight = doc["radio"]["score_rssi_weight"] | 0.35f;
-  config.score_load_weight = doc["radio"]["score_load_weight"] | 0.35f;
-  config.score_type_weight = doc["radio"]["score_type_weight"] | 0.2f;
-  config.score_relay_weight = doc["radio"]["score_relay_weight"] | 0.1f;
-  config.score_relay_decay = doc["radio"]["score_relay_decay"] | 1.0f;
-  config.pong_timeout = doc["radio"]["pong_timeout"] | 10000UL;
-  //  ping_min_interval = config.pong_timeout + 5000UL;
-  config.connect_timeout = doc["radio"]["connect_timeout"] | 900000UL;
-  config.latitude = doc["station_info"]["latitude"] | 0.0;
-  config.longitude = doc["station_info"]["longitude"] | 0.0;
-  config.altitude = doc["station_info"]["altitude"] | 0.0;
-  config.firstname = doc["station_info"]["firstname"] | "";
-  config.lastname = doc["station_info"]["lastname"] | "";
-  config.email = doc["station_info"]["email"] | "";
-  config.organization = doc["station_info"]["organization"] | "";
-  config.device = doc["station_info"]["device"] | "";
-  latitude = config.latitude;
+
+  // Hardcoded defaults — used when config.json is missing or unreadable
+  config.overload_threshold       = 0.85f;
+  config.station_relay_midpoint   = 10.0f;
+  config.station_relay_steepness  = 0.2f;
+  config.station_sensor_midpoint  = 5.0f;
+  config.station_sensor_steepness = 0.5f;
+  config.station_relay_weight     = 0.7f;
+  config.station_sensor_weight    = 0.3f;
+  config.score_rssi_weight        = 0.35f;
+  config.score_load_weight        = 0.35f;
+  config.score_type_weight        = 0.2f;
+  config.score_relay_weight       = 0.1f;
+  config.score_relay_decay        = 1.0f;
+  config.pong_timeout             = 5000UL;
+  config.connect_timeout          = 900000UL;  // 15 min — critical, was 60s
+  config.latitude                 = 0.0;
+  config.longitude                = 0.0;
+  config.altitude                 = 0.0;
+  config.station_info_interval    = 86400000UL;
+  config.fixed_deployment         = false;
+  config.gps_fixed_interval       = 43200000UL;
+  config.sensor_transmit_delay    = 60000UL;
+  
+  const char fn_ph[] = {'I','O','T','W','X','F','N','A','M','E',
+                        '0','0','0','0','0','0','0','0','0','0',
+                        '0','0','0','0','0','0','0','0','0','0','0','0','\0'};
+  memcpy(config.firstname, fn_ph, sizeof(fn_ph));
+
+  const char ln_ph[] = {'I','O','T','W','X','L','N','A','M','E',
+                        '1','2','3','4','5','6','7','8','9','0',
+                        'a','b','c','d','e','f','g','h','i','j','k','l','\0'};
+  memcpy(config.lastname, ln_ph, sizeof(ln_ph));
+
+  const char em_ph[] = {'I','O','T','W','X','E','M','A','I','L',
+                        '2','3','4','5','6','7','8','9','0','a',
+                        'b','c','d','e','f','g','h','i','j','k',
+                        'l','m','n','o','p','q','r','s','t','u',
+                        'v','w','x','y','z','A','B','\0'};
+  memcpy(config.email, em_ph, sizeof(em_ph));
+  const char or_ph[] = {'I','O','T','W','X','O','R','G','S',
+                        '3','4','5','6','7','8','9','0','a','b',
+                        'c','d','e','f','g','h','i','j','k','l',
+                        'm','n','o','p','q','r','s','t','u','v',
+                        'w','x','y','z','A','B','C','D','E','\0'};
+  memcpy(config.organization, or_ph, sizeof(or_ph));
+
+  strlcpy(config.device,       "adafruit RP2040 RFM95 LoRa",                        sizeof(config.device));
+  latitude  = config.latitude;
   longitude = config.longitude;
-  altitude = config.altitude;
-  config.station_info_interval = doc["station_info"]["station_info_interval"] | 86400000UL;
-  config.fixed_deployment = doc["station_info"]["fixed_deployment"] | false;
-  config.sensor_transmit_delay = doc["station_info"]["sensor_transmit_delay"] | 60000UL;
-  config.gps_fixed_interval = doc["station_info"]["gps_fixed_interval"] | 43200000UL;
-  Serial.println(F("[info]: Loaded /config.json"));
-  return true;
+  altitude  = config.altitude;
+  Serial.println(F("[info]: Using hardcoded defaults"));
+  return true;  // always return true — board works either way
 }
 
 void add_dependent(const char* station_id) {
@@ -498,43 +595,25 @@ void handle_station_info() {
   }
   mutex_exit(&state_mutex);
 
-
-  File file = LittleFS.open("/config.json", "r");
-  if (!file) {
-    Serial.println(F("[error]: Failed to open /config.json for station_info"));
-    mutex_enter_blocking(&state_mutex);
-    current_state = IDLE;
-    last_packet_time = millis();
-    mutex_exit(&state_mutex);
-    return;
-  }
-  JsonDocument cfg;
-  DeserializationError error = deserializeJson(cfg, file);
-  file.close();
-  if (error) {
-    Serial.print(F("[error]: JSON parse failed: ")); Serial.println(error.c_str());
-    mutex_enter_blocking(&state_mutex);
-    current_state = IDLE;
-    last_packet_time = millis();
-    mutex_exit(&state_mutex);
-    return;
-  }
-
   JsonDocument doc;
   char packet[256];
   mutex_enter_blocking(&state_mutex);
   doc["sid"] = device_id;
-  doc["t"] = "E";
-  doc["fn"] = cfg["station_info"]["firstname"] | "";
-  doc["ln"] = cfg["station_info"]["lastname"] | "";
-  doc["e"] = cfg["station_info"]["email"] | "";
-  doc["o"] = cfg["station_info"]["organization"] | "";
-  doc["de"] = cfg["station_info"]["device"] | "";
+  doc["t"]   = "E";
+  char fn_buf[24], ln_buf[24], em_buf[32], or_buf[24];
+  strncpy(fn_buf, config.firstname,    23); fn_buf[23] = '\0';
+  strncpy(ln_buf, config.lastname,     23); ln_buf[23] = '\0';
+  strncpy(em_buf, config.email,        31); em_buf[31] = '\0';
+  strncpy(or_buf, config.organization, 23); or_buf[23] = '\0';
+  doc["fn"] = fn_buf;
+  doc["ln"] = ln_buf;
+  doc["e"]  = em_buf;
+  doc["o"]  = or_buf;
+  doc["de"] = config.device;
   doc["lat"] = latitude;
   doc["lon"] = longitude;
-  doc["al"] = altitude;
-  doc["to"] = target_id;
-  //if (target_id[0]) doc["to"] = target_id;
+  doc["al"]  = altitude;
+  doc["to"]  = target_id;
   String gps_timestamp = get_gps_timestamp();
   if (!gps_timestamp.isEmpty()) doc["ts"] = gps_timestamp;
   mutex_exit(&state_mutex);
@@ -543,10 +622,11 @@ void handle_station_info() {
     Serial.println(F("[error]: Station info packet buffer overflow"));
     mutex_enter_blocking(&state_mutex);
     current_state = IDLE;
+    can_transmit = true;
+    last_packet_time = millis();
     mutex_exit(&state_mutex);
     return;
   }
-
   rfm95_send(packet);
   Serial.print(F("[info]: Sent continuous station_info at "));
   Serial.print(millis() - last_station_info_sent);
@@ -556,21 +636,19 @@ void handle_station_info() {
   mutex_exit(&state_mutex);
 }
 
-void start_station_info() {
+bool start_station_info() {
   mutex_enter_blocking(&state_mutex);
-  if (!has_pi_path || millis() - last_station_info_sent < config.station_info_interval) {
+  if (current_state != IDLE || !target_id[0]) {
     mutex_exit(&state_mutex);
-    return;
+    return false;
   }
-  Serial.println(F("[debug]: Starting continuous station_info transmission for 6 seconds"));
   current_state = SENDING_STATION_INFO;
-  can_transmit = false;
   last_station_info_sent = millis();
-  last_packet_time = millis();
-
+  can_transmit = false;
   mutex_exit(&state_mutex);
+  Serial.println(F("[debug]: Starting continuous station_info transmission for 6 seconds"));
+  return true;
 }
-
 void send_disconnect() {
   mutex_enter_blocking(&state_mutex);
   Serial.println(F("[debug]: Sending disconnect to dependents"));
@@ -729,6 +807,125 @@ bool rfm95_init() {
   //Serial.println(F("[info]: RFM95 configured: BW=125kHz, CR=4/5, SF=7, Preamble=6"));
   return true;
 }
+
+
+uint16_t modbus_crc16(const uint8_t* buf, int len) {
+  uint16_t crc = 0xFFFF;
+  for (int pos = 0; pos < len; pos++) {
+    crc ^= (uint16_t)buf[pos];
+    for (int i = 0; i < 8; i++) {
+      if (crc & 0x0001) {
+        crc >>= 1;
+        crc ^= 0xA001;
+      } else {
+        crc >>= 1;
+      }
+    }
+  }
+  return crc;
+}
+
+// Reads `count` holding registers starting at start_reg. Returns true on success.
+bool wind_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_values) {
+  uint8_t request[8];
+  request[0] = WIND_SLAVE_ADDR;
+  request[1] = 0x03;
+  request[2] = (start_reg >> 8) & 0xFF;
+  request[3] = start_reg & 0xFF;
+  request[4] = (count >> 8) & 0xFF;
+  request[5] = count & 0xFF;
+  uint16_t crc = modbus_crc16(request, 6);
+  request[6] = crc & 0xFF;
+  request[7] = (crc >> 8) & 0xFF;
+
+  while (Serial2.available()) Serial2.read(); // flush stale bytes
+
+  Serial2.write(request, 8);
+  Serial2.flush();
+
+  uint8_t expected_len = 5 + count * 2; // addr+func+bytecount+data+crc
+  uint8_t response[64];
+  uint8_t idx = 0;
+  uint32_t start_time = millis();
+  while (millis() - start_time < WIND_RESPONSE_TIMEOUT && idx < expected_len) {
+    if (Serial2.available()) {
+      response[idx++] = Serial2.read();
+    }
+  }
+
+  if (idx < expected_len) {
+    Serial.print(F("[warn]: WS302 response too short, got ")); Serial.println(idx);
+    return false;
+  }
+
+  uint16_t recv_crc = response[idx - 2] | (response[idx - 1] << 8);
+  uint16_t calc_crc = modbus_crc16(response, idx - 2);
+  if (recv_crc != calc_crc) {
+    Serial.println(F("[warn]: WS302 CRC mismatch"));
+    return false;
+  }
+  if (response[0] != WIND_SLAVE_ADDR || response[1] != 0x03) {
+    Serial.println(F("[warn]: WS302 unexpected slave/function in response"));
+    return false;
+  }
+
+  for (int i = 0; i < count; i++) {
+    out_values[i] = (response[3 + i * 2] << 8) | response[4 + i * 2];
+  }
+  return true;
+}
+
+
+// Reads `count` holding registers starting at start_reg from the SEN0600.
+bool soil_query_registers(uint16_t start_reg, uint16_t count, uint16_t* out_values) {
+  uint8_t request[8];
+  request[0] = SOIL_SLAVE_ADDR;
+  request[1] = 0x03;
+  request[2] = (start_reg >> 8) & 0xFF;
+  request[3] = start_reg & 0xFF;
+  request[4] = (count >> 8) & 0xFF;
+  request[5] = count & 0xFF;
+  uint16_t crc = modbus_crc16(request, 6);
+  request[6] = crc & 0xFF;
+  request[7] = (crc >> 8) & 0xFF;
+
+  while (soilSerial.available()) soilSerial.read(); // flush stale bytes
+
+  soilSerial.write(request, 8);
+  soilSerial.flush();
+
+  uint8_t expected_len = 5 + count * 2; // addr+func+bytecount+data+crc
+  uint8_t response[32];
+  uint8_t idx = 0;
+  uint32_t start_time = millis();
+  while (millis() - start_time < SOIL_RESPONSE_TIMEOUT && idx < expected_len) {
+    if (soilSerial.available()) {
+      response[idx++] = soilSerial.read();
+    }
+  }
+
+  if (idx < expected_len) {
+    Serial.print(F("[warn]: SEN0600 response too short, got ")); Serial.println(idx);
+    return false;
+  }
+
+  uint16_t recv_crc = response[idx - 2] | (response[idx - 1] << 8);
+  uint16_t calc_crc = modbus_crc16(response, idx - 2);
+  if (recv_crc != calc_crc) {
+    Serial.println(F("[warn]: SEN0600 CRC mismatch"));
+    return false;
+  }
+  if (response[0] != SOIL_SLAVE_ADDR || response[1] != 0x03) {
+    Serial.println(F("[warn]: SEN0600 unexpected slave/function in response"));
+    return false;
+  }
+
+  for (int i = 0; i < count; i++) {
+    out_values[i] = (response[3 + i * 2] << 8) | response[4 + i * 2];
+  }
+  return true;
+}
+
 
 void rfm95_send(const char* packet) {
   uint8_t len = strlen(packet) + 1;
@@ -973,6 +1170,52 @@ void process_relay_queue() {
   }
 }
 
+void wind_init_nonblocking() {
+  static bool init_started = false;
+  static uint32_t init_start_time = 0;
+  if (!init_started) {
+    Serial.println(F("[debug]: Initializing WS302 wind sensor"));
+    init_started = true;
+    init_start_time = millis();
+  }
+  if (millis() - init_start_time >= 500) {
+    uint16_t regs[4];
+    if (wind_query_registers(WIND_REG_SPEED, 4, regs)) {
+      Serial.println(F("[info]: WS302 wind sensor found ... OK"));
+      wind_connected = true;
+      active_sensors++;
+      Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
+    } else {
+      Serial.println(F("[error]: WS302 wind sensor not responding"));
+      wind_connected = false;
+    }
+    init_started = false;
+  }
+}
+
+void soil_init_nonblocking() {
+  static bool init_started = false;
+  static uint32_t init_start_time = 0;
+  if (!init_started) {
+    Serial.println(F("[debug]: Initializing SEN0600 soil sensor"));
+    init_started = true;
+    init_start_time = millis();
+  }
+  if (millis() - init_start_time >= 500) {
+    uint16_t regs[2];
+    if (soil_query_registers(SOIL_REG_START, 2, regs)) {
+      Serial.println(F("[info]: SEN0600 soil sensor found ... OK"));
+      soil_connected = true;
+      active_sensors++;
+      Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
+    } else {
+      Serial.println(F("[error]: SEN0600 soil sensor not responding"));
+      soil_connected = false;
+    }
+    init_started = false;
+  }
+}
+
 // --- Sensor Initialization ---
 void si7021_init_nonblocking() {
   static bool init_started = false;
@@ -1009,24 +1252,36 @@ void bme680_init_nonblocking() {
   static bool init_started = false;
   static uint32_t init_start_time = 0;
   if (!init_started) {
-    Serial.println(F("[debug]: Initializing BME680"));
+    Serial.println(F("[debug]: Initializing BME680 x2"));
     init_started = true;
     init_start_time = millis();
   }
-  if (millis() - init_start_time >= 500) {
-    if (!bme680.begin()) {
-      Serial.println(F("[error]: BME680 init failed"));
-      bme680_connected = false;
+  if (millis() - init_start_time >= 1000) {
+    if (!bme680_1.begin(0x77)) {
+      Serial.println(F("[error]: BME680 #1 not found at 0x77"));
+      bme680_1_connected = false;
     } else {
-      bme680.setTemperatureOversampling(BME680_OS_8X);
-      bme680.setHumidityOversampling(BME680_OS_2X);
-      bme680.setPressureOversampling(BME680_OS_4X);
-      bme680.setIIRFilterSize(BME680_FILTER_SIZE_3);
-      bme680.setGasHeater(320, 150);
-      Serial.println(F("[info]: Adafruit BME680 qwiic sensor found ... OK"));
-      bme680_connected = true;
+      bme680_1.setTemperatureOversampling(BME680_OS_8X);
+      bme680_1.setHumidityOversampling(BME680_OS_2X);
+      bme680_1.setPressureOversampling(BME680_OS_4X);
+      bme680_1.setIIRFilterSize(BME680_FILTER_SIZE_3);
+      bme680_1.setGasHeater(320, 150);
+      bme680_1_connected = true;
       active_sensors++;
-      Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
+      Serial.println(F("[info]: BME680 #1 found at 0x77"));
+    }
+    if (!bme680_2.begin(0x76)) {
+      Serial.println(F("[error]: BME680 #2 not found at 0x76"));
+      bme680_2_connected = false;
+    } else {
+      bme680_2.setTemperatureOversampling(BME680_OS_8X);
+      bme680_2.setHumidityOversampling(BME680_OS_2X);
+      bme680_2.setPressureOversampling(BME680_OS_4X);
+      bme680_2.setIIRFilterSize(BME680_FILTER_SIZE_3);
+      bme680_2.setGasHeater(320, 150);
+      bme680_2_connected = true;
+      active_sensors++;
+      Serial.println(F("[info]: BME680 #2 found at 0x76"));
     }
     init_started = false;
   }
@@ -1134,6 +1389,41 @@ bool pa1010d_gps_init() {
 }
 
 // --- Sensor Data Transmission ---
+
+
+// --- MRT calculation (ISO 7726) ---
+float hcg_natural(float Ta, float Tg, float D) {
+  return 1.4f * pow(fabs(Ta - Tg) / D, 0.25f);
+}
+
+float hcg_forced(float va, float D) {
+  return 6.3f * pow(va, 0.6f) / pow(D, 0.4f);
+}
+
+bool calculate_mrt(float Tg, float Ta, float va, float D, float eps_g, float* mrt_c_out) {
+  if (D <= 0 || eps_g <= 0 || eps_g > 1 || va < 0) {
+    Serial.println(F("[error]: MRT invalid input params"));
+    return false;
+  }
+
+  float h_nat = hcg_natural(Ta, Tg, D);
+  float h_forced = (va > 0) ? hcg_forced(va, D) : 0.0f;
+  float hcg = max(h_nat, h_forced);
+
+  float Tg_k = Tg + 273.15f;
+  float inner = pow(Tg_k, 4) + (hcg / (eps_g * SIGMA)) * (Tg - Ta);
+
+  if (inner < 0) {
+    Serial.print(F("[error]: MRT negative under 4th root, inner=")); Serial.println(inner);
+    return false;
+  }
+
+  float mrt_k = pow(inner, 0.25f);
+  *mrt_c_out = mrt_k - 273.15f;
+  return true;
+}
+
+
 bool si7021_measure_transmit() {
   if (!has_pi_path) {
     Serial.println(F("[warn]: No Pi path, skipping Si7021 transmit"));
@@ -1167,28 +1457,120 @@ bool bme680_measure_transmit() {
     return false;
   }
   Serial.println(F("[debug]: Enter bme680_measure_transmit"));
-  if (!bme680.performReading()) {
-    Serial.println(F("[error]: Failed to perform reading"));
-    return false;
-  }
   String timestamp = get_gps_timestamp();
   JsonDocument doc;
   char packet[144];
   const char* measurements[] = {"tmp", "rh", "pre", "gr", "al"};
-  altitude = bme680.readAltitude(SEALEVELPRESSURE_HPA);
-  float values[] = {bme680.temperature, bme680.humidity, (float)(bme680.pressure / 100.0),
-                  (float)(bme680.gas_resistance / 1000.0), (float)altitude};
 
-  for (int i = 0; i < 5; i++) {
-    doc["t"] = "F";
-    add_common_json_fields(doc, timestamp, "bme680", measurements[i], values[i], "i2");
-    if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
-      Serial.print(F("[error]: BME680 packet buffer overflow for ")); Serial.println(measurements[i]);
-      continue;
+  if (bme680_1_connected) {
+    delay(500);
+    rp2040.wdt_reset();
+    Serial.println(F("[debug]: Calling BME680 #1 performReading..."));
+    if (!bme680_1.performReading()) {
+      Serial.println(F("[warn]: BME680 #1 performReading failed"));
+      bme680_1_fresh = false;
+    } else {
+      bme680_1_fresh = true;
+      Serial.println(F("[debug]: BME680 #1 reading OK"));
+      altitude = bme680_1.readAltitude(SEALEVELPRESSURE_HPA);
+      float values[] = {bme680_1.temperature, bme680_1.humidity,
+                      (float)(bme680_1.pressure / 100.0),
+                      (float)(bme680_1.gas_resistance / 1000.0),
+                      (float)altitude};
+      for (int i = 0; i < 5; i++) {
+        doc["t"] = "F";
+        add_common_json_fields(doc, timestamp, "bme680", measurements[i], values[i], "i2");
+        if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+          Serial.println(F("[error]: BME680 #1 packet buffer overflow"));
+          continue;
+        }
+        rfm95_send(packet);
+      }
     }
-    rfm95_send(packet);
   }
+
+  if (bme680_2_connected) {
+    delay(500);
+    rp2040.wdt_reset();
+    Serial.println(F("[debug]: Calling BME680 #2 performReading..."));
+    if (!bme680_2.performReading()) {
+      Serial.println(F("[warn]: BME680 #2 performReading failed"));
+      bme680_2_fresh = false;
+    } else {
+      bme680_2_fresh = true;
+      Serial.println(F("[debug]: BME680 #2 reading OK"));
+      const char* gbt_measurements[] = {"globe_temperature", "globe_humidity",
+                                         "globe_pressure", "globe_gas_resistance",
+                                         "globe_altitude"};
+      float values[] = {bme680_2.temperature, bme680_2.humidity,
+                       (float)(bme680_2.pressure / 100.0),
+                       (float)(bme680_2.gas_resistance / 1000.0),
+                       (float)bme680_2.readAltitude(SEALEVELPRESSURE_HPA)};
+      for (int i = 0; i < 5; i++) {
+        doc["t"] = "F";
+        add_common_json_fields(doc, timestamp, "gbt_bme680", gbt_measurements[i], values[i], "i2");
+        if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+          Serial.println(F("[error]: BME680 #2 packet buffer overflow"));
+          continue;
+        }
+        rfm95_send(packet);
+      }
+    }
+  }
+
   Serial.println(F("[debug]: Exit bme680_measure_transmit"));
+  return true;
+}
+
+bool mrt_measure_transmit() {
+  if (!has_pi_path) {
+    Serial.println(F("[warn]: No Pi path, skipping MRT transmit"));
+    return false;
+  }
+  if (!bme680_1_connected || !bme680_2_connected) {
+    Serial.println(F("[warn]: MRT requires both BME680 sensors, skipping"));
+    return false;
+  }
+  if (!bme680_1_fresh || !bme680_2_fresh) {
+    Serial.println(F("[warn]: MRT requires fresh BME680 readings this cycle, skipping"));
+    return false;
+  }
+  if (!wind_connected || !last_wind_speed_valid) {
+    Serial.println(F("[warn]: MRT requires WS302 wind data, skipping"));
+    return false;
+  }
+
+  Serial.println(F("[debug]: Enter mrt_measure_transmit"));
+
+  float Ta = bme680_1.temperature;      // ambient
+  float Tg = bme680_2.temperature;      // globe (soldered, 0x76)
+  float va = last_wind_speed_ms;
+
+  Serial.print(F("[debug]: MRT inputs -> Ta=")); Serial.print(Ta);
+  Serial.print(F(" Tg=")); Serial.print(Tg);
+  Serial.print(F(" va=")); Serial.print(va);
+  Serial.print(F(" (bme1_fresh=")); Serial.print(bme680_1_fresh);
+  Serial.print(F(", bme2_fresh=")); Serial.print(bme680_2_fresh);
+  Serial.println(F(")"));
+
+  float mrt_c;
+  if (!calculate_mrt(Tg, Ta, va, MRT_GLOBE_DIAMETER_M, MRT_GLOBE_EMISSIVITY, &mrt_c)) {
+    Serial.println(F("[warn]: MRT calculation failed"));
+    return false;
+  }
+
+  String timestamp = get_gps_timestamp();
+  JsonDocument doc;
+  char packet[144];
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "gbt_ws", "MRT", mrt_c, "d2");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: MRT packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  Serial.print(F("[debug]: Exit mrt_measure_transmit, MRT=")); Serial.println(mrt_c);
   return true;
 }
 
@@ -1324,6 +1706,106 @@ bool gps_measure_transmit() {
   rfm95_send(packet);
   last_gps_sent = millis();
   Serial.println(F("[debug]: Exit gps_measure_transmit"));
+  return true;
+}
+
+bool wind_measure_transmit() {
+  if (!has_pi_path) {
+    Serial.println(F("[warn]: No Pi path, skipping WS302 transmit"));
+    return false;
+  }
+  Serial.println(F("[debug]: Enter wind_measure_transmit"));
+  uint16_t regs[4];
+  if (!wind_query_registers(WIND_REG_SPEED, 4, regs)) {
+    Serial.println(F("[warn]: WS302 read failed"));
+    return false;
+  }
+
+  uint32_t speed_bits = ((uint32_t)regs[3] << 16) | regs[2];
+  float wind_speed_ms;
+  memcpy(&wind_speed_ms, &speed_bits, sizeof(wind_speed_ms));
+  float wind_dir_deg = (float)regs[1];
+
+  last_wind_speed_ms = wind_speed_ms;
+  last_wind_speed_valid = true;
+
+  const float WIND_CALM_THRESHOLD_MS = 0.2f;  // tune against WS302 datasheet if it specifies one
+  bool direction_valid = wind_speed_ms >= WIND_CALM_THRESHOLD_MS;
+
+  String timestamp = get_gps_timestamp();
+  JsonDocument doc;
+  char packet[144];
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "ws302", "ws", wind_speed_ms, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: WS302 speed packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  if (direction_valid) {
+    doc["t"] = "F";
+    add_common_json_fields(doc, timestamp, "ws302", "wd", wind_dir_deg, "se");
+    if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+      Serial.println(F("[error]: WS302 direction packet buffer overflow"));
+      return false;
+    }
+    rfm95_send(packet);
+  } else {
+    Serial.println(F("[info]: WS302 calm — direction suppressed to avoid stuck value"));
+  }
+
+  Serial.println(F("[debug]: Exit wind_measure_transmit"));
+  return true;
+}
+
+bool soil_measure_transmit() {
+  if (!has_pi_path) {
+    Serial.println(F("[warn]: No Pi path, skipping SEN0600 transmit"));
+    return false;
+  }
+  Serial.println(F("[debug]: Enter soil_measure_transmit"));
+  uint16_t regs[2];
+  if (!soil_query_registers(SOIL_REG_START, 2, regs)) {
+    Serial.println(F("[warn]: SEN0600 read failed"));
+    return false;
+  }
+
+  float moisture_pct = regs[0] / 10.0f;
+  float temp_c = (float)((int16_t)regs[1]) / 10.0f;
+
+  if (!isfinite(moisture_pct) || moisture_pct < 0.0f || moisture_pct > 100.0f ||
+      !isfinite(temp_c) || temp_c < -40.0f || temp_c > 80.0f) {
+    Serial.println(F("[warn]: SEN0600 out-of-range values, discarding"));
+    return false;
+  }
+
+  last_soil_moisture_pct = moisture_pct;
+  last_soil_temp_c = temp_c;
+  last_soil_valid = true;
+
+  String timestamp = get_gps_timestamp();
+  JsonDocument doc;
+  char packet[144];
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "sen0600", "sm", moisture_pct, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: SEN0600 moisture packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  doc["t"] = "F";
+  add_common_json_fields(doc, timestamp, "sen0600", "st", temp_c, "se");
+  if (serializeJson(doc, packet, sizeof(packet)) >= sizeof(packet)) {
+    Serial.println(F("[error]: SEN0600 temperature packet buffer overflow"));
+    return false;
+  }
+  rfm95_send(packet);
+
+  Serial.println(F("[debug]: Exit soil_measure_transmit"));
   return true;
 }
 
@@ -1522,34 +2004,47 @@ void setup() {
   while (!Serial && millis() < 10000);
   Serial.println(F("*** IoTwx-LoRa-RP2040 v0.1 ***"));
   Wire.begin();
+
+  // Test two BME680 sensors
+  // --- TEMPORARY I2C SCANNER - remove after testing ---
+  Serial.println(F("Scanning I2C addresses..."));
+  for (byte addr = 1; addr < 127; addr++) {
+      Wire.beginTransmission(addr);
+      byte error = Wire.endTransmission();
+      if (error == 0) {
+          Serial.print(F("Found device at 0x"));
+          Serial.println(addr, HEX);
+      }
+  }
+  // Serial.println(F("Scan complete"));
+  // // --- END SCANNER ---
+
   rp2040.wdt_begin(15000);
   mutex_init(&radio_mutex);
   mutex_init(&state_mutex);
   mutex_init(&tx_queue_mutex);
   init_relay_queue();
+
+
+  // if (!LittleFS.begin()) {
+  //   Serial.println(F("[warn]: LittleFS mount failed, attempting format..."));
+  //   if (LittleFS.format() && LittleFS.begin()) {
+  //       Serial.println(F("[info]: LittleFS formatted and mounted OK"));
+  //   } else {
+  //       Serial.println(F("[fatal]: LittleFS format failed, halting"));
+  //       while (1);
+  //   }
+  // }
+  // Serial.println(F("[info]: LittleFS Initialized"));
+
   if (!LittleFS.begin()) {
-    Serial.println(F("[warn]: LittleFS mount failed, attempting format..."));
-    if (LittleFS.format() && LittleFS.begin()) {
-        Serial.println(F("[info]: LittleFS formatted and mounted OK"));
-    } else {
-        Serial.println(F("[fatal]: LittleFS format failed, halting"));
-        while (1);
-    }
+      Serial.println(F("[fatal]: LittleFS mount failed. Flash config.uf2 first, then reflash firmware."));
+      while (1);
   }
   Serial.println(F("[info]: LittleFS Initialized"));
-  if (!load_config()) {
-    Serial.println(F("[error]: Config load failed, using defaults"));
-    config = {
-      0.85f, 10.0f, 0.2f, 5.0f, 0.5f, 0.7f, 0.3f,
-      0.35f, 0.35f, 0.2f, 0.1f, 1.0f,
-      12000UL, 60000UL,
-      0.0, 0.0, 0.0, 86400000UL, true, 43200000UL,
-      60000UL, "", "", "", "", "adafruit RP2040 RFM95 LoRa"
-    };
-    latitude = config.latitude;
-    longitude = config.longitude;
-    altitude = config.altitude;
-  }
+
+  load_config();
+
   rfm95_start();
   rfm95_reset();
   if (!rfm95_init()) {
@@ -1567,30 +2062,72 @@ void setup() {
     active_sensors++;
     Serial.print(F("[info]: Active sensors updated: ")); Serial.println(active_sensors);
   }
+
+  // Initialize BME680 sensors before starting Core 1
+  Serial.println(F("[debug]: Initializing BME680 x2"));
+  delay(1000);
+  if (!bme680_1.begin(0x77)) {
+    Serial.println(F("[error]: BME680 #1 not found at 0x77"));
+  } else {
+    bme680_1.setTemperatureOversampling(BME680_OS_8X);
+    bme680_1.setHumidityOversampling(BME680_OS_2X);
+    bme680_1.setPressureOversampling(BME680_OS_4X);
+    bme680_1.setIIRFilterSize(BME680_FILTER_SIZE_3);
+    bme680_1.setGasHeater(320, 150);
+    bme680_1_connected = true;
+    active_sensors++;
+    Serial.println(F("[info]: BME680 #1 found at 0x77"));
+  }
+  delay(500);
+  if (!bme680_2.begin(0x76)) {
+    Serial.println(F("[error]: BME680 #2 not found at 0x76"));
+  } else {
+    bme680_2.setTemperatureOversampling(BME680_OS_8X);
+    bme680_2.setHumidityOversampling(BME680_OS_2X);
+    bme680_2.setPressureOversampling(BME680_OS_4X);
+    bme680_2.setIIRFilterSize(BME680_FILTER_SIZE_3);
+    bme680_2.setGasHeater(320, 150);
+    bme680_2_connected = true;
+    active_sensors++;
+    Serial.println(F("[info]: BME680 #2 found at 0x76"));
+  }
+
+  Serial2.setRX(WIND_RX_PIN);
+  Serial2.setTX(WIND_TX_PIN);
+  Serial2.begin(WIND_BAUD, SERIAL_8E1);
+  soilSerial.begin(SOIL_BAUD, SERIAL_8N1);
   pinMode(LED_BUILTIN, OUTPUT);
   multicore_launch_core1(core1_entry);
 }
 
+
 void loop() {
   rp2040.wdt_reset();
   static bool sensors_initialized = false;
+  static uint32_t loop_start_time = 0;
+  if (loop_start_time == 0) loop_start_time = millis();
   if (!sensors_initialized) {
     si7021_init_nonblocking();
-    bme680_init_nonblocking();
     tmp117_init_nonblocking();
     ltr390_init_nonblocking();
     pm25aqi_init_nonblocking();
     scd40_init_nonblocking();
     rg15_init_nonblocking();
-    if (si7021_connected || bme680_connected || tmp117_connected || ltr390_connected ||
-        pm25aqi_connected || scd40_connected || rg15_connected) {
+    wind_init_nonblocking();
+    soil_init_nonblocking();
+
+    if (millis() - loop_start_time >= 1500 &&
+        (si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
+        pm25aqi_connected || scd40_connected || rg15_connected || wind_connected || soil_connected)) {
       sensors_initialized = true;
       start_station_info();
     }
     return;
   }
+
   handle_blink_led();
   handle_continuous_pong();
+
   mutex_enter_blocking(&state_mutex);
   if (target_id[0] && millis() - last_connect >= config.connect_timeout) {
     Serial.println(F("[warn]: Keep-alive timeout, clearing target"));
@@ -1601,59 +2138,84 @@ void loop() {
   } else {
     mutex_exit(&state_mutex);
   }
-  if (!target_id[0] && can_ping && millis() - last_ping_attempt >= PING_MIN_INTERVAL) {
+
+  if (!target_id[0] && can_ping && !mutex_safe_get_waiting_for_pongs() && millis() - last_ping_attempt >= PING_MIN_INTERVAL) {
     start_ping();
   }
-  start_station_info();
+
+  static uint32_t last_station_info_start = 0;
+  if (millis() - last_station_info_start >= config.station_info_interval) {
+      if (start_station_info()) {
+          last_station_info_start = millis();
+      }
+  }
   handle_station_info();
   process_relay_queue();
+
   if (millis() - last_sensor_transmit < config.sensor_transmit_delay || !can_transmit) return;
-  // New: Reset RG15 accumulated rainfall counter every 24 hours
+
   mutex_enter_blocking(&state_mutex);
   if (rg15_connected && millis() - last_rg15_acc_reset >= RG15_ACC_INTERVAL) {
     Serial.println(F("[info]: 24-hour interval reached, resetting RG15 accumulated rainfall counter"));
-    rg15_reset_counters(true); // Reset only accumulated counter
+    rg15_reset_counters(true);
     last_rg15_acc_reset = millis();
   }
   mutex_exit(&state_mutex);
+
   last_sensor_transmit = millis();
   update_station_load();
+
+  bme680_1_fresh = false;
+  bme680_2_fresh = false;
+
   bool transmit_ok;
   Serial.print(F("[info]: Transmitting sensors: "));
   Serial.print(F("Si7021 "));
-  if (si7021_connected && (transmit_ok = si7021_measure_transmit())) {
-    start_blink_led();
-  }
+  if (si7021_connected && (transmit_ok = si7021_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("BME680 "));
-  if (bme680_connected && (transmit_ok = bme680_measure_transmit())) {
-    start_blink_led();
-  }
+  if ((bme680_1_connected || bme680_2_connected) && (transmit_ok = bme680_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("TMP117 "));
-  if (tmp117_connected && (transmit_ok = tmp117_measure_transmit())) {
-    start_blink_led();
-  }
+  if (tmp117_connected && (transmit_ok = tmp117_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("LTR390 "));
-  if (ltr390_connected && (transmit_ok = ltr390_measure_transmit())) {
-    start_blink_led();
-  }
+  if (ltr390_connected && (transmit_ok = ltr390_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("PM25AQI "));
-  if (pm25aqi_connected && (transmit_ok = pm25aqi_measure_transmit())) {
-    start_blink_led();
-  }
+  if (pm25aqi_connected && (transmit_ok = pm25aqi_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("PA1010D "));
-  if (pa1010d_connected && (transmit_ok = gps_measure_transmit())) {
-    start_blink_led();
-  }
+  if (pa1010d_connected && (transmit_ok = gps_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("SCD40 "));
-  if (scd40_connected && (transmit_ok = scd40_measure_transmit())) {
-    start_blink_led();
-  }
+  if (scd40_connected && (transmit_ok = scd40_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
   Serial.print(F("RG15 "));
-  if (rg15_connected && (transmit_ok = rg15_measure_transmit())) {
-    start_blink_led();
-  }
-  if (!(si7021_connected || bme680_connected || tmp117_connected || ltr390_connected ||
-        pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected)) {
+  if (rg15_connected && (transmit_ok = rg15_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
+  Serial.print(F("WS302 "));
+  if (wind_connected && (transmit_ok = wind_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
+  Serial.print(F("SEN0600 "));
+  if (soil_connected && (transmit_ok = soil_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
+  Serial.print(F("MRT "));
+  if ((bme680_1_connected && bme680_2_connected) && (transmit_ok = mrt_measure_transmit())) start_blink_led();
+  rp2040.wdt_reset();
+
+  if (!(si7021_connected || bme680_1_connected || bme680_2_connected || tmp117_connected || ltr390_connected ||
+        pm25aqi_connected || scd40_connected || rg15_connected || pa1010d_connected || wind_connected || soil_connected)) {
     Serial.print(F("None Connected"));
   }
   Serial.println();
